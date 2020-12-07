@@ -35,6 +35,9 @@ class [[eosio::contract]] dex : public contract {
          asset coin_quant;
          asset asset_quant;
          uint64_t price;
+
+         uint64_t deal_coin_amount;               //!< total deal coin amount
+         uint64_t deal_asset_amount;               //!< total deal asset amount
          uint64_t primary_key()const { return order_id; }
 
       };
@@ -43,5 +46,10 @@ class [[eosio::contract]] dex : public contract {
 
       [[eosio::on_notify("*::transfer")]] void ontransfer(name from, name to, asset quantity, string memo);
 
+      [[eosio::action]] void settle(const uint64_t &buy_id, const uint64_t &sell_id,
+                                    const uint64_t &price, const asset &coin_quant,
+                                    const asset &asset_quant, const string &memo);
+
       using ontransfer_action = action_wrapper<"ontransfer"_n, &dex::ontransfer>;
+      using settle_action = action_wrapper<"settle"_n, &dex::settle>;
 };

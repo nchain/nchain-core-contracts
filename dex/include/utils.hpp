@@ -9,6 +9,23 @@
 
 using namespace std;
 
+
+template<typename T>
+uint128_t divide_decimal(uint128_t a, uint128_t b, T precision) {
+    uint128_t tmp = 10 * a * precision  / b;
+    // TODO: check overflow
+    return (tmp + 5) / 10;
+}
+
+template<typename T>
+uint128_t multiply_decimal(uint128_t a, uint128_t b, T precision) {
+    uint128_t tmp = 10 * a * b / precision;
+    // TODO: check overflow
+    return (tmp + 5) / 10;
+}
+
+constexpr int128_t RATIO_PRECISION = 10000; // 10^4
+
 string_view trim(string_view sv) {
     sv.remove_prefix(std::min(sv.find_first_not_of(" "), sv.size())); // left trim
     sv.remove_suffix(std::min(sv.size()-sv.find_last_not_of(" ")-1, sv.size())); // right trim
