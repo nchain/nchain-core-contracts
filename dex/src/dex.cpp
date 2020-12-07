@@ -69,6 +69,19 @@ string parse_open_mode(string_view str) {
     return string{str};
 }
 
+
+void dex::init(const name &owner, const name &settler, const name &payee, const name &bank) {
+
+    config_table config_tbl(get_self(), get_self().value);
+    check(config_tbl.find(config_key.value) == config_tbl.end(), "this contract has been initialized");
+    config_tbl.emplace(same_payer, [&](auto &config) {
+        config.owner   = owner;
+        config.settler = settler;
+        config.payee   = payee;
+        config.bank    = bank;
+    });
+}
+
 void dex::ontransfer(name from, name to, asset quantity, string memo) {
     constexpr string_view DEPOSIT_TO = "deposit to:";
     constexpr string_view EXCHANGE   = "exchange:";
