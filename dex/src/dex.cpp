@@ -104,8 +104,6 @@ void dex::ontransfer(name from, name to, asset quantity, string memo) {
         order.coin_quant = asset_from_string(params[3]);
         order.asset_quant = asset_from_string(params[4]);
         order.price = parse_price(params[5]);
-        order.deal_coin_amount = 0;
-        order.deal_asset_amount = 0;
 
         // TODO: check coin_pair exist
 
@@ -220,6 +218,8 @@ void dex::settle(const uint64_t &buy_id, const uint64_t &sell_id, const int64_t 
     order_table order_tbl(get_self(), get_self().value);
     auto buy_order = order_tbl.get(buy_id);
     auto sell_order = order_tbl.get(sell_id);
+    check(!buy_order.is_finish, "the buy order is finish");
+    check(!sell_order.is_finish, "the sell order is finish");
 
     // // 1.2 get exchange of order
     exchange_table ex_tbl(get_self(), get_self().value);
@@ -339,36 +339,27 @@ void dex::settle(const uint64_t &buy_id, const uint64_t &sell_id, const int64_t 
     // 13.1 check buy order fullfiled to del or update
     bool buy_order_fulfilled = false;
     if (buy_order.order_type == order_type::LIMIT_PRICE) {
-        buy_order_fulfilled = (buy_order.asset_quant.amount == buy_order.deal_asset_amount);
-        if (buy_order_fulfilled) {
+        buy_order.is_finish = (buy_order.asset_quant.amount == buy_order.deal_asset_amount);
+        if (buy_order.is_finish) {
             if (buy_order.coin_quant.amount > buy_order.deal_coin_amount) {
                 int64_t refund_coins = buy_order.coin_quant.amount - buy_order.deal_coin_amount;
                 transfer_out(get_self(), BANK, buy_order.owner, asset(refund_coins, coin_quant.symbol), "refund_coins");
             }
         }
     } else { // buy_order.order_type == order_type::MARKET_PRICE
-        buy_order_fulfilled = buy_order.coin_quant.amount == buy_order.deal_coin_amount;
+        buy_order.is_finish = buy_order.coin_quant.amount == buy_order.deal_coin_amount;
     }
-    if (buy_order_fulfilled) {
-        // erase order
-        // TODO: ...
-    } else {
-        // udpate order
-        order_tbl.modify(buy_order, same_payer, [&]( auto& a ) {
-            a = buy_order;
-        });
-    }
+    // udpate buy order
+    order_tbl.modify(buy_order, same_payer, [&]( auto& a ) {
+        a = buy_order;
+    });
 
     // 13.2 check sell order fullfiled to del or update
-    if (sell_order.asset_quant.amount == sell_order.deal_asset_amount) {
-        // erase order
-        // TODO: ...
-    } else {
-        // udpate order
-        order_tbl.modify(sell_order, same_payer, [&]( auto& a ) {
+    sell_order.is_finish = (sell_order.asset_quant.amount == sell_order.deal_asset_amount);
+    // udpate sell order
+    order_tbl.modify(sell_order, same_payer, [&]( auto& a ) {
             a = sell_order;
-        });
-    }
+    });
 }
 
 dex::config_t dex::get_config() {

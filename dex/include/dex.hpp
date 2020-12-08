@@ -45,8 +45,9 @@ public:
         asset asset_quant;
         int64_t price;
 
-        int64_t deal_coin_amount;  //!< total deal coin amount
-        int64_t deal_asset_amount; //!< total deal asset amount
+        int64_t deal_coin_amount  = 0;      //!< total deal coin amount
+        int64_t deal_asset_amount = 0;      //!< total deal asset amount
+        bool is_finish            = false;  //!< order is finish
         uint64_t primary_key() const { return order_id; }
     };
 
