@@ -146,7 +146,13 @@ void dex::ontransfer(name from, name to, asset quantity, string memo) {
 
         exchange_table ex_tbl(get_self(), get_self().value);
         const auto &it = ex_tbl.find(exchange.primary_key());
-        check(it == ex_tbl.end(), "The exchange is exist. ex_id=" + exchange.ex_id.to_string());
+        check(it == ex_tbl.end(), "The exchange already exist. ex_id=" + exchange.ex_id.to_string());
+
+        check(is_account(exchange.owner), "The owner account does not exist");
+        check(is_account(exchange.payee), "The payee account does not exist");
+        check(exchange.url.size() <= URL_LEN_MAX, "The url is too long then " + std::to_string(URL_LEN_MAX));
+        check(exchange.memo.size() <= MEMO_LEN_MAX, "The memo is too long then " + std::to_string(MEMO_LEN_MAX));
+
         // TODO: process reg exchange fee
         ex_tbl.emplace( from, [&]( auto& ex ) {
             ex = exchange;
