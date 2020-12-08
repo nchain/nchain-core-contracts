@@ -311,17 +311,13 @@ void dex::settle(const uint64_t &buy_id, const uint64_t &sell_id, const int64_t 
     seller_recv_coins = sub_fee(seller_recv_coins, asset_match_fee, "seller_recv_coins");
 
 
-    // TODO: send fee to fee_receiver of this contract
-        // 11.1 coin friction fee: seller -> risk reserve
-        // if (!ProcessCoinFrictionFee(*spsell_orderAccount, sell_order.coin_quant.symbol, coin_friction_fee)) return false;
-        // // 11.2 asset friction fee: buyer -> current BP
-        // if (!spbuy_orderAccount->OperateBalance(buy_order.asset_quant.symbol, BalanceOpType::SUB_FREE, asset_friction_fee,
-        //                                         ReceiptType::FRICTION_FEE, receipts, spBpAccount.get())) {
-        //     return state.DoS(100, ERRORMSG("transfer friction to current bp account failed"),
-        //                     UPDATE_ACCOUNT_FAIL, "transfer-friction-fee-failed");
-        // }
+    // 10. pay the friction fee to this contract
+    // 10.1. pay the coin_friction_fee to config.payee
+    transfer_out(get_self(), BANK, config.payee, asset(coin_friction_fee, coin_quant.symbol), "coin_friction_fee");
+    // 10.2. pay the asset_friction_fee to config.payee
+    transfer_out(get_self(), BANK, config.payee, asset(asset_friction_fee, asset_quant.symbol), "asset_friction_fee");
 
-    // 11. pay the coin and asset match fee to exchange fee_receiver
+    // 11. pay match fees to exchange
     // 11.1. pay the coin_match_fee to sell_exchange.payee
     transfer_out(get_self(), BANK, sell_exchange.payee, asset(coin_match_fee, coin_quant.symbol), "coin_match_fee");
     // 11.2. pay the asset_match_fee to buy_exchange.payee
