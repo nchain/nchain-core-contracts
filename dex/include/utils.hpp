@@ -26,8 +26,6 @@ int128_t multiply_decimal(int128_t a, int128_t b, int128_t precision) {
     return (tmp + 5) / 10;
 }
 
-constexpr int128_t RATIO_PRECISION = 10000; // 10^4
-
 #define divide_decimal64(a, b, precision) divide_decimal<int64_t>(a, b, precision)
 #define multiply_decimal64(a, b, precision) multiply_decimal<int64_t>(a, b, precision)
 

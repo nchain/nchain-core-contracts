@@ -1,11 +1,11 @@
 #include <dex.hpp>
 #include <utils.hpp>
+#include "dex_const.hpp"
 
 using namespace eosio;
 using namespace std;
 
 
-constexpr name BANK = "eosio.token"_n;
 
 namespace order_type {
    static const string_view LIMIT_PRICE = "limit_price";
@@ -168,10 +168,6 @@ string get_taker_side(const dex::order_t &buy_order, const dex::order_t &sell_or
     }
     return taker_side;
 }
-
-// TODO: ...
-static const int64_t DEX_FRICTION_FEE_RATIO = 10; // 0.001%
-static const int64_t PRICE_PRECISION = 100000000; // 10^8
 
 int64_t calc_friction_fee(int64_t amount) {
 
