@@ -72,8 +72,9 @@ string parse_open_mode(string_view str) {
 
 void dex::init(const name &owner, const name &settler, const name &payee, const name &bank) {
 
+    require_auth( get_self() );
     config_table config_tbl(get_self(), get_self().value);
-    check(config_tbl.find(config_key.value) == config_tbl.end(), "this contract has been initialized");
+    check(config_tbl.find(CONFIG_KEY.value) == config_tbl.end(), "this contract has been initialized");
     config_tbl.emplace(same_payer, [&](auto &config) {
         config.owner   = owner;
         config.settler = settler;
@@ -170,12 +171,11 @@ string get_taker_side(const dex::order_t &buy_order, const dex::order_t &sell_or
 
 // TODO: ...
 static const uint64_t DEX_FRICTION_FEE_RATIO = 10; // 0.001%
+static const uint64_t PRICE_PRECISION = 100000000; // 10^8
 
 uint64_t calc_friction_fee(uint64_t amount) {
 
-    uint128_t fee = divide_decimal(amount, DEX_FRICTION_FEE_RATIO, RATIO_PRECISION);
-
-    check(fee <= std::numeric_limits<uint64_t>::max(), "overflow exception for calc friction fee");
+    uint128_t fee = multiply_decimal64(amount, DEX_FRICTION_FEE_RATIO, RATIO_PRECISION);
     check(fee <= amount, "invalid friction fee ratio");
     return (uint64_t)fee;
 }
@@ -190,11 +190,16 @@ uint64_t calc_match_fee(const dex::order_t &order, const dex::exchange_t &exchan
         ratio = exchange.maker_ratio;
     }
 
-    uint128_t fee = divide_decimal(amount, ratio, RATIO_PRECISION);
+    // uint128_t fee = multiply_decimal64(amount, ratio, RATIO_PRECISION);
+    uint128_t fee = multiply_decimal64(amount, ratio, RATIO_PRECISION);
 
-    check(fee <= std::numeric_limits<uint64_t>::max(), "overflow exception for calc match fee");
     check(fee <= amount, "invalid match fee ratio=" + std::to_string(ratio));
     return (uint64_t)fee;
+}
+
+uint64_t calc_coin_amount(uint64_t asset_amount, const uint64_t price) {
+    uint128_t coin_amount = multiply_decimal64(asset_amount, price, PRICE_PRECISION);
+    return coin_amount;
 }
 
 uint64_t sub_fee(uint64_t &amount, uint64_t fee, const string &msg) {
@@ -212,37 +217,33 @@ void transfer_out(const name &contract, const name &bank, const name &to, const 
 
 void dex::settle(const uint64_t &buy_id, const uint64_t &sell_id, const uint64_t &price,
                  const asset &coin_quant, const asset &asset_quant, const string &memo) {
-    // require(matcher)
 
-        // CCacheWrapper &cw = *context.pCw; CValidationState &state = *context.pState;
-        // FeatureForkVersionEnum version = GetFeatureForkVersion(context.height);
+    auto config = get_config();
+
+    require_auth( config.settler );
 
     //1.1 get and check buy_order and sell_order
-
     order_table order_tbl(get_self(), get_self().value);
     auto buy_order = order_tbl.get(buy_id);
     auto sell_order = order_tbl.get(sell_id);
 
     // // 1.2 get exchange of order
-
     exchange_table ex_tbl(get_self(), get_self().value);
     auto buy_exchange = ex_tbl.get(buy_order.order_id);
     auto sell_exchange = ex_tbl.get(sell_order.order_id);
-
-    // spSellOpAccount = tx.GetAccount(context, sellOperatorDetail.fee_receiver_regid, "sell_operator");
-    // if (!spSellOpAccount) return false;
 
     // 1.3 get order exchange params
     // buy_orderOperatorParams = GetOrderOperatorParams(buy_order, buyOperatorDetail);
     // sell_orderOperatorParams = GetOrderOperatorParams(sell_order, sellOperatorDetail);
 
-    // 1.5 get taker side
+    // 2. check and get order side
+    // 2.1 check order side
+    check(buy_order.order_side == order_side::BUY && sell_order.order_side == order_side::SELL,
+          "order side mismatch");
+    // 2.2 get taker side
     auto taker_side = get_taker_side(buy_order, sell_order);
 
-    // spBpAccount = tx.GetAccount(context, context.bp_regid, "current_bp");
-    // if (!spBpAccount) return false;
-
-    // 2. check coin pair type match
+    // 3. check coin pair type match
     check(buy_order.coin_quant.symbol == coin_quant.symbol &&
               buy_order.asset_quant.symbol == asset_quant.symbol,
           "buy order coin pair mismatch");
@@ -250,7 +251,7 @@ void dex::settle(const uint64_t &buy_id, const uint64_t &sell_id, const uint64_t
               sell_order.asset_quant.symbol == asset_quant.symbol,
           "sell order coin pair mismatch");
 
-    // 3. check price match
+    // 4. check price match
     if (buy_order.order_type == order_type::LIMIT_PRICE && sell_order.order_type == order_type::LIMIT_PRICE) {
         check(price <= buy_order.price, "the deal price must <= buy_order.price");
         check(price >= sell_order.price, "the deal price must >= sell_order.price");
@@ -262,27 +263,18 @@ void dex::settle(const uint64_t &buy_id, const uint64_t &sell_id, const uint64_t
         check(buy_order.order_type == order_type::MARKET_PRICE && sell_order.order_type == order_type::MARKET_PRICE, "order type mismatch");
     }
 
-    // 4. check cross exchange trading with public mode
+    // 5. check cross exchange trading with public mode
     // if (!CheckOrderOpenMode()) return false;
 
-    // 5. check coin amount
+    // 6. check and operate deal amount
+    int64_t deal_coin_diff = coin_quant.amount - calc_coin_amount(asset_quant.amount, price);
+    bool is_coin_amount_match = false;
     if (buy_order.order_type == order_type::MARKET_PRICE) {
-
+        is_coin_amount_match = (std::abs(deal_coin_diff) <= std::max<int64_t>(1, (1 * price / PRICE_PRECISION)));
+    } else {
+        is_coin_amount_match = (deal_coin_diff == 0);
     }
-
-    // 6. check the dust amount for mariet price buy order
-    // uint64_t calcCoinAmount = CDEXOrderBaseTx::CalcCoinAmount(asset_quant.amount, dealItem.dealPrice);
-    // int64_t dealAmountDiff = calcCoinAmount - coin_quant.amount;
-    // bool isCoinAmountMatch = false;
-    // if (buy_order.order_type == order_type::MARKET_PRICE) {
-    //     isCoinAmountMatch = (std::abs(dealAmountDiff) <= std::max<int64_t>(1, (1 * dealItem.dealPrice / PRICE_BOOST)));
-    // } else {
-    //     isCoinAmountMatch = (dealAmountDiff == 0);
-    // }
-    // if (!isCoinAmountMatch)
-    //     return state.DoS(100, ERRORMSG("%s, the deal_coin_quant.amount unmatch! deal_info={%s}, calcCoinAmount=%llu",
-    //         DEAL_ITEM_TITLE, dealItem.ToString(), calcCoinAmount),
-    //         REJECT_INVALID, "deal-coin-amount-unmatch");
+    check(is_coin_amount_match, "The deal coin amount mismatch with the calc_coin_amount");
 
     buy_order.deal_coin_amount += coin_quant.amount;
     buy_order.deal_asset_amount += asset_quant.amount;
@@ -387,4 +379,12 @@ void dex::settle(const uint64_t &buy_id, const uint64_t &sell_id, const uint64_t
             a = sell_order;
         });
     }
+}
+
+dex::config_t dex::get_config() {
+    auto self = get_self();
+    config_table config_tbl(self, self.value);
+    auto it = config_tbl.find(CONFIG_KEY.value);
+    check(it != config_tbl.end(), "This contract must initialize first!");
+    return *it;
 }

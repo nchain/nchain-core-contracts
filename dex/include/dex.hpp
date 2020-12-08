@@ -10,14 +10,14 @@ class [[eosio::contract]] dex : public contract {
 public:
     using contract::contract;
 
-   inline static const name config_key = "config"_n;
+   inline static const name CONFIG_KEY = "config"_n;
 
    struct [[eosio::table]] config_t {
        name owner;   // owner of this contract
        name settler; // settler
        name payee;   // payee of this contract
        name bank;    // bank
-       uint64_t primary_key() const { return config_key.value; }
+       uint64_t primary_key() const { return CONFIG_KEY.value; }
    };
 
     typedef eosio::multi_index<"config"_n, config_t> config_table;
@@ -67,4 +67,6 @@ public:
     using init_action = action_wrapper<"init"_n, &dex::init>;
     using ontransfer_action = action_wrapper<"ontransfer"_n, &dex::ontransfer>;
     using settle_action     = action_wrapper<"settle"_n, &dex::settle>;
+private:
+    config_t get_config();
 };
