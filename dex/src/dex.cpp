@@ -362,6 +362,31 @@ void dex::settle(const uint64_t &buy_id, const uint64_t &sell_id, const int64_t 
     });
 }
 
+void dex::cancel(const uint64_t &order_id) {
+    auto config = get_config();
+    auto order_tbl = make_order_table(get_self());
+    auto it = order_tbl.find(order_id);
+    check(it != order_tbl.end(), "The order does not exist");
+    auto order = *it;
+    check(!order.is_finish, "The order is finish");
+    // TODO: support the exchange owner auth to cancel order?
+    require_auth(order.owner);
+    asset quantity;
+    if (order.order_side == order_side::BUY) {
+        check(order.coin_quant.amount > order.deal_coin_amount, "Invalid order coin amount");
+        quantity = asset(order.coin_quant.amount - order.deal_coin_amount, order.coin_quant.symbol);
+    } else {
+        // order.order_side == order_side::SELL
+        check(order.asset_quant.amount > order.deal_asset_amount, "Invalid order asset amount");
+        quantity = asset(order.asset_quant.amount - order.deal_asset_amount, order.asset_quant.symbol);
+    }
+    transfer_out(get_self(), BANK, order.owner, quantity, "cancel_order");
+
+    order_tbl.modify(it, same_payer, [&]( auto& a ) {
+        a = order;
+    });
+}
+
 dex::config_t dex::get_config() {
     auto self = get_self();
     config_table config_tbl(self, self.value);

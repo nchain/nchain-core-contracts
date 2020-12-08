@@ -22,6 +22,10 @@ public:
 
     typedef eosio::multi_index<"config"_n, config_t> config_table;
 
+    inline static config_table make_config_table(name self) {
+        return config_table(self, self.value/*scope*/);
+    }
+
     struct [[eosio::table]] exchange_t {
         name ex_id;
         name owner;
@@ -35,6 +39,10 @@ public:
     };
 
     typedef eosio::multi_index<"exchange"_n, exchange_t> exchange_table;
+
+    inline static exchange_table make_exchange_table(name self) {
+        return exchange_table(self, self.value/*scope*/);
+    }
 
     struct [[eosio::table]] order_t {
         uint64_t order_id; // auto-increment
@@ -53,6 +61,10 @@ public:
 
     typedef eosio::multi_index<"order"_n, order_t> order_table;
 
+    inline static order_table make_order_table(name self) {
+        return order_table(self, self.value/*scope*/);
+    }
+
 public:
     dex(name receiver, name code, datastream<const char *> ds) : contract(receiver, code, ds) {}
 
@@ -65,9 +77,12 @@ public:
                                   const int64_t &price, const asset &coin_quant,
                                   const asset &asset_quant, const string &memo);
 
+    [[eosio::action]] void cancel(const uint64_t &order_id);
+
     using init_action = action_wrapper<"init"_n, &dex::init>;
     using ontransfer_action = action_wrapper<"ontransfer"_n, &dex::ontransfer>;
     using settle_action     = action_wrapper<"settle"_n, &dex::settle>;
+    using cancel_action     = action_wrapper<"cancel"_n, &dex::cancel>;
 private:
     config_t get_config();
 };
