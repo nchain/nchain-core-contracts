@@ -75,6 +75,9 @@ void dex::init(const name &owner, const name &settler, const name &payee) {
     require_auth( get_self() );
     config_table config_tbl(get_self(), get_self().value);
     check(config_tbl.find(CONFIG_KEY.value) == config_tbl.end(), "this contract has been initialized");
+    check(is_account(owner), "the owner account does not exist");
+    check(is_account(settler), "the settler account does not exist");
+    check(is_account(payee), "the payee account does not exist");
     config_tbl.emplace(same_payer, [&](auto &config) {
         config.owner   = owner;
         config.settler = settler;
