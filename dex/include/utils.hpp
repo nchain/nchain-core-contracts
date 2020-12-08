@@ -11,23 +11,25 @@ using namespace std;
 
 
 template<typename T>
-uint128_t divide_decimal(uint128_t a, uint128_t b, uint128_t precision) {
-    uint128_t tmp = 10 * a * precision  / b;
-    check(tmp <= std::numeric_limits<T>::max(), "overflow exception of divide_decimal");
+int128_t divide_decimal(int128_t a, int128_t b, int128_t precision) {
+    int128_t tmp = 10 * a * precision  / b;
+    check(tmp >= std::numeric_limits<T>::min() && tmp <= std::numeric_limits<T>::max(),
+          "overflow exception of divide_decimal");
     return (tmp + 5) / 10;
 }
 
 template<typename T>
-uint128_t multiply_decimal(uint128_t a, uint128_t b, uint128_t precision) {
-    uint128_t tmp = 10 * a * b / precision;
-    check(tmp <= std::numeric_limits<T>::max(), "overflow exception of multiply_decimal");
+int128_t multiply_decimal(int128_t a, int128_t b, int128_t precision) {
+    int128_t tmp = 10 * a * b / precision;
+    check(tmp >= std::numeric_limits<T>::min() && tmp <= std::numeric_limits<T>::max(),
+          "overflow exception of multiply_decimal");
     return (tmp + 5) / 10;
 }
 
 constexpr int128_t RATIO_PRECISION = 10000; // 10^4
 
-#define divide_decimal64(a, b, precision) divide_decimal<uint64_t>(a, b, precision)
-#define multiply_decimal64(a, b, precision) multiply_decimal<uint64_t>(a, b, precision)
+#define divide_decimal64(a, b, precision) divide_decimal<int64_t>(a, b, precision)
+#define multiply_decimal64(a, b, precision) multiply_decimal<int64_t>(a, b, precision)
 
 string_view trim(string_view sv) {
     sv.remove_prefix(std::min(sv.find_first_not_of(" "), sv.size())); // left trim

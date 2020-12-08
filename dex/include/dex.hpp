@@ -27,8 +27,8 @@ public:
         name owner;
         name payee;
         string open_mode;
-        uint64_t maker_ratio;
-        uint64_t taker_ratio;
+        int64_t maker_ratio;
+        int64_t taker_ratio;
         string url;
         string memo;
         uint64_t primary_key() const { return ex_id.value; }
@@ -43,10 +43,10 @@ public:
         string order_side;
         asset coin_quant;
         asset asset_quant;
-        uint64_t price;
+        int64_t price;
 
-        uint64_t deal_coin_amount;  //!< total deal coin amount
-        uint64_t deal_asset_amount; //!< total deal asset amount
+        int64_t deal_coin_amount;  //!< total deal coin amount
+        int64_t deal_asset_amount; //!< total deal asset amount
         uint64_t primary_key() const { return order_id; }
     };
 
@@ -61,7 +61,7 @@ public:
                                                         string memo);
 
     [[eosio::action]] void settle(const uint64_t &buy_id, const uint64_t &sell_id,
-                                  const uint64_t &price, const asset &coin_quant,
+                                  const int64_t &price, const asset &coin_quant,
                                   const asset &asset_quant, const string &memo);
 
     using init_action = action_wrapper<"init"_n, &dex::init>;

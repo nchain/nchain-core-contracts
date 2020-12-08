@@ -40,14 +40,14 @@ namespace open_mode {
    }
 }
 
-uint64_t parse_price(string_view str) {
+int64_t parse_price(string_view str) {
    safe<int64_t> ret;
    to_int(str, ret);
    // TODO: check range of price
    return ret.value;
 }
 
-uint64_t parse_ratio(string_view str) {
+int64_t parse_ratio(string_view str) {
    safe<int64_t> ret;
    to_int(str, ret);
    // TODO: check range of ratio
@@ -170,19 +170,19 @@ string get_taker_side(const dex::order_t &buy_order, const dex::order_t &sell_or
 }
 
 // TODO: ...
-static const uint64_t DEX_FRICTION_FEE_RATIO = 10; // 0.001%
-static const uint64_t PRICE_PRECISION = 100000000; // 10^8
+static const int64_t DEX_FRICTION_FEE_RATIO = 10; // 0.001%
+static const int64_t PRICE_PRECISION = 100000000; // 10^8
 
-uint64_t calc_friction_fee(uint64_t amount) {
+int64_t calc_friction_fee(int64_t amount) {
 
-    uint128_t fee = multiply_decimal64(amount, DEX_FRICTION_FEE_RATIO, RATIO_PRECISION);
+    int64_t fee = multiply_decimal64(amount, DEX_FRICTION_FEE_RATIO, RATIO_PRECISION);
     check(fee <= amount, "invalid friction fee ratio");
-    return (uint64_t)fee;
+    return fee;
 }
 
-uint64_t calc_match_fee(const dex::order_t &order, const dex::exchange_t &exchange, const string &taker_side, uint64_t amount) {
+int64_t calc_match_fee(const dex::order_t &order, const dex::exchange_t &exchange, const string &taker_side, int64_t amount) {
 
-    uint64_t ratio = 0;
+    int64_t ratio = 0;
     // TODO: order custom exchange params
     if (order.order_side == taker_side) {
         ratio = exchange.taker_ratio;
@@ -190,19 +190,17 @@ uint64_t calc_match_fee(const dex::order_t &order, const dex::exchange_t &exchan
         ratio = exchange.maker_ratio;
     }
 
-    // uint128_t fee = multiply_decimal64(amount, ratio, RATIO_PRECISION);
-    uint128_t fee = multiply_decimal64(amount, ratio, RATIO_PRECISION);
-
+    int64_t fee = multiply_decimal64(amount, ratio, RATIO_PRECISION);
     check(fee <= amount, "invalid match fee ratio=" + std::to_string(ratio));
-    return (uint64_t)fee;
+    return fee;
 }
 
-uint64_t calc_coin_amount(uint64_t asset_amount, const uint64_t price) {
-    uint128_t coin_amount = multiply_decimal64(asset_amount, price, PRICE_PRECISION);
+int64_t calc_coin_amount(int64_t asset_amount, const int64_t price) {
+    int64_t coin_amount = multiply_decimal64(asset_amount, price, PRICE_PRECISION);
     return coin_amount;
 }
 
-uint64_t sub_fee(uint64_t &amount, uint64_t fee, const string &msg) {
+int64_t sub_fee(int64_t &amount, int64_t fee, const string &msg) {
     check(amount > fee, "the fee exeed the amount of " + msg);
     return amount - fee;
 }
@@ -215,7 +213,7 @@ void transfer_out(const name &contract, const name &bank, const name &to, const 
         .send();
 }
 
-void dex::settle(const uint64_t &buy_id, const uint64_t &sell_id, const uint64_t &price,
+void dex::settle(const uint64_t &buy_id, const uint64_t &sell_id, const int64_t &price,
                  const asset &coin_quant, const asset &asset_quant, const string &memo) {
 
     auto config = get_config();
@@ -252,6 +250,7 @@ void dex::settle(const uint64_t &buy_id, const uint64_t &sell_id, const uint64_t
           "sell order coin pair mismatch");
 
     // 4. check price match
+    check(price > 0, "The deal price must be positive");
     if (buy_order.order_type == order_type::LIMIT_PRICE && sell_order.order_type == order_type::LIMIT_PRICE) {
         check(price <= buy_order.price, "the deal price must <= buy_order.price");
         check(price >= sell_order.price, "the deal price must >= sell_order.price");
@@ -266,7 +265,8 @@ void dex::settle(const uint64_t &buy_id, const uint64_t &sell_id, const uint64_t
     // 5. check cross exchange trading with public mode
     // if (!CheckOrderOpenMode()) return false;
 
-    // 6. check and operate deal amount
+    // 6. check deal amount match
+    check(coin_quant.amount > 0 && asset_quant.amount > 0, "The deal amounts must be positive");
     int64_t deal_coin_diff = coin_quant.amount - calc_coin_amount(asset_quant.amount, price);
     bool is_coin_amount_match = false;
     if (buy_order.order_type == order_type::MARKET_PRICE) {
@@ -276,23 +276,17 @@ void dex::settle(const uint64_t &buy_id, const uint64_t &sell_id, const uint64_t
     }
     check(is_coin_amount_match, "The deal coin amount mismatch with the calc_coin_amount");
 
+    // 7. check the order amount limits
     buy_order.deal_coin_amount += coin_quant.amount;
     buy_order.deal_asset_amount += asset_quant.amount;
     sell_order.deal_coin_amount += coin_quant.amount;
     sell_order.deal_asset_amount += asset_quant.amount;
 
-    // 7. check the order amount limits
-    //  and get residual amount
-    // uint64_t buy_residual_amount  = 0;
-    // uint64_t sell_residual_amount = 0;
-
     // 7.1 check the buy_order amount limit
     if (buy_order.order_type == order_type::MARKET_PRICE) {
         check(buy_order.coin_quant.amount >= buy_order.deal_coin_amount, "the deal coin_quant.amount exceed residual coin amount of buy_order");
-        // buy_residual_amount = buy_order.coin_quant.amount - buy_order.deal_coin_amount;
     } else {
         check(buy_order.asset_quant.amount >= buy_order.deal_asset_amount, "the deal asset_quant.amount exceed residual asset amount of buy_order");
-        // buy_residual_amount = limitAssetAmount - buy_order.deal_asset_amount;
     }
 
     // 7.2 check the buy_order amount limit
@@ -302,23 +296,23 @@ void dex::settle(const uint64_t &buy_id, const uint64_t &sell_id, const uint64_t
     }
 
     // the seller receive coins
-    uint64_t seller_recv_coins = coin_quant.amount;
+    int64_t seller_recv_coins = coin_quant.amount;
     // the buyer receive assets
-    uint64_t buyer_recv_assets = asset_quant.amount;
+    int64_t buyer_recv_assets = asset_quant.amount;
 
     // 8. calc the friction fees
-    uint64_t coin_friction_fee = calc_friction_fee(coin_quant.amount);
+    int64_t coin_friction_fee = calc_friction_fee(coin_quant.amount);
     seller_recv_coins = sub_fee(seller_recv_coins, coin_friction_fee, "seller_recv_coins");
-    uint64_t asset_friction_fee = calc_friction_fee(asset_quant.amount);
+    int64_t asset_friction_fee = calc_friction_fee(asset_quant.amount);
     buyer_recv_assets = sub_fee(buyer_recv_assets, asset_friction_fee, "buyer_recv_assets");
 
     // 9. calc deal fees for exchange
     // 9.1. calc deal asset fee payed by buyer for exchange
-    uint64_t asset_match_fee = calc_match_fee(buy_order, buy_exchange, taker_side, buyer_recv_assets);
+    int64_t asset_match_fee = calc_match_fee(buy_order, buy_exchange, taker_side, buyer_recv_assets);
     buyer_recv_assets = sub_fee(buyer_recv_assets, asset_match_fee, "buyer_recv_assets");
 
     // 9.2. calc deal coin fee payed by seller for exhange
-    uint64_t coin_match_fee = calc_match_fee(sell_order, sell_exchange, taker_side, seller_recv_coins);
+    int64_t coin_match_fee = calc_match_fee(sell_order, sell_exchange, taker_side, seller_recv_coins);
     seller_recv_coins = sub_fee(seller_recv_coins, asset_match_fee, "seller_recv_coins");
 
 
@@ -352,7 +346,7 @@ void dex::settle(const uint64_t &buy_id, const uint64_t &sell_id, const uint64_t
         buy_order_fulfilled = (buy_order.asset_quant.amount == buy_order.deal_asset_amount);
         if (buy_order_fulfilled) {
             if (buy_order.coin_quant.amount > buy_order.deal_coin_amount) {
-                uint64_t refund_coins = buy_order.coin_quant.amount - buy_order.deal_coin_amount;
+                int64_t refund_coins = buy_order.coin_quant.amount - buy_order.deal_coin_amount;
                 transfer_out(get_self(), BANK, buy_order.owner, asset(refund_coins, coin_quant.symbol), "refund_coins");
             }
         }
