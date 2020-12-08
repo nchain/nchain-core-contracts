@@ -16,7 +16,6 @@ public:
        name owner;   // owner of this contract
        name settler; // settler
        name payee;   // payee of this contract
-       name bank;    // bank
        uint64_t primary_key() const { return CONFIG_KEY.value; }
    };
 
@@ -68,7 +67,7 @@ public:
 public:
     dex(name receiver, name code, datastream<const char *> ds) : contract(receiver, code, ds) {}
 
-   [[eosio::action]] void init(const name &owner, const name &settler, const name &payee, const name &bank);
+   [[eosio::action]] void init(const name &owner, const name &settler, const name &payee);
 
     [[eosio::on_notify("*::transfer")]] void ontransfer(name from, name to, asset quantity,
                                                         string memo);

@@ -70,7 +70,7 @@ string parse_open_mode(string_view str) {
 }
 
 
-void dex::init(const name &owner, const name &settler, const name &payee, const name &bank) {
+void dex::init(const name &owner, const name &settler, const name &payee) {
 
     require_auth( get_self() );
     config_table config_tbl(get_self(), get_self().value);
@@ -79,7 +79,6 @@ void dex::init(const name &owner, const name &settler, const name &payee, const 
         config.owner   = owner;
         config.settler = settler;
         config.payee   = payee;
-        config.bank    = bank;
     });
 }
 
