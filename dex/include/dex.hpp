@@ -66,12 +66,12 @@ public:
         name owner;
         string order_type;
         string order_side;
-        asset coin_quant;
         asset asset_quant;
+        asset coin_quant;
         int64_t price;
 
-        int64_t deal_coin_amount  = 0;      //!< total deal coin amount
         int64_t deal_asset_amount = 0;      //!< total deal asset amount
+        int64_t deal_coin_amount  = 0;      //!< total deal coin amount
         bool is_finish            = false;  //!< order is finish
         uint64_t primary_key() const { return order_id; }
     };
@@ -92,8 +92,8 @@ public:
                                                         string memo);
 
     [[eosio::action]] void settle(const uint64_t &buy_id, const uint64_t &sell_id,
-                                  const int64_t &price, const asset &coin_quant,
-                                  const asset &asset_quant, const string &memo);
+                                  const asset &asset_quant, const asset &coin_quant,
+                                  const int64_t &price, const string &memo);
 
     [[eosio::action]] void cancel(const uint64_t &order_id);
 

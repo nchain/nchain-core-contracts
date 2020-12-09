@@ -119,12 +119,12 @@ void dex::ontransfer(name from, name to, asset quantity, string memo) {
 
     vector<string_view> params = split(memo, ":");
     if (params.size() == 7 && params[0] == "order") {
-      // order:<type>:<side>:<coin_quant>:<asset_quant>:<price>:<ex_id>
+      // order:<type>:<side>:<asset_quant>:<coin_quant>:<price>:<ex_id>
         order_t order;
         order.order_type = parse_order_type(params[1]);
         order.order_side = parse_order_side(params[2]);
-        order.coin_quant = asset_from_string(params[3]);
-        order.asset_quant = asset_from_string(params[4]);
+        order.asset_quant = asset_from_string(params[3]);
+        order.coin_quant = asset_from_string(params[4]);
         order.price = parse_price(params[5]);
 
         auto sym_pair_tbl = make_symbol_pair_table(get_self());
@@ -243,8 +243,8 @@ void transfer_out(const name &contract, const name &bank, const name &to, const 
         .send();
 }
 
-void dex::settle(const uint64_t &buy_id, const uint64_t &sell_id, const int64_t &price,
-                 const asset &coin_quant, const asset &asset_quant, const string &memo) {
+void dex::settle(const uint64_t &buy_id, const uint64_t &sell_id, const asset &asset_quant,
+                 const asset &coin_quant, const int64_t &price, const string &memo) {
 
     auto config = get_config();
 
