@@ -48,9 +48,11 @@ if [ $# -ne 0 ]; then
   done
 fi
 
+export REPO_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+export SCRIPT_DIR="${REPO_ROOT}/scripts"
 # Source helper functions and variables.
-. ./scripts/.environment
-. ./scripts/helper.sh
+. ${SCRIPT_DIR}/.environment
+. ${SCRIPT_DIR}/helper.sh
 
 if [[ ${BUILD_TESTS} == true ]]; then
    # Prompt user for location of eosio.
@@ -77,8 +79,9 @@ printf "\t=========== Building eosio.contracts ===========\n\n"
 RED='\033[0;31m'
 NC='\033[0m'
 CPU_CORES=$(getconf _NPROCESSORS_ONLN)
-mkdir -p build
-pushd build &> /dev/null
-cmake -DBUILD_TESTS=${BUILD_TESTS} ../
+echo "Building at BUILD_DIR=${BUILD_DIR}"
+mkdir -p ${BUILD_DIR}
+pushd ${BUILD_DIR} &> /dev/null
+cmake -DBUILD_TESTS=${BUILD_TESTS} ${REPO_ROOT}
 make -j $CPU_CORES
 popd &> /dev/null
