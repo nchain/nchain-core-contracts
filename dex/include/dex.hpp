@@ -25,6 +25,24 @@ public:
         return config_table(self, self.value/*scope*/);
     }
 
+    struct [[eosio::table]] symbol_pair_t {
+        uint64_t sym_pair_id; // auto-increment
+        symbol asset_symbol;
+        symbol coin_symbol;
+        uint128_t primary_key() const { return sym_pair_id; }
+        uint128_t get_symbols_idx() const { return uint128_t(asset_symbol.raw()) << 64 | coin_symbol.raw(); }
+        uint128_t revert_symbols_idx() const { return uint128_t(coin_symbol.raw()) << 64 | asset_symbol.raw(); }
+    };
+
+    using symbols_idx = indexed_by<"symbolsidx"_n, const_mem_fun<symbol_pair_t, uint128_t,
+           &symbol_pair_t::get_symbols_idx>>;
+
+    typedef eosio::multi_index<"sympair"_n, symbol_pair_t, symbols_idx> symbol_pair_table;
+
+    inline static symbol_pair_table make_symbol_pair_table(name self) {
+        return symbol_pair_table(self, self.value/*scope*/);
+    }
+
     struct [[eosio::table]] exchange_t {
         name ex_id;
         name owner;
@@ -67,7 +85,8 @@ public:
 public:
     dex(name receiver, name code, datastream<const char *> ds) : contract(receiver, code, ds) {}
 
-   [[eosio::action]] void init(const name &owner, const name &settler, const name &payee);
+    [[eosio::action]] void init(const name &owner, const name &settler, const name &payee);
+    [[eosio::action]] void addsympair(symbol asset_symbol, symbol coin_symbol);
 
     [[eosio::on_notify("*::transfer")]] void ontransfer(name from, name to, asset quantity,
                                                         string memo);
@@ -79,6 +98,7 @@ public:
     [[eosio::action]] void cancel(const uint64_t &order_id);
 
     using init_action = action_wrapper<"init"_n, &dex::init>;
+    using addsympair_action = action_wrapper<"addsympair"_n, &dex::addsympair>;
     using ontransfer_action = action_wrapper<"ontransfer"_n, &dex::ontransfer>;
     using settle_action     = action_wrapper<"settle"_n, &dex::settle>;
     using cancel_action     = action_wrapper<"cancel"_n, &dex::cancel>;

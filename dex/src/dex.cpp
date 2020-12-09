@@ -85,6 +85,26 @@ void dex::init(const name &owner, const name &settler, const name &payee) {
     });
 }
 
+
+void dex::addsympair(symbol asset_symbol, symbol coin_symbol) {
+    require_auth( get_self() );
+    auto sym_pair_tbl = make_symbol_pair_table(get_self());
+    check(asset_symbol.is_valid(), "Invalid asset symbol");
+    check(coin_symbol.is_valid(), "Invalid coin symbol");
+    symbol_pair_t sym_pair = {sym_pair_tbl.available_primary_key(), asset_symbol, coin_symbol};
+
+    // auto index = sym_pair_tbl.get_index<symbols_idx::index_name>();
+    auto index = sym_pair_tbl.get_index<"symbolsidx"_n>();
+    check( index.find( sym_pair.get_symbols_idx() ) == index.end(), "The symbol pair exist");
+    check( index.find( sym_pair.revert_symbols_idx() ) == index.end(), "The reverted symbol pair exist");
+
+    check( sym_pair_tbl.find(sym_pair.sym_pair_id) == sym_pair_tbl.end(), "The symbol pair id exist");
+
+    sym_pair_tbl.emplace(same_payer, [&](auto &s) {
+        s   = sym_pair;
+    });
+}
+
 void dex::ontransfer(name from, name to, asset quantity, string memo) {
     constexpr string_view DEPOSIT_TO = "deposit to:";
     constexpr string_view EXCHANGE   = "exchange:";
