@@ -127,7 +127,15 @@ void dex::ontransfer(name from, name to, asset quantity, string memo) {
         order.asset_quant = asset_from_string(params[4]);
         order.price = parse_price(params[5]);
 
-        // TODO: check coin_pair exist
+        auto sym_pair_tbl = make_symbol_pair_table(get_self());
+        check(order.asset_quant.symbol.is_valid(), "Invalid asset symbol");
+        check(order.coin_quant.symbol.is_valid(), "Invalid coin symbol");
+        symbol_pair_t sym_pair = {0, order.asset_quant.symbol, order.coin_quant.symbol};
+
+        // auto index = sym_pair_tbl.get_index<symbols_idx::index_name>();
+        auto index = sym_pair_tbl.get_index<"symbolsidx"_n>();
+        auto it = index.find( sym_pair.get_symbols_idx() );
+        check( it != index.end(), "The symbol pair does not exist");
 
         // check amount
         if (order.order_type == order_type::MARKET_PRICE && order.order_side == order_side::BUY) {
