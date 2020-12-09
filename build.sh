@@ -73,6 +73,22 @@ if [[ ${BUILD_TESTS} == true ]]; then
    # Include EOSIO_INSTALL_DIR in CMAKE_FRAMEWORK_PATH
    echo "Using EOSIO installation at: $EOSIO_INSTALL_DIR"
    export CMAKE_FRAMEWORK_PATH="${EOSIO_INSTALL_DIR}:${CMAKE_FRAMEWORK_PATH}"
+
+   # See install-directory-prompt for logic that sets EOSIO_INSTALL_DIR
+   export SRC_DIR=${EOSIO_INSTALL_DIR}/src
+
+   # BOOST
+   export BOOST_VERSION_MAJOR=1
+   export BOOST_VERSION_MINOR=71
+   export BOOST_VERSION_PATCH=0
+   export BOOST_VERSION=${BOOST_VERSION_MAJOR}_${BOOST_VERSION_MINOR}_${BOOST_VERSION_PATCH}
+   export BOOST_ROOT=${BOOST_LOCATION:-${SRC_DIR}/boost_${BOOST_VERSION}}
+   export BOOST_LINK_LOCATION=${OPT_DIR}/boost
+
+   execute mkdir -p ${SRC_DIR}
+
+   # BOOST Installation
+   ensure-boost
 fi
 
 printf "\t=========== Building eosio.contracts ===========\n\n"

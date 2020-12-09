@@ -1,3 +1,22 @@
+export JOBS=${JOBS:-"$(getconf _NPROCESSORS_ONLN)"}
+[[ -z "${ARCH}" ]] && export ARCH=$( uname )
+
+if [[ $- == *i* ]]; then # Disable if the shell isn't interactive (avoids: tput: No value for $TERM and no -T specified)
+  export COLOR_NC=$(tput sgr0) # No Color
+  export COLOR_RED=$(tput setaf 1)
+  export COLOR_GREEN=$(tput setaf 2)
+  export COLOR_YELLOW=$(tput setaf 3)
+  export COLOR_BLUE=$(tput setaf 4)
+  export COLOR_MAGENTA=$(tput setaf 5)
+  export COLOR_CYAN=$(tput setaf 6)
+  export COLOR_WHITE=$(tput setaf 7)
+fi
+
+function execute() {
+  $VERBOSE && echo "--- Executing: $@"
+  $DRYRUN || "$@"
+}
+
 # Ensures passed in version values are supported.
 function check-version-numbers() {
   CHECK_VERSION_MAJOR=$1
@@ -134,4 +153,34 @@ function nodeos-version-check() {
     echo "Invalid EOSIO installation. Exiting..."
     exit 1;
   fi
+}
+
+function ensure-boost() {
+    [[ $ARCH == "Darwin" ]] && export CPATH="$(python-config --includes | awk '{print $1}' | cut -dI -f2):$CPATH" # Boost has trouble finding pyconfig.h
+    echo "${COLOR_CYAN}[Ensuring Boost $( echo $BOOST_VERSION | sed 's/_/./g' ) library installation]${COLOR_NC}"
+    BOOSTVERSION=$( grep "#define BOOST_VERSION" "$BOOST_ROOT/include/boost/version.hpp" 2>/dev/null | tail -1 | tr -s ' ' | cut -d\  -f3 || true )
+    if [[ "${BOOSTVERSION}" != "${BOOST_VERSION_MAJOR}0${BOOST_VERSION_MINOR}0${BOOST_VERSION_PATCH}" ]]; then
+        B2_FLAGS="-q -j${JOBS} --with-iostreams --with-date_time --with-filesystem --with-system --with-program_options --with-chrono --with-test install"
+        BOOTSTRAP_FLAGS=""
+        if [[ $ARCH == "Linux" ]] && $PIN_COMPILER; then
+            B2_FLAGS="toolset=clang cxxflags='-stdlib=libc++ -D__STRICT_ANSI__ -nostdinc++ -I${CLANG_ROOT}/include/c++/v1 -D_FORTIFY_SOURCE=2 -fstack-protector-strong -fpie' linkflags='-stdlib=libc++ -pie' link=static threading=multi --with-iostreams --with-date_time --with-filesystem --with-system --with-program_options --with-chrono --with-test -q -j${JOBS} install"
+            BOOTSTRAP_FLAGS="--with-toolset=clang"
+        elif $PIN_COMPILER; then
+            local SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
+        fi
+        execute bash -c "cd $SRC_DIR && \
+        curl -LO https://dl.bintray.com/boostorg/release/$BOOST_VERSION_MAJOR.$BOOST_VERSION_MINOR.$BOOST_VERSION_PATCH/source/boost_$BOOST_VERSION.tar.bz2 \
+        && tar -xjf boost_$BOOST_VERSION.tar.bz2 \
+        && cd $BOOST_ROOT \
+        && SDKROOT="$SDKROOT" ./bootstrap.sh ${BOOTSTRAP_FLAGS} --prefix=$BOOST_ROOT \
+        && SDKROOT="$SDKROOT" ./b2 ${B2_FLAGS} \
+        && cd .. \
+        && rm -f boost_$BOOST_VERSION.tar.bz2 \
+        && rm -rf $BOOST_LINK_LOCATION"
+        echo " - Boost library successfully installed @ ${BOOST_ROOT}"
+        echo ""
+    else
+        echo " - Boost library found with correct version @ ${BOOST_ROOT}"
+        echo ""
+    fi
 }
