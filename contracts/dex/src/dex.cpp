@@ -99,7 +99,7 @@ void dex::addsympair(const symbol &asset_symbol, const symbol &coin_symbol) {
 
     check( sym_pair_tbl.find(sym_pair.sym_pair_id) == sym_pair_tbl.end(), "The symbol pair id exist");
 
-    sym_pair_tbl.emplace(same_payer, [&](auto &s) {
+    sym_pair_tbl.emplace(get_self(), [&](auto &s) {
         s   = sym_pair;
     });
 }
@@ -381,14 +381,14 @@ void dex::settle(const uint64_t &buy_id, const uint64_t &sell_id, const asset &a
         buy_order.is_finish = buy_order.coin_quant.amount == buy_order.deal_coin_amount;
     }
     // udpate buy order
-    order_tbl.modify(buy_order, same_payer, [&]( auto& a ) {
+    order_tbl.modify(buy_order, get_self(), [&]( auto& a ) {
         a = buy_order;
     });
 
     // 13.2 check sell order fullfiled to del or update
     sell_order.is_finish = (sell_order.asset_quant.amount == sell_order.deal_asset_amount);
     // udpate sell order
-    order_tbl.modify(sell_order, same_payer, [&]( auto& a ) {
+    order_tbl.modify(sell_order, get_self(), [&]( auto& a ) {
             a = sell_order;
     });
 }
@@ -413,7 +413,7 @@ void dex::cancel(const uint64_t &order_id) {
     }
     transfer_out(get_self(), BANK, order.owner, quantity, "cancel_order");
 
-    order_tbl.modify(it, same_payer, [&]( auto& a ) {
+    order_tbl.modify(it, order.owner, [&]( auto& a ) {
         a = order;
     });
 }
