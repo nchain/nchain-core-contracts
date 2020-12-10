@@ -129,7 +129,7 @@ public:
    dex_tester(): eosio_token() {
       produce_blocks( 2 );
 
-      create_accounts( { N(alice), N(bob), N(carol), N(dex) } );
+      create_accounts( { N(dex.owner), N(dex.settler), N(dex.payee), N(alice), N(bob), N(carol), N(dex) } );
       produce_blocks( 2 );
 
       set_code( N(dex), contracts::token_wasm() );
@@ -172,7 +172,7 @@ public:
       return data.empty() ? fc::variant() : abi_ser.binary_to_variant( "order_t", data, abi_serializer_max_time );
    }
 
-   action_result init( const name &owner, const name &settler, const name &payee ) {
+   action_result dex_init( const name &owner, const name &settler, const name &payee ) {
       return push_action( N(dex), N(init), mvo()
            ( "owner", owner)
            ( "settler", settler)
@@ -211,18 +211,19 @@ public:
 
 BOOST_AUTO_TEST_SUITE(dex_tests)
 
-// BOOST_FIXTURE_TEST_CASE( create_tests, dex_tester ) try {
 
-//    auto token = create( N(alice), asset::from_string("1000.000 TKN"));
-//    auto stats = get_stats("3,TKN");
-//    REQUIRE_MATCHING_OBJECT( stats, mvo()
-//       ("supply", "0.000 TKN")
-//       ("max_supply", "1000.000 TKN")
-//       ("issuer", "alice")
-//    );
-//    produce_blocks(1);
+BOOST_FIXTURE_TEST_CASE( dex_init_test, dex_tester ) try {
 
-// } FC_LOG_AND_RETHROW()
+   auto new_dex = dex_init( N(dex.owner), N(dex.settler), N(dex.payee));
+   auto config = get_config();
+   REQUIRE_MATCHING_OBJECT( config, mvo()
+      ("owner", "dex.owner")
+      ("settler", "dex.settler")
+      ("payee", "dex.payee")
+   );
+   produce_blocks(1);
+
+} FC_LOG_AND_RETHROW()
 
 // BOOST_FIXTURE_TEST_CASE( create_negative_max_supply, dex_tester ) try {
 
