@@ -18,6 +18,9 @@ using namespace std;
 using mvo = fc::mutable_variant_object;
 
 
+static const symbol BTC_SYMBOL = symbol(8, "BTC");
+static const symbol USD_SYMBOL = symbol(8, "USD");
+
 class eosio_token_tester : public tester {
 public:
 
@@ -141,6 +144,12 @@ public:
       abi_def abi;
       BOOST_REQUIRE_EQUAL(abi_serializer::to_abi(accnt.abi, abi), true);
       abi_ser.set_abi(abi, abi_serializer_max_time);
+
+      auto usd_ret = eosio_token.create(N(dex.owner), asset::from_string("100000.0000 USD"));
+      BOOST_REQUIRE_EQUAL(usd_ret, "");
+
+      auto btc_ret = eosio_token.create(N(dex.owner), asset::from_string("10.00000000 BTC"));
+      BOOST_REQUIRE_EQUAL(btc_ret, "");
    }
 
    action_result push_action( const account_name& signer, const action_name &name, const variant_object &data ) {
@@ -180,11 +189,35 @@ public:
       );
    }
 
+   struct auto_inc_id {
+      uint64_t id = 0;
+      uint64_t next_id = 0;
+
+      void next() {
+         if (next_id == 0) {
+            // first value
+            id = 0;
+            next_id = 1;
+         } else {
+            id = next_id;
+            next_id++;
+         }
+      }
+   };
+
+   auto_inc_id& sym_pair_id() {
+      static auto_inc_id id;
+      return id;
+   }
+
+
    action_result addsympair( const symbol &asset_symbol, const symbol &coin_symbol ) {
-      return push_action( N(dex), N(addsympair), mvo()
+      auto ret = push_action( N(dex), N(addsympair), mvo()
            ( "asset_symbol", asset_symbol)
            ( "coin_symbol", coin_symbol)
       );
+      sym_pair_id().next();
+      return ret;
    }
 
    action_result settle(const uint64_t &buy_id, const uint64_t &sell_id,
@@ -214,6 +247,7 @@ BOOST_AUTO_TEST_SUITE(dex_tests)
 
 BOOST_FIXTURE_TEST_CASE( dex_init_test, dex_tester ) try {
 
+   // init contract config
    auto new_dex = dex_init( N(dex.owner), N(dex.settler), N(dex.payee));
    BOOST_REQUIRE_EQUAL(new_dex, "");
    produce_blocks(1);
@@ -223,6 +257,34 @@ BOOST_FIXTURE_TEST_CASE( dex_init_test, dex_tester ) try {
       ("settler", "dex.settler")
       ("payee", "dex.payee")
    );
+
+   // add symbol pair for trading
+   auto sym_pair_ret = addsympair(BTC_SYMBOL, USD_SYMBOL);
+   BOOST_REQUIRE_EQUAL(sym_pair_ret, "");
+   produce_blocks(1);
+   auto sym_pair = get_symbol_pair(sym_pair_id().id);
+   REQUIRE_MATCHING_OBJECT( sym_pair, mvo()
+      ("sym_pair_id", std::to_string(sym_pair_id().id))
+      ("asset_symbol", BTC_SYMBOL.to_string())
+      ("coin_symbol", USD_SYMBOL.to_string())
+   );
+
+//    // create exchange
+//    auto create_ex_ret = eosio_token.transfer(N(dex.owner), N());
+// account_name from,
+//                   account_name to,
+//                   asset        quantity,
+//                   string       memo
+
+//    BOOST_REQUIRE_EQUAL(sym_pair_ret, "");
+//    produce_blocks(1);
+//    auto sym_pair = get_symbol_pair(sym_pair_id().id);
+//    REQUIRE_MATCHING_OBJECT( sym_pair, mvo()
+//       ("sym_pair_id", std::to_string(sym_pair_id().id))
+//       ("asset_symbol", BTC_SYMBOL.to_string())
+//       ("coin_symbol", USD_SYMBOL.to_string())
+//    );
+
 
 } FC_LOG_AND_RETHROW()
 
