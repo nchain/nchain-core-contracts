@@ -86,7 +86,7 @@ void dex::init(const name &owner, const name &settler, const name &payee) {
 }
 
 
-void dex::addsympair(symbol asset_symbol, symbol coin_symbol) {
+void dex::addsympair(const symbol &asset_symbol, const symbol &coin_symbol) {
     require_auth( get_self() );
     auto sym_pair_tbl = make_symbol_pair_table(get_self());
     check(asset_symbol.is_valid(), "Invalid asset symbol");

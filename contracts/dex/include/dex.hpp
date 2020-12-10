@@ -86,7 +86,7 @@ public:
     dex(name receiver, name code, datastream<const char *> ds) : contract(receiver, code, ds) {}
 
     [[eosio::action]] void init(const name &owner, const name &settler, const name &payee);
-    [[eosio::action]] void addsympair(symbol asset_symbol, symbol coin_symbol);
+    [[eosio::action]] void addsympair(const symbol &asset_symbol, const symbol &coin_symbol);
 
     [[eosio::on_notify("*::transfer")]] void ontransfer(name from, name to, asset quantity,
                                                         string memo);
