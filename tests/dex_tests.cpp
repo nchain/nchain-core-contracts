@@ -132,8 +132,8 @@ public:
       create_accounts( { N(dex.owner), N(dex.settler), N(dex.payee), N(alice), N(bob), N(carol), N(dex) } );
       produce_blocks( 2 );
 
-      set_code( N(dex), contracts::token_wasm() );
-      set_abi( N(dex), contracts::token_abi().data() );
+      set_code( N(dex), contracts::dex_wasm() );
+      set_abi( N(dex), contracts::dex_abi().data() );
 
       produce_blocks();
 
@@ -145,7 +145,7 @@ public:
 
    action_result push_action( const account_name& signer, const action_name &name, const variant_object &data ) {
       string action_type_name = abi_ser.get_action_type(name);
-
+      BOOST_REQUIRE_NE(action_type_name, "");
       action act;
       act.account = N(dex);
       act.name    = name;
@@ -215,13 +215,14 @@ BOOST_AUTO_TEST_SUITE(dex_tests)
 BOOST_FIXTURE_TEST_CASE( dex_init_test, dex_tester ) try {
 
    auto new_dex = dex_init( N(dex.owner), N(dex.settler), N(dex.payee));
+   BOOST_REQUIRE_EQUAL(new_dex, "");
+   produce_blocks(1);
    auto config = get_config();
    REQUIRE_MATCHING_OBJECT( config, mvo()
       ("owner", "dex.owner")
       ("settler", "dex.settler")
       ("payee", "dex.payee")
    );
-   produce_blocks(1);
 
 } FC_LOG_AND_RETHROW()
 
