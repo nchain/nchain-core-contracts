@@ -45,9 +45,6 @@ else()
    set(TEST_BUILD_TYPE ${CMAKE_BUILD_TYPE})
 endif()
 
-
-add_compile_options(--Wno-deprecated-declarations)
-
 ExternalProject_Add(
    contracts_project
    SOURCE_DIR ${CMAKE_SOURCE_DIR}/contracts

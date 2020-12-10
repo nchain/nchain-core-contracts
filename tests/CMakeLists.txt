@@ -21,7 +21,12 @@ else() # INVALID OR MISMATCH
    message(FATAL_ERROR "Found eosio version ${EOSIO_VERSION} but it does not satisfy version requirements: ${VERSION_MATCH_ERROR_MSG}\nPlease use eosio version ${EOSIO_VERSION_SOFT_MAX}.x")
 endif(VERSION_OUTPUT STREQUAL "MATCH")
 
+add_compile_options(-Wno-deprecated-declarations)
+
 configure_file(${CMAKE_SOURCE_DIR}/contracts.hpp.in ${CMAKE_BINARY_DIR}/contracts.hpp)
+
+#copy test_contracts
+execute_process(COMMAND bash -c "cp -rf ${CMAKE_SOURCE_DIR}/test_contracts ${CMAKE_BINARY_DIR}/test_contracts")
 
 include_directories(${CMAKE_BINARY_DIR})
 ### UNIT TESTING ###
