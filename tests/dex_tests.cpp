@@ -21,24 +21,29 @@ using mvo = fc::mutable_variant_object;
 static const symbol BTC_SYMBOL = symbol(8, "BTC");
 static const symbol USD_SYMBOL = symbol(8, "USD");
 
-class eosio_token_tester : public tester {
+#define ASSET(s) asset::from_string(s)
+
+#define EXECUTE_ACTION(action_expr) BOOST_REQUIRE_EQUAL(action_expr, "")
+
+class eosio_token_helper {
 public:
+    using action_result = tester::action_result;
 
-   eosio_token_tester() {
-      produce_blocks( 2 );
+   eosio_token_helper(tester &t): _tester(t) {
+      _tester.produce_blocks( 2 );
 
-      create_accounts( { N(eosio.token) } );
-      produce_blocks( 2 );
+      _tester.create_accounts( { N(eosio.token) } );
+      _tester.produce_blocks( 2 );
 
-      set_code( N(eosio.token), contracts::token_wasm() );
-      set_abi( N(eosio.token), contracts::token_abi().data() );
+      _tester.set_code( N(eosio.token), contracts::token_wasm() );
+      _tester.set_abi( N(eosio.token), contracts::token_abi().data() );
 
-      produce_blocks();
+      _tester.produce_blocks();
 
-      const auto& accnt = control->db().get<account_object,by_name>( N(eosio.token) );
+      const auto& accnt = _tester.control->db().get<account_object,by_name>( N(eosio.token) );
       abi_def abi;
       BOOST_REQUIRE_EQUAL(abi_serializer::to_abi(accnt.abi, abi), true);
-      abi_ser.set_abi(abi, abi_serializer_max_time);
+      abi_ser.set_abi(abi, _tester.abi_serializer_max_time);
    }
 
    action_result push_action( const account_name& signer, const action_name &name, const variant_object &data ) {
@@ -47,25 +52,25 @@ public:
       action act;
       act.account = N(eosio.token);
       act.name    = name;
-      act.data    = abi_ser.variant_to_binary( action_type_name, data,abi_serializer_max_time );
+      act.data    = abi_ser.variant_to_binary( action_type_name, data, _tester.abi_serializer_max_time );
 
-      return base_tester::push_action( std::move(act), signer.to_uint64_t() );
+      return _tester.push_action( std::move(act), signer.to_uint64_t() );
    }
 
    fc::variant get_stats( const string& symbolname )
    {
       auto symb = eosio::chain::symbol::from_string(symbolname);
       auto symbol_code = symb.to_symbol_code().value;
-      vector<char> data = get_row_by_account( N(eosio.token), name(symbol_code), N(stat), account_name(symbol_code) );
-      return data.empty() ? fc::variant() : abi_ser.binary_to_variant( "currency_stats", data, abi_serializer_max_time );
+      vector<char> data = _tester.get_row_by_account( N(eosio.token), name(symbol_code), N(stat), account_name(symbol_code) );
+      return data.empty() ? fc::variant() : abi_ser.binary_to_variant( "currency_stats", data, _tester.abi_serializer_max_time );
    }
 
    fc::variant get_account( account_name acc, const string& symbolname)
    {
       auto symb = eosio::chain::symbol::from_string(symbolname);
       auto symbol_code = symb.to_symbol_code().value;
-      vector<char> data = get_row_by_account( N(eosio.token), acc, N(accounts), account_name(symbol_code) );
-      return data.empty() ? fc::variant() : abi_ser.binary_to_variant( "account", data, abi_serializer_max_time );
+      vector<char> data = _tester.get_row_by_account( N(eosio.token), acc, N(accounts), account_name(symbol_code) );
+      return data.empty() ? fc::variant() : abi_ser.binary_to_variant( "account", data, _tester.abi_serializer_max_time );
    }
 
    action_result create( account_name issuer,
@@ -123,34 +128,46 @@ public:
       );
    }
 
+   tester &_tester;
    abi_serializer abi_ser;
 };
 
 class dex_tester : public tester {
 public:
 
-   dex_tester(): eosio_token() {
-      produce_blocks( 2 );
+    dex_tester(): eosio_token(*this) {
+        produce_blocks( 2 );
 
-      create_accounts( { N(dex.owner), N(dex.settler), N(dex.payee), N(alice), N(bob), N(carol), N(dex) } );
-      produce_blocks( 2 );
+        create_accounts( { N(dex.owner), N(dex.settler), N(dex.payee),
+            N(ex1.owner), N(ex1.settler), N(ex1.payee),
+            N(alice), N(bob), N(carol), N(dex) } );
+        produce_blocks( 2 );
 
-      set_code( N(dex), contracts::dex_wasm() );
-      set_abi( N(dex), contracts::dex_abi().data() );
+        set_code( N(dex), contracts::dex_wasm() );
+        set_abi( N(dex), contracts::dex_abi().data() );
 
-      produce_blocks();
+        produce_blocks();
 
-      const auto& accnt = control->db().get<account_object,by_name>( N(dex) );
-      abi_def abi;
-      BOOST_REQUIRE_EQUAL(abi_serializer::to_abi(accnt.abi, abi), true);
-      abi_ser.set_abi(abi, abi_serializer_max_time);
+        const auto& accnt = control->db().get<account_object,by_name>( N(dex) );
+        abi_def abi;
+        BOOST_REQUIRE_EQUAL(abi_serializer::to_abi(accnt.abi, abi), true);
+        abi_ser.set_abi(abi, abi_serializer_max_time);
 
-      auto usd_ret = eosio_token.create(N(dex.owner), asset::from_string("100000.0000 USD"));
-      BOOST_REQUIRE_EQUAL(usd_ret, "");
+        EXECUTE_ACTION(eosio_token.create(N(alice), asset::from_string("100000.0000 AAA")));
+        produce_blocks(1);
+        EXECUTE_ACTION(eosio_token.issue( N(alice), asset::from_string("100000.0000 AAA"), "" ));
 
-      auto btc_ret = eosio_token.create(N(dex.owner), asset::from_string("10.00000000 BTC"));
-      BOOST_REQUIRE_EQUAL(btc_ret, "");
-   }
+        EXECUTE_ACTION(eosio_token.create(N(dex.owner), asset::from_string("100000.0000 USD")));
+        produce_blocks(1);
+        EXECUTE_ACTION(eosio_token.issue( N(dex.owner), asset::from_string("100000.0000 USD"), "" ));
+        EXECUTE_ACTION(eosio_token.transfer( N(dex.owner), N(ex1.owner), asset::from_string("100.0000 USD"), "" ) );
+        EXECUTE_ACTION(eosio_token.transfer( N(dex.owner), N(alice), asset::from_string("10000.0000 USD"), "" ) );
+
+        EXECUTE_ACTION(eosio_token.create(N(dex.owner), asset::from_string("10.00000000 BTC")));
+        EXECUTE_ACTION(eosio_token.issue( N(dex.owner), asset::from_string("10.00000000 BTC"), "" ));
+        EXECUTE_ACTION(eosio_token.transfer( N(dex.owner), N(bob), asset::from_string("1.00000000 BTC"), "" ) );
+
+    }
 
    action_result push_action( const account_name& signer, const action_name &name, const variant_object &data ) {
       string action_type_name = abi_ser.get_action_type(name);
@@ -173,6 +190,12 @@ public:
    {
       vector<char> data = get_row_by_account( N(dex), N(dex), N(sympair), name(sym_pair_id) );
       return data.empty() ? fc::variant() : abi_ser.binary_to_variant( "symbol_pair_t", data, abi_serializer_max_time );
+   }
+
+   fc::variant get_exchange( name ex_id)
+   {
+      vector<char> data = get_row_by_account( N(dex), N(dex), N(exchange), ex_id );
+      return data.empty() ? fc::variant() : abi_ser.binary_to_variant( "exchange_t", data, abi_serializer_max_time );
    }
 
    fc::variant get_order( uint64_t order_id)
@@ -239,42 +262,52 @@ public:
    }
 
    abi_serializer abi_ser;
-   eosio_token_tester eosio_token;
+   eosio_token_helper eosio_token;
 };
 
 BOOST_AUTO_TEST_SUITE(dex_tests)
 
 
-BOOST_FIXTURE_TEST_CASE( dex_init_test, dex_tester ) try {
+BOOST_FIXTURE_TEST_CASE( dex_settle_test, dex_tester ) try {
 
-   // init contract config
-   auto new_dex = dex_init( N(dex.owner), N(dex.settler), N(dex.payee));
-   BOOST_REQUIRE_EQUAL(new_dex, "");
-   produce_blocks(1);
-   auto config = get_config();
-   REQUIRE_MATCHING_OBJECT( config, mvo()
-      ("owner", "dex.owner")
-      ("settler", "dex.settler")
-      ("payee", "dex.payee")
-   );
+    // init contract config
+    auto new_dex = dex_init( N(dex.owner), N(dex.settler), N(dex.payee));
+    BOOST_REQUIRE_EQUAL(new_dex, "");
+    produce_blocks(1);
+    auto config = get_config();
+    REQUIRE_MATCHING_OBJECT( config, mvo()
+        ("owner", "dex.owner")
+        ("settler", "dex.settler")
+        ("payee", "dex.payee")
+    );
 
-   // add symbol pair for trading
-   auto sym_pair_ret = addsympair(BTC_SYMBOL, USD_SYMBOL);
-   BOOST_REQUIRE_EQUAL(sym_pair_ret, "");
-   produce_blocks(1);
-   auto sym_pair = get_symbol_pair(sym_pair_id().id);
-   REQUIRE_MATCHING_OBJECT( sym_pair, mvo()
-      ("sym_pair_id", std::to_string(sym_pair_id().id))
-      ("asset_symbol", BTC_SYMBOL.to_string())
-      ("coin_symbol", USD_SYMBOL.to_string())
-   );
+    // add symbol pair for trading
+    auto sym_pair_ret = addsympair(BTC_SYMBOL, USD_SYMBOL);
+    BOOST_REQUIRE_EQUAL(sym_pair_ret, "");
+    produce_blocks(1);
+    auto sym_pair = get_symbol_pair(sym_pair_id().id);
+    REQUIRE_MATCHING_OBJECT( sym_pair, mvo()
+        ("sym_pair_id", std::to_string(sym_pair_id().id))
+        ("asset_symbol", BTC_SYMBOL.to_string())
+        ("coin_symbol", USD_SYMBOL.to_string())
+    );
 
-//    // create exchange
-//    auto create_ex_ret = eosio_token.transfer(N(dex.owner), N());
-// account_name from,
-//                   account_name to,
-//                   asset        quantity,
-//                   string       memo
+    // create exchange
+    //memo  ex:<ex_id>:<owner>:<payee>:<open_mode>:<maker_ratio>:<taker_ratio>:<url>:<memo>
+    string ex_memo = "ex:ex1:ex1.owner:ex1.payee:public:4:8:ex1.com:ex1 is best";
+    EXECUTE_ACTION(eosio_token.transfer(N(dex.owner), N(dex), ASSET("100.0000 USD"), ex_memo));
+    auto ex1 = get_exchange(N(ex1));
+    REQUIRE_MATCHING_OBJECT( ex1, mvo()
+        ("ex_id", "ex1")
+        ("owner", "ex1.owner")
+        ("payee", "ex1.payee")
+        ("open_mode", "public")
+        ("maker_ratio", "4")
+        ("taker_ratio", "8")
+        ("url", "ex1.com")
+        ("memo", "ex1 is best")
+    );
+
 
 //    BOOST_REQUIRE_EQUAL(sym_pair_ret, "");
 //    produce_blocks(1);

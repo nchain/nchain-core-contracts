@@ -108,8 +108,9 @@ void dex::ontransfer(name from, name to, asset quantity, string memo) {
     constexpr string_view DEPOSIT_TO = "deposit to:";
     constexpr string_view EXCHANGE   = "exchange:";
 
-    if (from == get_self())
+    if (from == get_self()) {
         return; // transfer out from this contract
+    }
     check(to == get_self(), "Must transfer to this contract");
     check(quantity.amount >= 0, "quantity must be positive");
     auto bank = get_first_receiver();
@@ -155,11 +156,10 @@ void dex::ontransfer(name from, name to, asset quantity, string memo) {
 
         check(order_tbl.find(order.order_id) == order_tbl.end(), "The order is exist. order_id=" + std::to_string(order.order_id));
 
-        order_tbl.emplace( from, [&]( auto& o ) {
+        order_tbl.emplace( get_self(), [&]( auto& o ) {
             o = order;
         });
-    }
-    if (params.size() == 8 && params[0] == "ex") {
+    } else if (params.size() == 9 && params[0] == "ex") {
         // ex:<ex_id>:<owner>:<payee>:<open_mode>:<maker_ratio>:<taker_ratio>:<url>:<memo>
         exchange_t exchange;
         exchange.ex_id       = name(params[1]);
@@ -181,9 +181,11 @@ void dex::ontransfer(name from, name to, asset quantity, string memo) {
         check(exchange.memo.size() <= MEMO_LEN_MAX, "The memo is too long then " + std::to_string(MEMO_LEN_MAX));
 
         // TODO: process reg exchange fee
-        ex_tbl.emplace( from, [&]( auto& ex ) {
+        ex_tbl.emplace( get_self(), [&]( auto& ex ) {
             ex = exchange;
         });
+    } else {
+        check(false, "Unsupport params of memo=" + memo);
     }
 }
 
