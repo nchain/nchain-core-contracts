@@ -2,6 +2,7 @@
 
 #include <eosio/eosio.hpp>
 #include <eosio/asset.hpp>
+#include "dex_const.hpp"
 
 using namespace std;
 using namespace eosio;
@@ -16,8 +17,8 @@ public:
         name owner;   // owner of this contract
         name settler; // settler
         name payee;   // payee of this contract
-        int64_t maker_ratio;
-        int64_t taker_ratio;
+        int64_t maker_ratio = DEX_MAKER_FEE_RATIO;
+        int64_t taker_ratio = DEX_TAKER_FEE_RATIO;
         uint64_t primary_key() const { return CONFIG_KEY.value; }
     };
 
@@ -71,6 +72,7 @@ public:
 
     // todo: fee ratio
     [[eosio::action]] void init(const name &owner, const name &settler, const name &payee);
+    // todo update_config
     [[eosio::action]] void addsympair(const symbol &asset_symbol, const symbol &coin_symbol);
 
     [[eosio::on_notify("*::transfer")]] void ontransfer(name from, name to, asset quantity,

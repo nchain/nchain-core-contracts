@@ -236,13 +236,6 @@ string get_taker_side(const dex::order_t &buy_order, const dex::order_t &sell_or
     return taker_side;
 }
 
-int64_t calc_friction_fee(int64_t amount) {
-
-    int64_t fee = multiply_decimal64(amount, DEX_FRICTION_FEE_RATIO, RATIO_PRECISION);
-    check(fee <= amount, "invalid friction fee ratio");
-    return fee;
-}
-
 int64_t calc_match_fee(const dex::order_t &order, const dex::config_t &config, const string &taker_side, int64_t amount) {
 
     int64_t ratio = 0;
@@ -278,21 +271,12 @@ void dex::settle(const uint64_t &buy_id, const uint64_t &sell_id, const asset &a
 
     require_auth( config.settler );
 
-    //1.1 get and check buy_order and sell_order
+    //1. get and check buy_order and sell_order
     order_table order_tbl(get_self(), get_self().value);
-    auto buy_order = order_tbl.get(buy_id);
-    auto sell_order = order_tbl.get(sell_id);
+    const auto &buy_order = order_tbl.get(buy_id, "unable to find buy order");
+    const auto &sell_order = order_tbl.get(sell_id, "unable to find sell order");
     check(!buy_order.is_finish, "the buy order is finish");
     check(!sell_order.is_finish, "the sell order is finish");
-
-    // // 1.2 get exchange of order
-    // exchange_table ex_tbl(get_self(), get_self().value);
-    // auto buy_exchange = ex_tbl.get(buy_order.order_id);
-    // auto sell_exchange = ex_tbl.get(sell_order.order_id);
-
-    // 1.3 get order exchange params
-    // buy_orderOperatorParams = GetOrderOperatorParams(buy_order, buyOperatorDetail);
-    // sell_orderOperatorParams = GetOrderOperatorParams(sell_order, sellOperatorDetail);
 
     // 2. check and get order side
     // 2.1 check order side
@@ -322,7 +306,7 @@ void dex::settle(const uint64_t &buy_id, const uint64_t &sell_id, const asset &a
         check(buy_order.order_type == order_type::MARKET_PRICE && sell_order.order_type == order_type::MARKET_PRICE, "order type mismatch");
     }
 
-    // 6. check deal amount match
+    // 5. check deal amount match
     check(coin_quant.amount > 0 && asset_quant.amount > 0, "The deal amounts must be positive");
     int64_t deal_coin_diff = coin_quant.amount - calc_coin_amount(asset_quant, price, coin_quant.symbol);
     bool is_coin_amount_match = false;
@@ -333,23 +317,26 @@ void dex::settle(const uint64_t &buy_id, const uint64_t &sell_id, const asset &a
     }
     check(is_coin_amount_match, "The deal coin amount mismatch with the calc_coin_amount");
 
-    // 7. check the order amount limits
-    buy_order.deal_coin_amount += coin_quant.amount;
-    buy_order.deal_asset_amount += asset_quant.amount;
-    sell_order.deal_coin_amount += coin_quant.amount;
-    sell_order.deal_asset_amount += asset_quant.amount;
+    uint64_t buyer_deal_coin_amount = buy_order.deal_coin_amount + coin_quant.amount;
+    uint64_t buyer_deal_asset_amount = buy_order.deal_asset_amount + asset_quant.amount;
 
-    // 7.1 check the buy_order amount limit
+    uint64_t seller_deal_coin_amount = sell_order.deal_coin_amount + coin_quant.amount;
+    uint64_t seller_deal_asset_amount = sell_order.deal_asset_amount + asset_quant.amount;
+
+    // 6. check the order amount limits
+    // 6.1 check the buy_order amount limit
     if (buy_order.order_type == order_type::MARKET_PRICE) {
-        check(buy_order.coin_quant.amount >= buy_order.deal_coin_amount, "the deal coin_quant.amount exceed residual coin amount of buy_order");
+        check(buy_order.coin_quant.amount >= buyer_deal_coin_amount,
+            "the deal coin_quant.amount exceed residual coin amount of buy_order");
     } else {
-        check(buy_order.asset_quant.amount >= buy_order.deal_asset_amount, "the deal asset_quant.amount exceed residual asset amount of buy_order");
+        check(buy_order.asset_quant.amount >= buyer_deal_asset_amount,
+            "the deal asset_quant.amount exceed residual asset amount of buy_order");
     }
 
-    // 7.2 check the buy_order amount limit
+    // 6.2 check the buy_order amount limit
     {
-        check(sell_order.asset_quant.amount >= sell_order.deal_asset_amount, "the deal asset_quant.amount exceed residual asset amount of sell_order");
-        // sell_residual_amount = limitAssetAmount - sell_order.deal_asset_amount;
+        check(sell_order.asset_quant.amount >= seller_deal_asset_amount,
+            "the deal asset_quant.amount exceed residual asset amount of sell_order");
     }
 
     // the seller receive coins
@@ -357,51 +344,58 @@ void dex::settle(const uint64_t &buy_id, const uint64_t &sell_id, const asset &a
     // the buyer receive assets
     int64_t buyer_recv_assets = asset_quant.amount;
 
-    // 9. calc match fees
-    // 9.1. calc match asset fee payed by buyer for exchange
+    // 7. calc match fees
+    // 7.1 calc match asset fee payed by buyer
     int64_t asset_match_fee = calc_match_fee(buy_order, config, taker_side, buyer_recv_assets);
-    buyer_recv_assets = sub_fee(buyer_recv_assets, asset_match_fee, "buyer_recv_assets");
+    if (asset_match_fee > 0) {
+        buyer_recv_assets = sub_fee(buyer_recv_assets, asset_match_fee, "buyer_recv_assets");
+        // pay the asset_match_fee to payee
+        transfer_out(get_self(), BANK, config.payee, asset(asset_match_fee, asset_quant.symbol), "asset_match_fee");
+    }
 
-    // 9.2. calc match coin fee payed by seller for exhange
+    // 7.2. calc match coin fee payed by seller for exhange
     int64_t coin_match_fee = calc_match_fee(sell_order, config, taker_side, seller_recv_coins);
-    seller_recv_coins = sub_fee(seller_recv_coins, asset_match_fee, "seller_recv_coins");
+    if (coin_match_fee) {
+        seller_recv_coins = sub_fee(seller_recv_coins, coin_match_fee, "seller_recv_coins");
+        // pay the coin_match_fee to payee
+        transfer_out(get_self(), BANK, config.payee, asset(coin_match_fee, coin_quant.symbol), "coin_match_fee");
+    }
 
-    // 11. pay match fees
-    // 11.1. pay the coin_match_fee to payee
-    transfer_out(get_self(), BANK, config.payee, asset(coin_match_fee, coin_quant.symbol), "coin_match_fee");
-    // // 11.2. pay the asset_match_fee to payee
-    transfer_out(get_self(), BANK, config.payee, asset(asset_match_fee, asset_quant.symbol), "asset_match_fee");
-
-    // 12. transfer the coins and assets to seller and buyer
-    // 12.1. transfer the coins to seller
+    // 8. transfer the coins and assets to seller and buyer
+    // 8.1. transfer the coins to seller
     transfer_out(get_self(), BANK, sell_order.owner, asset(seller_recv_coins, coin_quant.symbol), "seller_recv_coins");
-    // 12.2. transfer the assets to buyer
+    // 8.2. transfer the assets to buyer
     transfer_out(get_self(), BANK, buy_order.owner, asset(buyer_recv_assets, asset_quant.symbol), "buyer_recv_assets");
 
-
-    // 13. check order fullfiled to del or update
-    // 13.1 check buy order fullfiled to del or update
+    // 9. check order fullfiled to del or update
+    // 9.1 check buy order fullfiled to del or update
+    bool buy_order_finish = false;
     bool buy_order_fulfilled = false;
     if (buy_order.order_type == order_type::LIMIT_PRICE) {
-        buy_order.is_finish = (buy_order.asset_quant.amount == buy_order.deal_asset_amount);
-        if (buy_order.is_finish) {
-            if (buy_order.coin_quant.amount > buy_order.deal_coin_amount) {
-                int64_t refund_coins = buy_order.coin_quant.amount - buy_order.deal_coin_amount;
+        buy_order_finish = (buy_order.asset_quant.amount == buyer_deal_asset_amount);
+        if (buy_order_finish) {
+            if (buy_order.coin_quant.amount > buyer_deal_coin_amount) {
+                int64_t refund_coins = buy_order.coin_quant.amount - buyer_deal_coin_amount;
                 transfer_out(get_self(), BANK, buy_order.owner, asset(refund_coins, coin_quant.symbol), "refund_coins");
             }
         }
     } else { // buy_order.order_type == order_type::MARKET_PRICE
-        buy_order.is_finish = buy_order.coin_quant.amount == buy_order.deal_coin_amount;
+        buy_order_finish = buy_order.coin_quant.amount == buy_order.deal_coin_amount;
     }
     // udpate buy order
     order_tbl.modify(buy_order, get_self(), [&]( auto& a ) {
-        a = buy_order;
+        a.deal_asset_amount = buyer_deal_asset_amount;
+        a.deal_coin_amount = buyer_deal_coin_amount;
+        a.is_finish = buy_order_finish;
     });
 
-    // 13.2 check sell order fullfiled to del or update
-    sell_order.is_finish = (sell_order.asset_quant.amount == sell_order.deal_asset_amount);
+    // 9.2 check sell order fullfiled to del or update
+    bool sell_order_finish = (sell_order.asset_quant.amount == seller_deal_asset_amount);
     // udpate sell order
     order_tbl.modify(sell_order, get_self(), [&]( auto& a ) {
+        a.deal_asset_amount = seller_deal_asset_amount;
+        a.deal_coin_amount = seller_deal_coin_amount;
+        a.is_finish = sell_order_finish;
             a = sell_order;
     });
 }

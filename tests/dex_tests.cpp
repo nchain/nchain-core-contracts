@@ -192,12 +192,6 @@ public:
         return data.empty() ? fc::variant() : abi_ser.binary_to_variant( "symbol_pair_t", data, abi_serializer_max_time );
     }
 
-    fc::variant get_exchange( name ex_id)
-    {
-        vector<char> data = get_row_by_account( N(dex), N(dex), N(exchange), ex_id );
-        return data.empty() ? fc::variant() : abi_ser.binary_to_variant( "exchange_t", data, abi_serializer_max_time );
-    }
-
     fc::variant get_order( uint64_t order_id)
     {
         vector<char> data = get_row_by_account( N(dex), N(dex), N(order), name(order_id) );
@@ -279,6 +273,8 @@ BOOST_FIXTURE_TEST_CASE( dex_settle_test, dex_tester ) try {
         ("owner", "dex.owner")
         ("settler", "dex.settler")
         ("payee", "dex.payee")
+        ("maker_ratio", "4")
+        ("taker_ratio", "8")
     );
 
     // add symbol pair for trading
@@ -290,22 +286,6 @@ BOOST_FIXTURE_TEST_CASE( dex_settle_test, dex_tester ) try {
         ("sym_pair_id", std::to_string(sym_pair_id().id))
         ("asset_symbol", BTC_SYMBOL.to_string())
         ("coin_symbol", USD_SYMBOL.to_string())
-    );
-
-    // create exchange
-    //memo  ex:<ex_id>:<owner>:<payee>:<open_mode>:<maker_ratio>:<taker_ratio>:<url>:<memo>
-    string ex_memo = "ex:ex1:ex1.owner:ex1.payee:public:4:8:ex1.com:ex1 is best";
-    EXECUTE_ACTION(eosio_token.transfer(N(dex.owner), N(dex), ASSET("100.0000 USD"), ex_memo));
-    auto ex1 = get_exchange(N(ex1));
-    REQUIRE_MATCHING_OBJECT( ex1, mvo()
-        ("ex_id", "ex1")
-        ("owner", "ex1.owner")
-        ("payee", "ex1.payee")
-        ("open_mode", "public")
-        ("maker_ratio", "4")
-        ("taker_ratio", "8")
-        ("url", "ex1.com")
-        ("memo", "ex1 is best")
     );
 
     // buy order
