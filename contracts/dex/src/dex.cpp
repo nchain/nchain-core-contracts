@@ -69,6 +69,50 @@ string parse_open_mode(string_view str) {
     return string{str};
 }
 
+inline int64_t power(int64_t base, int64_t exp) {
+    int64_t ret = 1;
+    while( exp > 0  ) {
+        ret *= base; --exp;
+    }
+    return ret;
+}
+
+inline int64_t power10(int64_t exp) {
+    return power(10, exp);
+}
+
+inline int64_t calc_precision(int64_t digit) {
+    check(digit <= 18, "precision digit " + std::to_string(digit) + " should be <= 18");
+    return power10(digit);
+}
+
+int64_t calc_coin_amount(const asset &asset_quant, const int64_t price, const symbol &coin_symbol) {
+    // should use the max precision to calc
+    int64_t digit_diff = coin_symbol.precision() - asset_quant.symbol.precision();
+    int64_t asset_amount = asset_quant.amount;
+    if (digit_diff > 0) {
+        asset_amount = multiply_decimal64(asset_amount, calc_precision(digit_diff), 1);
+    }
+
+    int64_t coin_amount = multiply_decimal64(asset_amount, price, PRICE_PRECISION);
+    if (digit_diff < 0) {
+        coin_amount = multiply_decimal64(coin_amount, 1, calc_precision(0 - digit_diff));
+    }
+
+    return coin_amount;
+}
+
+asset calc_coin_quant(const asset &asset_quant, const int64_t price, const symbol &coin_symbol) {
+    return asset(calc_coin_amount(asset_quant, price, coin_symbol), coin_symbol);
+}
+
+inline string symbol_to_string(const symbol &s) {
+    return std::to_string(s.precision()) + "," + s.code().to_string();
+}
+
+inline string symbol_pair_to_string(const symbol &asset_symbol, const symbol &coin_symbol) {
+    return symbol_to_string(asset_symbol) + "/" + symbol_to_string(coin_symbol);
+}
 
 void dex::init(const name &owner, const name &settler, const name &payee) {
     require_auth( get_self() );
@@ -135,16 +179,33 @@ void dex::ontransfer(name from, name to, asset quantity, string memo) {
         // auto index = sym_pair_tbl.get_index<symbols_idx::index_name>();
         auto index = sym_pair_tbl.get_index<"symbolsidx"_n>();
         auto it = index.find( sym_pair.get_symbols_idx() );
-        check( it != index.end(), "The symbol pair does not exist");
+        check( it != index.end(),
+            "The symbol pair '" + symbol_pair_to_string(order.asset_quant.symbol, order.coin_quant.symbol) + "' does not exist");
+
 
         // check amount
-        if (order.order_type == order_type::MARKET_PRICE && order.order_side == order_side::BUY) {
-            check(order.coin_quant.amount == quantity.amount, "coin amount must be equal to the transfer quantity");
-            // TODO: check coin amount range
-            check(order.asset_quant.amount == 0, "asset amount must be 0 for market buy order");
-        } else {
-            check(order.coin_quant.amount == 0, "coin amount must be 0");
-            check(order.asset_quant.amount == quantity.amount, "asset amount must be equal to the transfer quantity");
+
+        if (order.order_side == order_side::BUY) {
+            // the frozen token is coins, save in order.coin_quant
+            check(order.coin_quant.amount == quantity.amount, "The input coin_quant must be equal to the transfer quantity for sell order");
+            if (order.order_type == order_type::LIMIT_PRICE) {
+                // check(false, "assets=" + std::to_string(order.asset_quant.amount) +
+                //     ", price=" + std::to_string(order.price) +
+                //     ", input=" + std::to_string(order.coin_quant.amount) +
+                //     ", calc_coin_amount=" + std::to_string(calc_coin_amount(order.asset_quant, order.price, order.coin_quant.symbol)));
+                // the deal limit amount is assets, save in order.asset_quant
+                check(order.coin_quant == calc_coin_quant(order.asset_quant, order.price, order.coin_quant.symbol),
+                    "The input coin_quant must be equal to the calc_coin_quant for limit buy order");
+            } else { //(order.order_type == order_type::MARKET_PRICE)
+                // the deal limit amount is coins, save in order.coin_quant
+                check(order.asset_quant.amount == 0, "The input asset amount must be 0 for market buy order");
+            }
+            // TODO: check coins amount range
+        } else { // (order.order_side == order_side::SELL)
+            // the frozen token is assets, save in order.asset_quant
+            // the deal limit amount is assets, save in order.asset_quant
+            check(order.coin_quant.amount == 0, "The input coin amount must be 0 for buy order");
+            check(order.asset_quant == quantity, "The input asset_quant must be equal to the transfer quantity for buy order");
             // TODO: check asset amount range
         }
 
@@ -226,11 +287,6 @@ int64_t calc_match_fee(const dex::order_t &order, const dex::exchange_t &exchang
     return fee;
 }
 
-int64_t calc_coin_amount(int64_t asset_amount, const int64_t price) {
-    int64_t coin_amount = multiply_decimal64(asset_amount, price, PRICE_PRECISION);
-    return coin_amount;
-}
-
 int64_t sub_fee(int64_t &amount, int64_t fee, const string &msg) {
     check(amount > fee, "the fee exeed the amount of " + msg);
     return amount - fee;
@@ -300,7 +356,7 @@ void dex::settle(const uint64_t &buy_id, const uint64_t &sell_id, const asset &a
 
     // 6. check deal amount match
     check(coin_quant.amount > 0 && asset_quant.amount > 0, "The deal amounts must be positive");
-    int64_t deal_coin_diff = coin_quant.amount - calc_coin_amount(asset_quant.amount, price);
+    int64_t deal_coin_diff = coin_quant.amount - calc_coin_amount(asset_quant, price, coin_quant.symbol);
     bool is_coin_amount_match = false;
     if (buy_order.order_type == order_type::MARKET_PRICE) {
         is_coin_amount_match = (std::abs(deal_coin_diff) <= std::max<int64_t>(1, (1 * price / PRICE_PRECISION)));
