@@ -326,6 +326,23 @@ BOOST_FIXTURE_TEST_CASE( dex_settle_test, dex_tester ) try {
         ("is_finish", "0")
     );
 
+    // sell order
+    //order  order:<type>:<side>:<asset_quant>:<coin_quant>:<price>:<ex_id>
+    string sell_memo = "order:limit_price:sell:0.01000000 BTC:0.0000 USD:1000000000000:ex1";
+    EXECUTE_ACTION(eosio_token.transfer(N(bob), N(dex), ASSET("0.01000000 BTC"), sell_memo));
+    auto sell_order = get_order(1);
+    REQUIRE_MATCHING_OBJECT( sell_order, mvo()
+        ("order_id", "1")
+        ("owner", "bob")
+        ("order_type", "limit_price")
+        ("order_side", "sell")
+        ("asset_quant", "0.01000000 BTC")
+        ("coin_quant", "0.0000 USD")
+        ("price", "1000000000000")
+        ("deal_asset_amount", "0")
+        ("deal_coin_amount", "0")
+        ("is_finish", "0")
+    );
 } FC_LOG_AND_RETHROW()
 
 BOOST_AUTO_TEST_SUITE_END()
