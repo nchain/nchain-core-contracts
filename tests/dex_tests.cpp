@@ -246,7 +246,7 @@ public:
     action_result settle(const uint64_t &buy_id, const uint64_t &sell_id,
                             const asset &asset_quant, const asset &coin_quant,
                             const int64_t &price, const string &memo) {
-        return push_action( N(dex), N(settle), mvo()
+        return push_action( N(dex.settler), N(settle), mvo()
             ( "buy_id", buy_id)
             ( "sell_id", sell_id)
             ( "asset_quant", asset_quant)
@@ -256,7 +256,7 @@ public:
         );
     }
     action_result cancel(const uint64_t &order_id) {
-        return push_action( N(dex), N(settle), mvo()
+        return push_action( N(dex), N(cancel), mvo()
             ( "order_id", order_id)
         );
     }
@@ -342,6 +342,35 @@ BOOST_FIXTURE_TEST_CASE( dex_settle_test, dex_tester ) try {
         ("deal_asset_amount", "0")
         ("deal_coin_amount", "0")
         ("is_finish", "0")
+    );
+
+    // settle
+    EXECUTE_ACTION(settle(0, 1, ASSET("0.01000000 BTC"), ASSET("100.0000 USD"), 1000000000000, ""));
+    auto deal_buy_order = get_order(0);
+    REQUIRE_MATCHING_OBJECT( deal_buy_order, mvo()
+        ("order_id", "0")
+        ("owner", "alice")
+        ("order_type", "limit_price")
+        ("order_side", "buy")
+        ("asset_quant", "0.01000000 BTC")
+        ("coin_quant", "100.0000 USD")
+        ("price", "1000000000000")
+        ("deal_asset_amount", "1000000")
+        ("deal_coin_amount", "1000000")
+        ("is_finish", "1")
+    );
+    auto deal_sell_order = get_order(1);
+    REQUIRE_MATCHING_OBJECT( deal_sell_order, mvo()
+        ("order_id", "1")
+        ("owner", "bob")
+        ("order_type", "limit_price")
+        ("order_side", "sell")
+        ("asset_quant", "0.01000000 BTC")
+        ("coin_quant", "0.0000 USD")
+        ("price", "1000000000000")
+        ("deal_asset_amount", "1000000")
+        ("deal_coin_amount", "1000000")
+        ("is_finish", "1")
     );
 } FC_LOG_AND_RETHROW()
 
