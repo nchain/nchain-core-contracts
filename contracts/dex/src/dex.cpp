@@ -149,9 +149,6 @@ void dex::addsympair(const symbol &asset_symbol, const symbol &coin_symbol) {
 }
 
 void dex::ontransfer(name from, name to, asset quantity, string memo) {
-    constexpr string_view DEPOSIT_TO = "deposit to:";
-    constexpr string_view EXCHANGE   = "exchange:";
-
     if (from == get_self()) {
         return; // transfer out from this contract
     }
@@ -181,7 +178,6 @@ void dex::ontransfer(name from, name to, asset quantity, string memo) {
         auto it = index.find( sym_pair.get_symbols_idx() );
         check( it != index.end(),
             "The symbol pair '" + symbol_pair_to_string(order.asset_quant.symbol, order.coin_quant.symbol) + "' does not exist");
-
 
         // check amount
 
@@ -220,31 +216,6 @@ void dex::ontransfer(name from, name to, asset quantity, string memo) {
         order_tbl.emplace( get_self(), [&]( auto& o ) {
             o = order;
         });
-    } else if (params.size() == 9 && params[0] == "ex") {
-        // ex:<ex_id>:<owner>:<payee>:<open_mode>:<maker_ratio>:<taker_ratio>:<url>:<memo>
-        exchange_t exchange;
-        exchange.ex_id       = name(params[1]);
-        exchange.owner       = name(params[2]);
-        exchange.payee       = name(params[3]);
-        exchange.open_mode   = parse_open_mode(params[4]);
-        exchange.maker_ratio = parse_ratio(params[5]);
-        exchange.taker_ratio = parse_ratio(params[6]);
-        exchange.url         = string{params[7]};
-        exchange.memo        = string{params[8]};
-
-        exchange_table ex_tbl(get_self(), get_self().value);
-        const auto &it = ex_tbl.find(exchange.primary_key());
-        check(it == ex_tbl.end(), "The exchange already exist. ex_id=" + exchange.ex_id.to_string());
-
-        check(is_account(exchange.owner), "The owner account does not exist");
-        check(is_account(exchange.payee), "The payee account does not exist");
-        check(exchange.url.size() <= URL_LEN_MAX, "The url is too long then " + std::to_string(URL_LEN_MAX));
-        check(exchange.memo.size() <= MEMO_LEN_MAX, "The memo is too long then " + std::to_string(MEMO_LEN_MAX));
-
-        // TODO: process reg exchange fee
-        ex_tbl.emplace( get_self(), [&]( auto& ex ) {
-            ex = exchange;
-        });
     } else {
         check(false, "Unsupport params of memo=" + memo);
     }
@@ -272,14 +243,14 @@ int64_t calc_friction_fee(int64_t amount) {
     return fee;
 }
 
-int64_t calc_match_fee(const dex::order_t &order, const dex::exchange_t &exchange, const string &taker_side, int64_t amount) {
+int64_t calc_match_fee(const dex::order_t &order, const dex::config_t &config, const string &taker_side, int64_t amount) {
 
     int64_t ratio = 0;
-    // TODO: order custom exchange params
+    // TODO: order custom ratio of order params
     if (order.order_side == taker_side) {
-        ratio = exchange.taker_ratio;
+        ratio = config.taker_ratio;
     } else {
-        ratio = exchange.maker_ratio;
+        ratio = config.maker_ratio;
     }
 
     int64_t fee = multiply_decimal64(amount, ratio, RATIO_PRECISION);
@@ -315,9 +286,9 @@ void dex::settle(const uint64_t &buy_id, const uint64_t &sell_id, const asset &a
     check(!sell_order.is_finish, "the sell order is finish");
 
     // // 1.2 get exchange of order
-    exchange_table ex_tbl(get_self(), get_self().value);
-    auto buy_exchange = ex_tbl.get(buy_order.order_id);
-    auto sell_exchange = ex_tbl.get(sell_order.order_id);
+    // exchange_table ex_tbl(get_self(), get_self().value);
+    // auto buy_exchange = ex_tbl.get(buy_order.order_id);
+    // auto sell_exchange = ex_tbl.get(sell_order.order_id);
 
     // 1.3 get order exchange params
     // buy_orderOperatorParams = GetOrderOperatorParams(buy_order, buyOperatorDetail);
@@ -350,9 +321,6 @@ void dex::settle(const uint64_t &buy_id, const uint64_t &sell_id, const asset &a
     } else {
         check(buy_order.order_type == order_type::MARKET_PRICE && sell_order.order_type == order_type::MARKET_PRICE, "order type mismatch");
     }
-
-    // 5. check cross exchange trading with public mode
-    // if (!CheckOrderOpenMode()) return false;
 
     // 6. check deal amount match
     check(coin_quant.amount > 0 && asset_quant.amount > 0, "The deal amounts must be positive");
@@ -389,33 +357,20 @@ void dex::settle(const uint64_t &buy_id, const uint64_t &sell_id, const asset &a
     // the buyer receive assets
     int64_t buyer_recv_assets = asset_quant.amount;
 
-    // 8. calc the friction fees
-    int64_t coin_friction_fee = calc_friction_fee(coin_quant.amount);
-    seller_recv_coins = sub_fee(seller_recv_coins, coin_friction_fee, "seller_recv_coins");
-    int64_t asset_friction_fee = calc_friction_fee(asset_quant.amount);
-    buyer_recv_assets = sub_fee(buyer_recv_assets, asset_friction_fee, "buyer_recv_assets");
-
-    // 9. calc deal fees for exchange
-    // 9.1. calc deal asset fee payed by buyer for exchange
-    int64_t asset_match_fee = calc_match_fee(buy_order, buy_exchange, taker_side, buyer_recv_assets);
+    // 9. calc match fees
+    // 9.1. calc match asset fee payed by buyer for exchange
+    int64_t asset_match_fee = calc_match_fee(buy_order, config, taker_side, buyer_recv_assets);
     buyer_recv_assets = sub_fee(buyer_recv_assets, asset_match_fee, "buyer_recv_assets");
 
-    // 9.2. calc deal coin fee payed by seller for exhange
-    int64_t coin_match_fee = calc_match_fee(sell_order, sell_exchange, taker_side, seller_recv_coins);
+    // 9.2. calc match coin fee payed by seller for exhange
+    int64_t coin_match_fee = calc_match_fee(sell_order, config, taker_side, seller_recv_coins);
     seller_recv_coins = sub_fee(seller_recv_coins, asset_match_fee, "seller_recv_coins");
 
-
-    // 10. pay the friction fee to this contract
-    // 10.1. pay the coin_friction_fee to config.payee
-    transfer_out(get_self(), BANK, config.payee, asset(coin_friction_fee, coin_quant.symbol), "coin_friction_fee");
-    // 10.2. pay the asset_friction_fee to config.payee
-    transfer_out(get_self(), BANK, config.payee, asset(asset_friction_fee, asset_quant.symbol), "asset_friction_fee");
-
-    // 11. pay match fees to exchange
-    // 11.1. pay the coin_match_fee to sell_exchange.payee
-    transfer_out(get_self(), BANK, sell_exchange.payee, asset(coin_match_fee, coin_quant.symbol), "coin_match_fee");
-    // 11.2. pay the asset_match_fee to buy_exchange.payee
-    transfer_out(get_self(), BANK, buy_exchange.payee, asset(asset_match_fee, asset_quant.symbol), "asset_match_fee");
+    // 11. pay match fees
+    // 11.1. pay the coin_match_fee to payee
+    transfer_out(get_self(), BANK, config.payee, asset(coin_match_fee, coin_quant.symbol), "coin_match_fee");
+    // // 11.2. pay the asset_match_fee to payee
+    transfer_out(get_self(), BANK, config.payee, asset(asset_match_fee, asset_quant.symbol), "asset_match_fee");
 
     // 12. transfer the coins and assets to seller and buyer
     // 12.1. transfer the coins to seller
@@ -458,7 +413,7 @@ void dex::cancel(const uint64_t &order_id) {
     check(it != order_tbl.end(), "The order does not exist");
     auto order = *it;
     check(!order.is_finish, "The order is finish");
-    // TODO: support the exchange owner auth to cancel order?
+    // TODO: support the owner auth to cancel order?
     require_auth(order.owner);
     asset quantity;
     if (order.order_side == order_side::BUY) {
