@@ -28,17 +28,28 @@ public:
         return config_table(self, self.value/*scope*/);
     }
 
+    static inline uint128_t make_symbols_idx(const symbol &asset_symbol, const symbol &coin_symbol) {
+        return uint128_t(asset_symbol.raw()) << 64 | uint128_t(coin_symbol.raw());
+    }
+
+    static inline uint128_t revert_symbols_idx(const symbol &asset_symbol, const symbol &coin_symbol) {
+        return uint128_t(coin_symbol.raw()) << 64 | uint128_t(asset_symbol.raw());
+    }
+
     struct [[eosio::table]] symbol_pair_t {
         uint64_t sym_pair_id; // auto-increment
         symbol asset_symbol;
         symbol coin_symbol;
+        asset min_asset_quant;
+        asset min_coin_quant;
+        bool enabled;
+
         uint128_t primary_key() const { return sym_pair_id; }
-        uint128_t get_symbols_idx() const { return uint128_t(asset_symbol.raw()) << 64 | coin_symbol.raw(); }
-        uint128_t revert_symbols_idx() const { return uint128_t(coin_symbol.raw()) << 64 | asset_symbol.raw(); }
+        uint128_t make_symbols_idx() const { return dex::make_symbols_idx(asset_symbol, coin_symbol); }
     };
 
     using symbols_idx = indexed_by<"symbolsidx"_n, const_mem_fun<symbol_pair_t, uint128_t,
-           &symbol_pair_t::get_symbols_idx>>;
+           &symbol_pair_t::make_symbols_idx>>;
 
     typedef eosio::multi_index<"sympair"_n, symbol_pair_t, symbols_idx> symbol_pair_table;
 
@@ -73,7 +84,9 @@ public:
     // todo: fee ratio
     [[eosio::action]] void init(const name &owner, const name &settler, const name &payee);
     // todo update_config
-    [[eosio::action]] void addsympair(const symbol &asset_symbol, const symbol &coin_symbol);
+    [[eosio::action]] void setsympair(const symbol &asset_symbol, const symbol &coin_symbol,
+                                      const asset &min_asset_quant, const asset &min_coin_quant,
+                                      bool enabled);
 
     [[eosio::on_notify("*::transfer")]] void ontransfer(name from, name to, asset quantity,
                                                         string memo);
@@ -85,7 +98,7 @@ public:
     [[eosio::action]] void cancel(const uint64_t &order_id);
 
     using init_action = action_wrapper<"init"_n, &dex::init>;
-    using addsympair_action = action_wrapper<"addsympair"_n, &dex::addsympair>;
+    using setsympair_action = action_wrapper<"setsympair"_n, &dex::setsympair>;
     using ontransfer_action = action_wrapper<"ontransfer"_n, &dex::ontransfer>;
     using settle_action     = action_wrapper<"settle"_n, &dex::settle>;
     using cancel_action     = action_wrapper<"cancel"_n, &dex::cancel>;

@@ -128,23 +128,31 @@ void dex::init(const name &owner, const name &settler, const name &payee) {
     });
 }
 
-
-void dex::addsympair(const symbol &asset_symbol, const symbol &coin_symbol) {
+void dex::setsympair(const symbol &asset_symbol, const symbol &coin_symbol,
+                     const asset &min_asset_quant, const asset &min_coin_quant, bool enabled) {
     require_auth( get_self() );
     auto sym_pair_tbl = make_symbol_pair_table(get_self());
     check(asset_symbol.is_valid(), "Invalid asset symbol");
     check(coin_symbol.is_valid(), "Invalid coin symbol");
-    symbol_pair_t sym_pair = {sym_pair_tbl.available_primary_key(), asset_symbol, coin_symbol};
+    check(asset_symbol == min_asset_quant.symbol, "Incorrect symbol of min_coin_quant");
+    check(coin_symbol == min_coin_quant.symbol, "Incorrect symbol of min_asset_quant");
+
+     auto sym_pair_id = sym_pair_tbl.available_primary_key();
 
     // auto index = sym_pair_tbl.get_index<symbols_idx::index_name>();
     auto index = sym_pair_tbl.get_index<"symbolsidx"_n>();
-    check( index.find( sym_pair.get_symbols_idx() ) == index.end(), "The symbol pair exist");
-    check( index.find( sym_pair.revert_symbols_idx() ) == index.end(), "The reverted symbol pair exist");
+    check( index.find( make_symbols_idx(asset_symbol, coin_symbol) ) == index.end(), "The symbol pair exist");
+    check( index.find( revert_symbols_idx(asset_symbol, coin_symbol) ) == index.end(), "The reverted symbol pair exist");
 
-    check( sym_pair_tbl.find(sym_pair.sym_pair_id) == sym_pair_tbl.end(), "The symbol pair id exist");
+    check( sym_pair_tbl.find(sym_pair_id) == sym_pair_tbl.end(), "The symbol pair id exist");
 
-    sym_pair_tbl.emplace(get_self(), [&](auto &s) {
-        s   = sym_pair;
+    sym_pair_tbl.emplace(get_self(), [&](auto &sym_pair) {
+        sym_pair.sym_pair_id = sym_pair_tbl.available_primary_key();
+        sym_pair.asset_symbol = asset_symbol;
+        sym_pair.coin_symbol = coin_symbol;
+        sym_pair.min_asset_quant = min_asset_quant;
+        sym_pair.min_coin_quant = min_coin_quant;
+        sym_pair.enabled = enabled;
     });
 }
 
@@ -171,11 +179,10 @@ void dex::ontransfer(name from, name to, asset quantity, string memo) {
         auto sym_pair_tbl = make_symbol_pair_table(get_self());
         check(order.asset_quant.symbol.is_valid(), "Invalid asset symbol");
         check(order.coin_quant.symbol.is_valid(), "Invalid coin symbol");
-        symbol_pair_t sym_pair = {0, order.asset_quant.symbol, order.coin_quant.symbol};
 
         // auto index = sym_pair_tbl.get_index<symbols_idx::index_name>();
         auto index = sym_pair_tbl.get_index<"symbolsidx"_n>();
-        auto it = index.find( sym_pair.get_symbols_idx() );
+        auto it = index.find( make_symbols_idx(order.asset_quant.symbol, order.coin_quant.symbol) );
         check( it != index.end(),
             "The symbol pair '" + symbol_pair_to_string(order.asset_quant.symbol, order.coin_quant.symbol) + "' does not exist");
 

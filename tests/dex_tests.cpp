@@ -228,10 +228,13 @@ public:
     }
 
 
-    action_result addsympair( const symbol &asset_symbol, const symbol &coin_symbol ) {
-        auto ret = push_action( N(dex), N(addsympair), mvo()
+    action_result setsympair( const symbol &asset_symbol, const symbol &coin_symbol, const asset &min_asset_quant, const asset &min_coin_quant, bool enabled ) {
+        auto ret = push_action( N(dex), N(setsympair), mvo()
             ( "asset_symbol", asset_symbol)
             ( "coin_symbol", coin_symbol)
+            ("min_asset_quant", min_asset_quant)
+            ("min_coin_quant", min_coin_quant)
+            ("enabled", enabled)
         );
         sym_pair_id().next();
         return ret;
@@ -278,7 +281,7 @@ BOOST_FIXTURE_TEST_CASE( dex_settle_test, dex_tester ) try {
     );
 
     // add symbol pair for trading
-    auto sym_pair_ret = addsympair(BTC_SYMBOL, USD_SYMBOL);
+    auto sym_pair_ret = setsympair(BTC_SYMBOL, USD_SYMBOL, ASSET("0.00001000 BTC"), ASSET("0.1000 USD"), true);
     BOOST_REQUIRE_EQUAL(sym_pair_ret, "");
     produce_blocks(1);
     auto sym_pair = get_symbol_pair(sym_pair_id().id);
@@ -286,6 +289,9 @@ BOOST_FIXTURE_TEST_CASE( dex_settle_test, dex_tester ) try {
         ("sym_pair_id", std::to_string(sym_pair_id().id))
         ("asset_symbol", BTC_SYMBOL.to_string())
         ("coin_symbol", USD_SYMBOL.to_string())
+        ("min_asset_quant", "0.00001000 BTC")
+        ("min_coin_quant", "0.1000 USD")
+        ("enabled", "1")
     );
 
     // buy order
