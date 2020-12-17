@@ -138,8 +138,7 @@ public:
     dex_tester(): eosio_token(*this) {
         produce_blocks( 2 );
 
-        create_accounts( { N(dex.owner), N(dex.settler), N(dex.payee),
-            N(ex1.owner), N(ex1.settler), N(ex1.payee),
+        create_accounts( { N(dex.admin), N(dex.settler), N(dex.payee),
             N(alice), N(bob), N(carol), N(dex) } );
         produce_blocks( 2 );
 
@@ -157,15 +156,14 @@ public:
         produce_blocks(1);
         EXECUTE_ACTION(eosio_token.issue( N(alice), asset::from_string("100000.0000 AAA"), "" ));
 
-        EXECUTE_ACTION(eosio_token.create(N(dex.owner), asset::from_string("100000.0000 USD")));
+        EXECUTE_ACTION(eosio_token.create(N(dex.admin), asset::from_string("100000.0000 USD")));
         produce_blocks(1);
-        EXECUTE_ACTION(eosio_token.issue( N(dex.owner), asset::from_string("100000.0000 USD"), "" ));
-        EXECUTE_ACTION(eosio_token.transfer( N(dex.owner), N(ex1.owner), asset::from_string("100.0000 USD"), "" ) );
-        EXECUTE_ACTION(eosio_token.transfer( N(dex.owner), N(alice), asset::from_string("10000.0000 USD"), "" ) );
+        EXECUTE_ACTION(eosio_token.issue( N(dex.admin), asset::from_string("100000.0000 USD"), "" ));
+        EXECUTE_ACTION(eosio_token.transfer( N(dex.admin), N(alice), asset::from_string("10000.0000 USD"), "" ) );
 
-        EXECUTE_ACTION(eosio_token.create(N(dex.owner), asset::from_string("10.00000000 BTC")));
-        EXECUTE_ACTION(eosio_token.issue( N(dex.owner), asset::from_string("10.00000000 BTC"), "" ));
-        EXECUTE_ACTION(eosio_token.transfer( N(dex.owner), N(bob), asset::from_string("1.00000000 BTC"), "" ) );
+        EXECUTE_ACTION(eosio_token.create(N(dex.admin), asset::from_string("10.00000000 BTC")));
+        EXECUTE_ACTION(eosio_token.issue( N(dex.admin), asset::from_string("10.00000000 BTC"), "" ));
+        EXECUTE_ACTION(eosio_token.transfer( N(dex.admin), N(bob), asset::from_string("1.00000000 BTC"), "" ) );
 
     }
 
@@ -198,9 +196,9 @@ public:
         return data.empty() ? fc::variant() : abi_ser.binary_to_variant( "order_t", data, abi_serializer_max_time );
     }
 
-    action_result dex_init( const name &owner, const name &settler, const name &payee ) {
+    action_result dex_init( const name &admin, const name &settler, const name &payee ) {
         return push_action( N(dex), N(init), mvo()
-            ( "owner", owner)
+            ( "admin", admin)
             ( "settler", settler)
             ( "payee", payee)
         );
@@ -229,12 +227,12 @@ public:
 
 
     action_result setsympair( const symbol &asset_symbol, const symbol &coin_symbol, const asset &min_asset_quant, const asset &min_coin_quant, bool enabled ) {
-        auto ret = push_action( N(dex), N(setsympair), mvo()
+        auto ret = push_action( N(dex.admin), N(setsympair), mvo()
             ( "asset_symbol", asset_symbol)
             ( "coin_symbol", coin_symbol)
-            ("min_asset_quant", min_asset_quant)
-            ("min_coin_quant", min_coin_quant)
-            ("enabled", enabled)
+            ( "min_asset_quant", min_asset_quant)
+            ( "min_coin_quant", min_coin_quant)
+            ( "enabled", enabled)
         );
         sym_pair_id().next();
         return ret;
@@ -268,12 +266,12 @@ BOOST_AUTO_TEST_SUITE(dex_tests)
 BOOST_FIXTURE_TEST_CASE( dex_settle_test, dex_tester ) try {
 
     // init contract config
-    auto new_dex = dex_init( N(dex.owner), N(dex.settler), N(dex.payee));
+    auto new_dex = dex_init( N(dex.admin), N(dex.settler), N(dex.payee));
     BOOST_REQUIRE_EQUAL(new_dex, "");
     produce_blocks(1);
     auto config = get_config();
     REQUIRE_MATCHING_OBJECT( config, mvo()
-        ("owner", "dex.owner")
+        ("admin", "dex.admin")
         ("settler", "dex.settler")
         ("payee", "dex.payee")
         ("maker_ratio", "4")

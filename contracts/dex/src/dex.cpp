@@ -114,15 +114,15 @@ inline string symbol_pair_to_string(const symbol &asset_symbol, const symbol &co
     return symbol_to_string(asset_symbol) + "/" + symbol_to_string(coin_symbol);
 }
 
-void dex::init(const name &owner, const name &settler, const name &payee) {
+void dex::init(const name &admin, const name &settler, const name &payee) {
     require_auth( get_self() );
     config_table config_tbl(get_self(), get_self().value);
     check(config_tbl.find(CONFIG_KEY.value) == config_tbl.end(), "this contract has been initialized");
-    check(is_account(owner), "the owner account does not exist");
-    check(is_account(settler), "the settler account does not exist");
-    check(is_account(payee), "the payee account does not exist");
+    check(is_account(admin), "The admin account does not exist");
+    check(is_account(settler), "The settler account does not exist");
+    check(is_account(payee), "The payee account does not exist");
     config_tbl.emplace(get_self(), [&](auto &config) {
-        config.owner   = owner;
+        config.admin   = admin;
         config.settler = settler;
         config.payee   = payee;
     });
@@ -130,7 +130,8 @@ void dex::init(const name &owner, const name &settler, const name &payee) {
 
 void dex::setsympair(const symbol &asset_symbol, const symbol &coin_symbol,
                      const asset &min_asset_quant, const asset &min_coin_quant, bool enabled) {
-    require_auth( get_self() );
+    auto config = get_config();
+    require_auth( config.admin );
     auto sym_pair_tbl = make_symbol_pair_table(get_self());
     check(asset_symbol.is_valid(), "Invalid asset symbol");
     check(coin_symbol.is_valid(), "Invalid coin symbol");
@@ -157,6 +158,7 @@ void dex::setsympair(const symbol &asset_symbol, const symbol &coin_symbol,
 }
 
 void dex::ontransfer(name from, name to, asset quantity, string memo) {
+    auto config = get_config();
     if (from == get_self()) {
         return; // transfer out from this contract
     }

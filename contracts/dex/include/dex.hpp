@@ -14,7 +14,7 @@ public:
     inline static const name CONFIG_KEY = "config"_n;
 
     struct [[eosio::table]] config_t {
-        name owner;   // owner of this contract
+        name admin;   // admin of this contract
         name settler; // settler
         name payee;   // payee of this contract
         int64_t maker_ratio = DEX_MAKER_FEE_RATIO;
@@ -82,7 +82,7 @@ public:
     dex(name receiver, name code, datastream<const char *> ds) : contract(receiver, code, ds) {}
 
     // todo: fee ratio
-    [[eosio::action]] void init(const name &owner, const name &settler, const name &payee);
+    [[eosio::action]] void init(const name &admin, const name &settler, const name &payee);
     // todo update_config
     [[eosio::action]] void setsympair(const symbol &asset_symbol, const symbol &coin_symbol,
                                       const asset &min_asset_quant, const asset &min_coin_quant,
