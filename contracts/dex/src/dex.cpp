@@ -55,7 +55,7 @@ void validate_fee_ratio(int64_t ratio, const string &title) {
 int64_t parse_ratio(string_view str) {
    safe<int64_t> ret;
    to_int(str, ret);
-   // TODO: check range of ratio
+   validate_fee_ratio(ret.value, "ratio");
    return ret.value;
 }
 
@@ -184,8 +184,8 @@ void dex::ontransfer(name from, name to, asset quantity, string memo) {
 
         // auto index = sym_pair_tbl.get_index<symbols_idx::index_name>();
         auto index = sym_pair_tbl.get_index<"symbolsidx"_n>();
-        auto it = index.find( make_symbols_idx(order.asset_quant.symbol, order.coin_quant.symbol) );
-        check( it != index.end(),
+        auto sym_pair_it = index.find( make_symbols_idx(order.asset_quant.symbol, order.coin_quant.symbol) );
+        check( sym_pair_it != index.end(),
             "The symbol pair '" + symbol_pair_to_string(order.asset_quant.symbol, order.coin_quant.symbol) + "' does not exist");
 
         // check amount
@@ -199,19 +199,26 @@ void dex::ontransfer(name from, name to, asset quantity, string memo) {
                 //     ", input=" + std::to_string(order.coin_quant.amount) +
                 //     ", calc_coin_amount=" + std::to_string(calc_coin_amount(order.asset_quant, order.price, order.coin_quant.symbol)));
                 // the deal limit amount is assets, save in order.asset_quant
+                check(order.asset_quant >= sym_pair_it->min_asset_quant,
+                      "The input asset_quant is too smaller than " +
+                          sym_pair_it->min_asset_quant.to_string());
                 check(order.coin_quant == calc_coin_quant(order.asset_quant, order.price, order.coin_quant.symbol),
                     "The input coin_quant must be equal to the calc_coin_quant for limit buy order");
             } else { //(order.order_type == order_type::MARKET_PRICE)
                 // the deal limit amount is coins, save in order.coin_quant
                 check(order.asset_quant.amount == 0, "The input asset amount must be 0 for market buy order");
+                check(order.coin_quant >= sym_pair_it->min_coin_quant,
+                      "The input coin_quant is smaller than " +
+                          sym_pair_it->min_coin_quant.to_string());
             }
-            // TODO: check coins amount range
         } else { // (order.order_side == order_side::SELL)
             // the frozen token is assets, save in order.asset_quant
             // the deal limit amount is assets, save in order.asset_quant
             check(order.coin_quant.amount == 0, "The input coin amount must be 0 for buy order");
             check(order.asset_quant == quantity, "The input asset_quant must be equal to the transfer quantity for buy order");
-            // TODO: check asset amount range
+            check(order.asset_quant >= sym_pair_it->min_asset_quant,
+                  "The input asset_quant is too smaller than " +
+                      sym_pair_it->min_asset_quant.to_string());
         }
 
         // TODO: need to add the total order coin/asset amount?
@@ -248,7 +255,6 @@ string get_taker_side(const dex::order_t &buy_order, const dex::order_t &sell_or
 int64_t calc_match_fee(const dex::order_t &order, const dex::config &_config, const string &taker_side, int64_t amount) {
 
     int64_t ratio = 0;
-    // TODO: order custom ratio of order params
     if (order.order_side == taker_side) {
         ratio = _config.taker_ratio;
     } else {
