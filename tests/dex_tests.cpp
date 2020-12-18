@@ -178,10 +178,10 @@ public:
         return base_tester::push_action( std::move(act), signer.to_uint64_t() );
     }
 
-    fc::variant get_config( )
+    fc::variant get_conf( )
     {
         auto data = get_row_by_account( N(dex), N(dex), N(config), N(config) );
-        return data.empty() ? fc::variant() : abi_ser.binary_to_variant( "config_t", data, abi_serializer_max_time );
+        return data.empty() ? fc::variant() : abi_ser.binary_to_variant( "config", data, abi_serializer_max_time );
     }
 
     fc::variant get_symbol_pair( uint64_t sym_pair_id)
@@ -196,12 +196,9 @@ public:
         return data.empty() ? fc::variant() : abi_ser.binary_to_variant( "order_t", data, abi_serializer_max_time );
     }
 
-    action_result dex_init( const name &admin, const name &settler, const name &payee, const name &bank ) {
-        return push_action( N(dex), N(init), mvo()
-            ( "admin", admin)
-            ( "settler", settler)
-            ( "payee", payee)
-            ( "bank", bank)
+    action_result setconfig( const variant_object &conf ) {
+        return push_action( N(dex), N(setconfig), mvo()
+            ( "conf", conf)
         );
     }
 
@@ -266,27 +263,27 @@ BOOST_AUTO_TEST_SUITE(dex_tests)
 
 BOOST_FIXTURE_TEST_CASE( dex_settle_test, dex_tester ) try {
 
-    // init contract config
-    EXECUTE_ACTION(dex_init( N(dex.admin), N(dex.settler), N(dex.payee), N(eosio.token)));
+    auto conf = mvo()
+        ("admin", N(dex.admin))
+        ("settler", N(dex.settler))
+        ("payee", N(dex.payee))
+        ("bank", N(eosio.token))
+        ("maker_ratio", int64_t(4))
+        ("taker_ratio", int64_t(8));
+
+    EXECUTE_ACTION(setconfig( conf ));
     produce_blocks(1);
-    auto config = get_config();
-    REQUIRE_MATCHING_OBJECT( config, mvo()
-        ("admin", "dex.admin")
-        ("settler", "dex.settler")
-        ("payee", "dex.payee")
-        ("bank", "eosio.token")
-        ("maker_ratio", "4")
-        ("taker_ratio", "8")
-    );
+    auto conf_store = get_conf();
+    REQUIRE_MATCHING_OBJECT(get_conf(), conf);
 
     // add symbol pair for trading
     EXECUTE_ACTION(setsympair(BTC_SYMBOL, USD_SYMBOL, ASSET("0.00001000 BTC"), ASSET("0.1000 USD"), true));
     produce_blocks(1);
     auto sym_pair = get_symbol_pair(sym_pair_id().id);
     REQUIRE_MATCHING_OBJECT( sym_pair, mvo()
-        ("sym_pair_id", std::to_string(sym_pair_id().id))
-        ("asset_symbol", BTC_SYMBOL.to_string())
-        ("coin_symbol", USD_SYMBOL.to_string())
+        ("sym_pair_id", sym_pair_id().id)
+        ("asset_symbol", BTC_SYMBOL)
+        ("coin_symbol", USD_SYMBOL)
         ("min_asset_quant", "0.00001000 BTC")
         ("min_coin_quant", "0.1000 USD")
         ("enabled", "1")
@@ -298,7 +295,7 @@ BOOST_FIXTURE_TEST_CASE( dex_settle_test, dex_tester ) try {
     EXECUTE_ACTION(eosio_token.transfer(N(alice), N(dex), ASSET("100.0000 USD"), buy_memo));
     auto buy_order = get_order(0);
     REQUIRE_MATCHING_OBJECT( buy_order, mvo()
-        ("order_id", "0")
+        ("order_id", 0)
         ("owner", "alice")
         ("order_type", "limit_price")
         ("order_side", "buy")
@@ -316,7 +313,7 @@ BOOST_FIXTURE_TEST_CASE( dex_settle_test, dex_tester ) try {
     EXECUTE_ACTION(eosio_token.transfer(N(bob), N(dex), ASSET("0.01000000 BTC"), sell_memo));
     auto sell_order = get_order(1);
     REQUIRE_MATCHING_OBJECT( sell_order, mvo()
-        ("order_id", "1")
+        ("order_id", 1)
         ("owner", "bob")
         ("order_type", "limit_price")
         ("order_side", "sell")

@@ -2,6 +2,7 @@
 
 #include <eosio/eosio.hpp>
 #include <eosio/asset.hpp>
+#include <eosio/singleton.hpp>
 #include "dex_const.hpp"
 
 using namespace std;
@@ -9,25 +10,18 @@ using namespace eosio;
 
 class [[eosio::contract]] dex : public contract {
 public:
-        using contract::contract;
+    using contract::contract;
 
-    inline static const name CONFIG_KEY = "config"_n;
-
-    struct [[eosio::table]] config_t {
+    struct [[eosio::table]] config {
         name admin;   // admin of this contract
         name settler; // settler
         name payee;   // payee of this contract
         name bank;    // bank
-        int64_t maker_ratio = DEX_MAKER_FEE_RATIO;
-        int64_t taker_ratio = DEX_TAKER_FEE_RATIO;
-        uint64_t primary_key() const { return CONFIG_KEY.value; }
+        int64_t maker_ratio;
+        int64_t taker_ratio;
     };
 
-    typedef eosio::multi_index<"config"_n, config_t> config_table;
-
-    inline static config_table make_config_table(name self) {
-        return config_table(self, self.value/*scope*/);
-    }
+    typedef eosio::singleton< "config"_n, config > config_table;
 
     static inline uint128_t make_symbols_idx(const symbol &asset_symbol, const symbol &coin_symbol) {
         return uint128_t(asset_symbol.raw()) << 64 | uint128_t(coin_symbol.raw());
@@ -80,10 +74,12 @@ public:
     }
 
 public:
-    dex(name receiver, name code, datastream<const char *> ds) : contract(receiver, code, ds) {}
+    dex(name receiver, name code, datastream<const char *> ds) : contract(receiver, code, ds), _conf_tbl(get_self(), get_self().value) {
+        _config = _conf_tbl.exists() ? _conf_tbl.get() : get_default_config();
+    }
 
     // todo: fee ratio
-    [[eosio::action]] void init(const name &admin, const name &settler, const name &payee, const name &bank);
+    [[eosio::action]] void setconfig(const config &conf);
     // todo update_config
     [[eosio::action]] void setsympair(const symbol &asset_symbol, const symbol &coin_symbol,
                                       const asset &min_asset_quant, const asset &min_coin_quant,
@@ -98,11 +94,13 @@ public:
 
     [[eosio::action]] void cancel(const uint64_t &order_id);
 
-    using init_action = action_wrapper<"init"_n, &dex::init>;
+    using setconfig_action = action_wrapper<"setconfig"_n, &dex::setconfig>;
     using setsympair_action = action_wrapper<"setsympair"_n, &dex::setsympair>;
     using ontransfer_action = action_wrapper<"ontransfer"_n, &dex::ontransfer>;
     using settle_action     = action_wrapper<"settle"_n, &dex::settle>;
     using cancel_action     = action_wrapper<"cancel"_n, &dex::cancel>;
 private:
-    config_t get_config();
+    config get_default_config();
+    config_table _conf_tbl;
+    config _config;
 };

@@ -47,6 +47,11 @@ int64_t parse_price(string_view str) {
    return ret.value;
 }
 
+void validate_fee_ratio(int64_t ratio, const string &title) {
+    check(ratio >= 0 && ratio <= FEE_RATIO_MAX,
+          "The " + title + " out of range [0, " + std::to_string(FEE_RATIO_MAX) + "]");
+}
+
 int64_t parse_ratio(string_view str) {
    safe<int64_t> ret;
    to_int(str, ret);
@@ -114,26 +119,21 @@ inline string symbol_pair_to_string(const symbol &asset_symbol, const symbol &co
     return symbol_to_string(asset_symbol) + "/" + symbol_to_string(coin_symbol);
 }
 
-void dex::init(const name &admin, const name &settler, const name &payee, const name &bank) {
+void dex::setconfig(const dex::config &conf) {
     require_auth( get_self() );
-    config_table config_tbl(get_self(), get_self().value);
-    check(config_tbl.find(CONFIG_KEY.value) == config_tbl.end(), "this contract has been initialized");
-    check(is_account(admin), "The admin account does not exist");
-    check(is_account(settler), "The settler account does not exist");
-    check(is_account(payee), "The payee account does not exist");
-    check(is_account(bank), "The bank account does not exist");
-    config_tbl.emplace(get_self(), [&](auto &config) {
-        config.admin   = admin;
-        config.settler = settler;
-        config.payee   = payee;
-        config.bank    = bank;
-    });
+    check(is_account(conf.admin), "The admin account does not exist");
+    check(is_account(conf.settler), "The settler account does not exist");
+    check(is_account(conf.payee), "The payee account does not exist");
+    check(is_account(conf.bank), "The bank account does not exist");
+    validate_fee_ratio(conf.maker_ratio, "maker_ratio");
+    validate_fee_ratio(conf.taker_ratio, "taker_ratio");
+
+    _conf_tbl.set(conf, get_self());
 }
 
 void dex::setsympair(const symbol &asset_symbol, const symbol &coin_symbol,
                      const asset &min_asset_quant, const asset &min_coin_quant, bool enabled) {
-    auto config = get_config();
-    require_auth( config.admin );
+    require_auth( _config.admin );
     auto sym_pair_tbl = make_symbol_pair_table(get_self());
     check(asset_symbol.is_valid(), "Invalid asset symbol");
     check(coin_symbol.is_valid(), "Invalid coin symbol");
@@ -160,14 +160,13 @@ void dex::setsympair(const symbol &asset_symbol, const symbol &coin_symbol,
 }
 
 void dex::ontransfer(name from, name to, asset quantity, string memo) {
-    auto config = get_config();
     if (from == get_self()) {
         return; // transfer out from this contract
     }
     check(to == get_self(), "Must transfer to this contract");
     check(quantity.amount > 0, "The quantity must be positive");
     auto bank = get_first_receiver();
-    check(bank == config.bank, "The bank must be " + config.bank.to_string());
+    check(bank == _config.bank, "The bank must be " + _config.bank.to_string());
 
     vector<string_view> params = split(memo, ":");
     if (params.size() == 7 && params[0] == "order") {
@@ -246,14 +245,14 @@ string get_taker_side(const dex::order_t &buy_order, const dex::order_t &sell_or
     return taker_side;
 }
 
-int64_t calc_match_fee(const dex::order_t &order, const dex::config_t &config, const string &taker_side, int64_t amount) {
+int64_t calc_match_fee(const dex::order_t &order, const dex::config &_config, const string &taker_side, int64_t amount) {
 
     int64_t ratio = 0;
     // TODO: order custom ratio of order params
     if (order.order_side == taker_side) {
-        ratio = config.taker_ratio;
+        ratio = _config.taker_ratio;
     } else {
-        ratio = config.maker_ratio;
+        ratio = _config.maker_ratio;
     }
 
     int64_t fee = multiply_decimal64(amount, ratio, RATIO_PRECISION);
@@ -277,9 +276,7 @@ void transfer_out(const name &contract, const name &bank, const name &to, const 
 void dex::settle(const uint64_t &buy_id, const uint64_t &sell_id, const asset &asset_quant,
                  const asset &coin_quant, const int64_t &price, const string &memo) {
 
-    auto config = get_config();
-
-    require_auth( config.settler );
+    require_auth( _config.settler );
 
     //1. get and check buy_order and sell_order
     order_table order_tbl(get_self(), get_self().value);
@@ -356,26 +353,26 @@ void dex::settle(const uint64_t &buy_id, const uint64_t &sell_id, const asset &a
 
     // 7. calc match fees
     // 7.1 calc match asset fee payed by buyer
-    int64_t asset_match_fee = calc_match_fee(buy_order, config, taker_side, buyer_recv_assets);
+    int64_t asset_match_fee = calc_match_fee(buy_order, _config, taker_side, buyer_recv_assets);
     if (asset_match_fee > 0) {
         buyer_recv_assets = sub_fee(buyer_recv_assets, asset_match_fee, "buyer_recv_assets");
         // pay the asset_match_fee to payee
-        transfer_out(get_self(), config.bank, config.payee, asset(asset_match_fee, asset_quant.symbol), "asset_match_fee");
+        transfer_out(get_self(), _config.bank, _config.payee, asset(asset_match_fee, asset_quant.symbol), "asset_match_fee");
     }
 
     // 7.2. calc match coin fee payed by seller for exhange
-    int64_t coin_match_fee = calc_match_fee(sell_order, config, taker_side, seller_recv_coins);
+    int64_t coin_match_fee = calc_match_fee(sell_order, _config, taker_side, seller_recv_coins);
     if (coin_match_fee) {
         seller_recv_coins = sub_fee(seller_recv_coins, coin_match_fee, "seller_recv_coins");
         // pay the coin_match_fee to payee
-        transfer_out(get_self(), config.bank, config.payee, asset(coin_match_fee, coin_quant.symbol), "coin_match_fee");
+        transfer_out(get_self(), _config.bank, _config.payee, asset(coin_match_fee, coin_quant.symbol), "coin_match_fee");
     }
 
     // 8. transfer the coins and assets to seller and buyer
     // 8.1. transfer the coins to seller
-    transfer_out(get_self(), config.bank, sell_order.owner, asset(seller_recv_coins, coin_quant.symbol), "seller_recv_coins");
+    transfer_out(get_self(), _config.bank, sell_order.owner, asset(seller_recv_coins, coin_quant.symbol), "seller_recv_coins");
     // 8.2. transfer the assets to buyer
-    transfer_out(get_self(), config.bank, buy_order.owner, asset(buyer_recv_assets, asset_quant.symbol), "buyer_recv_assets");
+    transfer_out(get_self(), _config.bank, buy_order.owner, asset(buyer_recv_assets, asset_quant.symbol), "buyer_recv_assets");
 
     // 9. check order fullfiled to del or update
     // 9.1 check buy order fullfiled to del or update
@@ -386,7 +383,7 @@ void dex::settle(const uint64_t &buy_id, const uint64_t &sell_id, const asset &a
         if (buy_order_finish) {
             if (buy_order.coin_quant.amount > buyer_deal_coin_amount) {
                 int64_t refund_coins = buy_order.coin_quant.amount - buyer_deal_coin_amount;
-                transfer_out(get_self(), config.bank, buy_order.owner, asset(refund_coins, coin_quant.symbol), "refund_coins");
+                transfer_out(get_self(), _config.bank, buy_order.owner, asset(refund_coins, coin_quant.symbol), "refund_coins");
             }
         }
     } else { // buy_order.order_type == order_type::MARKET_PRICE
@@ -411,7 +408,6 @@ void dex::settle(const uint64_t &buy_id, const uint64_t &sell_id, const asset &a
 }
 
 void dex::cancel(const uint64_t &order_id) {
-    auto config = get_config();
     auto order_tbl = make_order_table(get_self());
     auto it = order_tbl.find(order_id);
     check(it != order_tbl.end(), "The order does not exist");
@@ -428,17 +424,21 @@ void dex::cancel(const uint64_t &order_id) {
         check(order.asset_quant.amount > order.deal_asset_amount, "Invalid order asset amount");
         quantity = asset(order.asset_quant.amount - order.deal_asset_amount, order.asset_quant.symbol);
     }
-    transfer_out(get_self(), config.bank, order.owner, quantity, "cancel_order");
+    transfer_out(get_self(), _config.bank, order.owner, quantity, "cancel_order");
 
     order_tbl.modify(it, order.owner, [&]( auto& a ) {
         a = order;
     });
 }
 
-dex::config_t dex::get_config() {
-    auto self = get_self();
-    config_table config_tbl(self, self.value);
-    auto it = config_tbl.find(CONFIG_KEY.value);
-    check(it != config_tbl.end(), "This contract must initialize first!");
-    return *it;
+dex::config dex::get_default_config() {
+    check(is_account(BANK), "The default bank account does not exist");
+    return {
+        get_self(),             // name admin;
+        get_self(),             // name settler;
+        get_self(),             // name payee;
+        BANK,                   // name bank;
+        DEX_MAKER_FEE_RATIO,    // int64_t maker_ratio;
+        DEX_TAKER_FEE_RATIO     // int64_t taker_ratio;
+    };
 }
