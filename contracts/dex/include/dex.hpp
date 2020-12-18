@@ -63,6 +63,7 @@ public:
 
         int64_t deal_asset_amount = 0;      //!< total deal asset amount
         int64_t deal_coin_amount  = 0;      //!< total deal coin amount
+        // TODO: should del the order when finish??
         bool is_finish            = false;  //!< order is finish
         uint64_t primary_key() const { return order_id; }
     };
@@ -78,16 +79,15 @@ public:
         _config = _conf_tbl.exists() ? _conf_tbl.get() : get_default_config();
     }
 
-    // todo: fee ratio
     [[eosio::action]] void setconfig(const config &conf);
-    // todo update_config
+
     [[eosio::action]] void setsympair(const symbol &asset_symbol, const symbol &coin_symbol,
                                       const asset &min_asset_quant, const asset &min_coin_quant,
                                       bool enabled);
 
     [[eosio::on_notify("*::transfer")]] void ontransfer(name from, name to, asset quantity,
                                                         string memo);
-
+    // todo: should use checksum to indicate the order
     [[eosio::action]] void settle(const uint64_t &buy_id, const uint64_t &sell_id,
                                   const asset &asset_quant, const asset &coin_quant,
                                   const int64_t &price, const string &memo);
