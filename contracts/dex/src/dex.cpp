@@ -169,8 +169,8 @@ void dex::ontransfer(name from, name to, asset quantity, string memo) {
     check(bank == _config.bank, "The bank must be " + _config.bank.to_string());
 
     vector<string_view> params = split(memo, ":");
-    if (params.size() == 7 && params[0] == "order") {
-      // order:<type>:<side>:<asset_quant>:<coin_quant>:<price>:<ex_id>
+    if (params.size() == 6 && params[0] == "order") {
+      // order:<type>:<side>:<asset_quant>:<coin_quant>:<price>
         order_t order;
         order.order_type = parse_order_type(params[1]);
         order.order_side = parse_order_side(params[2]);

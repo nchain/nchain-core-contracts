@@ -152,10 +152,6 @@ public:
         BOOST_REQUIRE_EQUAL(abi_serializer::to_abi(accnt.abi, abi), true);
         abi_ser.set_abi(abi, abi_serializer_max_time);
 
-        EXECUTE_ACTION(eosio_token.create(N(alice), asset::from_string("100000.0000 AAA")));
-        produce_blocks(1);
-        EXECUTE_ACTION(eosio_token.issue( N(alice), asset::from_string("100000.0000 AAA"), "" ));
-
         EXECUTE_ACTION(eosio_token.create(N(dex.admin), asset::from_string("100000.0000 USD")));
         produce_blocks(1);
         EXECUTE_ACTION(eosio_token.issue( N(dex.admin), asset::from_string("100000.0000 USD"), "" ));
@@ -291,7 +287,7 @@ BOOST_FIXTURE_TEST_CASE( dex_settle_test, dex_tester ) try {
 
     // buy order
     //order  order:<type>:<side>:<asset_quant>:<coin_quant>:<price>:<ex_id>
-    string buy_memo = "order:limit_price:buy:0.01000000 BTC:100.0000 USD:1000000000000:ex1";
+    string buy_memo = "order:limit_price:buy:0.01000000 BTC:100.0000 USD:1000000000000";
     EXECUTE_ACTION(eosio_token.transfer(N(alice), N(dex), ASSET("100.0000 USD"), buy_memo));
     auto buy_order = get_order(0);
     REQUIRE_MATCHING_OBJECT( buy_order, mvo()
@@ -309,7 +305,7 @@ BOOST_FIXTURE_TEST_CASE( dex_settle_test, dex_tester ) try {
 
     // sell order
     //order  order:<type>:<side>:<asset_quant>:<coin_quant>:<price>:<ex_id>
-    string sell_memo = "order:limit_price:sell:0.01000000 BTC:0.0000 USD:1000000000000:ex1";
+    string sell_memo = "order:limit_price:sell:0.01000000 BTC:0.0000 USD:1000000000000";
     EXECUTE_ACTION(eosio_token.transfer(N(bob), N(dex), ASSET("0.01000000 BTC"), sell_memo));
     auto sell_order = get_order(1);
     REQUIRE_MATCHING_OBJECT( sell_order, mvo()
