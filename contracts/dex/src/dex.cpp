@@ -114,17 +114,19 @@ inline string symbol_pair_to_string(const symbol &asset_symbol, const symbol &co
     return symbol_to_string(asset_symbol) + "/" + symbol_to_string(coin_symbol);
 }
 
-void dex::init(const name &admin, const name &settler, const name &payee) {
+void dex::init(const name &admin, const name &settler, const name &payee, const name &bank) {
     require_auth( get_self() );
     config_table config_tbl(get_self(), get_self().value);
     check(config_tbl.find(CONFIG_KEY.value) == config_tbl.end(), "this contract has been initialized");
     check(is_account(admin), "The admin account does not exist");
     check(is_account(settler), "The settler account does not exist");
     check(is_account(payee), "The payee account does not exist");
+    check(is_account(bank), "The bank account does not exist");
     config_tbl.emplace(get_self(), [&](auto &config) {
         config.admin   = admin;
         config.settler = settler;
         config.payee   = payee;
+        config.bank    = bank;
     });
 }
 
@@ -163,10 +165,9 @@ void dex::ontransfer(name from, name to, asset quantity, string memo) {
         return; // transfer out from this contract
     }
     check(to == get_self(), "Must transfer to this contract");
-    check(quantity.amount >= 0, "quantity must be positive");
+    check(quantity.amount > 0, "The quantity must be positive");
     auto bank = get_first_receiver();
-    // TODO: check bank
-    check(bank == BANK, "the bank must be " + BANK.to_string());
+    check(bank == config.bank, "The bank must be " + config.bank.to_string());
 
     vector<string_view> params = split(memo, ":");
     if (params.size() == 7 && params[0] == "order") {
@@ -359,7 +360,7 @@ void dex::settle(const uint64_t &buy_id, const uint64_t &sell_id, const asset &a
     if (asset_match_fee > 0) {
         buyer_recv_assets = sub_fee(buyer_recv_assets, asset_match_fee, "buyer_recv_assets");
         // pay the asset_match_fee to payee
-        transfer_out(get_self(), BANK, config.payee, asset(asset_match_fee, asset_quant.symbol), "asset_match_fee");
+        transfer_out(get_self(), config.bank, config.payee, asset(asset_match_fee, asset_quant.symbol), "asset_match_fee");
     }
 
     // 7.2. calc match coin fee payed by seller for exhange
@@ -367,14 +368,14 @@ void dex::settle(const uint64_t &buy_id, const uint64_t &sell_id, const asset &a
     if (coin_match_fee) {
         seller_recv_coins = sub_fee(seller_recv_coins, coin_match_fee, "seller_recv_coins");
         // pay the coin_match_fee to payee
-        transfer_out(get_self(), BANK, config.payee, asset(coin_match_fee, coin_quant.symbol), "coin_match_fee");
+        transfer_out(get_self(), config.bank, config.payee, asset(coin_match_fee, coin_quant.symbol), "coin_match_fee");
     }
 
     // 8. transfer the coins and assets to seller and buyer
     // 8.1. transfer the coins to seller
-    transfer_out(get_self(), BANK, sell_order.owner, asset(seller_recv_coins, coin_quant.symbol), "seller_recv_coins");
+    transfer_out(get_self(), config.bank, sell_order.owner, asset(seller_recv_coins, coin_quant.symbol), "seller_recv_coins");
     // 8.2. transfer the assets to buyer
-    transfer_out(get_self(), BANK, buy_order.owner, asset(buyer_recv_assets, asset_quant.symbol), "buyer_recv_assets");
+    transfer_out(get_self(), config.bank, buy_order.owner, asset(buyer_recv_assets, asset_quant.symbol), "buyer_recv_assets");
 
     // 9. check order fullfiled to del or update
     // 9.1 check buy order fullfiled to del or update
@@ -385,7 +386,7 @@ void dex::settle(const uint64_t &buy_id, const uint64_t &sell_id, const asset &a
         if (buy_order_finish) {
             if (buy_order.coin_quant.amount > buyer_deal_coin_amount) {
                 int64_t refund_coins = buy_order.coin_quant.amount - buyer_deal_coin_amount;
-                transfer_out(get_self(), BANK, buy_order.owner, asset(refund_coins, coin_quant.symbol), "refund_coins");
+                transfer_out(get_self(), config.bank, buy_order.owner, asset(refund_coins, coin_quant.symbol), "refund_coins");
             }
         }
     } else { // buy_order.order_type == order_type::MARKET_PRICE
@@ -427,7 +428,7 @@ void dex::cancel(const uint64_t &order_id) {
         check(order.asset_quant.amount > order.deal_asset_amount, "Invalid order asset amount");
         quantity = asset(order.asset_quant.amount - order.deal_asset_amount, order.asset_quant.symbol);
     }
-    transfer_out(get_self(), BANK, order.owner, quantity, "cancel_order");
+    transfer_out(get_self(), config.bank, order.owner, quantity, "cancel_order");
 
     order_tbl.modify(it, order.owner, [&]( auto& a ) {
         a = order;

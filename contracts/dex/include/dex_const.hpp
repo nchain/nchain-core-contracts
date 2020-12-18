@@ -11,5 +11,3 @@ constexpr int64_t DEX_TAKER_FEE_RATIO       = 8;         // 0.0004%, dex taker f
 
 constexpr int64_t MEMO_LEN_MAX              = 255;        // 0.001%, max memo length
 constexpr int64_t URL_LEN_MAX               = 255;        // 0.001%, max url length
-
-constexpr eosio::name BANK                  = "eosio.token"_n;

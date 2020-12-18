@@ -17,6 +17,7 @@ public:
         name admin;   // admin of this contract
         name settler; // settler
         name payee;   // payee of this contract
+        name bank;    // bank
         int64_t maker_ratio = DEX_MAKER_FEE_RATIO;
         int64_t taker_ratio = DEX_TAKER_FEE_RATIO;
         uint64_t primary_key() const { return CONFIG_KEY.value; }
@@ -82,7 +83,7 @@ public:
     dex(name receiver, name code, datastream<const char *> ds) : contract(receiver, code, ds) {}
 
     // todo: fee ratio
-    [[eosio::action]] void init(const name &admin, const name &settler, const name &payee);
+    [[eosio::action]] void init(const name &admin, const name &settler, const name &payee, const name &bank);
     // todo update_config
     [[eosio::action]] void setsympair(const symbol &asset_symbol, const symbol &coin_symbol,
                                       const asset &min_asset_quant, const asset &min_coin_quant,

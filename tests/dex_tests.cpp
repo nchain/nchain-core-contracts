@@ -196,11 +196,12 @@ public:
         return data.empty() ? fc::variant() : abi_ser.binary_to_variant( "order_t", data, abi_serializer_max_time );
     }
 
-    action_result dex_init( const name &admin, const name &settler, const name &payee ) {
+    action_result dex_init( const name &admin, const name &settler, const name &payee, const name &bank ) {
         return push_action( N(dex), N(init), mvo()
             ( "admin", admin)
             ( "settler", settler)
             ( "payee", payee)
+            ( "bank", bank)
         );
     }
 
@@ -266,21 +267,20 @@ BOOST_AUTO_TEST_SUITE(dex_tests)
 BOOST_FIXTURE_TEST_CASE( dex_settle_test, dex_tester ) try {
 
     // init contract config
-    auto new_dex = dex_init( N(dex.admin), N(dex.settler), N(dex.payee));
-    BOOST_REQUIRE_EQUAL(new_dex, "");
+    EXECUTE_ACTION(dex_init( N(dex.admin), N(dex.settler), N(dex.payee), N(eosio.token)));
     produce_blocks(1);
     auto config = get_config();
     REQUIRE_MATCHING_OBJECT( config, mvo()
         ("admin", "dex.admin")
         ("settler", "dex.settler")
         ("payee", "dex.payee")
+        ("bank", "eosio.token")
         ("maker_ratio", "4")
         ("taker_ratio", "8")
     );
 
     // add symbol pair for trading
-    auto sym_pair_ret = setsympair(BTC_SYMBOL, USD_SYMBOL, ASSET("0.00001000 BTC"), ASSET("0.1000 USD"), true);
-    BOOST_REQUIRE_EQUAL(sym_pair_ret, "");
+    EXECUTE_ACTION(setsympair(BTC_SYMBOL, USD_SYMBOL, ASSET("0.00001000 BTC"), ASSET("0.1000 USD"), true));
     produce_blocks(1);
     auto sym_pair = get_symbol_pair(sym_pair_id().id);
     REQUIRE_MATCHING_OBJECT( sym_pair, mvo()
