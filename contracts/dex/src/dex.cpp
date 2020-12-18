@@ -137,6 +137,7 @@ void dex::setsympair(const symbol &asset_symbol, const symbol &coin_symbol,
     auto sym_pair_tbl = make_symbol_pair_table(get_self());
     check(asset_symbol.is_valid(), "Invalid asset symbol");
     check(coin_symbol.is_valid(), "Invalid coin symbol");
+    check(asset_symbol.code() != coin_symbol.code(), "Error: asset_symbol.code() == coin_symbol.code()");
     check(asset_symbol == min_asset_quant.symbol, "Incorrect symbol of min_coin_quant");
     check(coin_symbol == min_coin_quant.symbol, "Incorrect symbol of min_asset_quant");
 
@@ -224,6 +225,7 @@ void dex::ontransfer(name from, name to, asset quantity, string memo) {
         // TODO: need to add the total order coin/asset amount?
 
         order_table order_tbl(get_self(), get_self().value);
+        // TODO: implement auto inc id by global table
         order.order_id = order_tbl.available_primary_key();
         order.owner = from;
 
