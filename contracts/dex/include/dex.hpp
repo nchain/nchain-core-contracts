@@ -51,11 +51,14 @@ public:
 
     typedef eosio::multi_index<"sympair"_n, symbol_pair_t, symbols_idx> symbol_pair_table;
 
-    inline static symbol_pair_table make_symbol_pair_table(name self) {
+    inline static symbol_pair_table make_symbol_pair_table(const name &self) {
         return symbol_pair_table(self, self.value/*scope*/);
     }
 
+    using order_match_idx_type = fixed_bytes<32>;
+
     struct [[eosio::table]] order_t {
+        uint64_t sym_pair_id; // id of symbol_pair_table
         uint64_t order_id; // auto-increment
         name owner;
         order_type_t order_type;
@@ -69,11 +72,17 @@ public:
         // TODO: should del the order when finish??
         bool is_finish            = false;  //!< order is finish
         uint64_t primary_key() const { return order_id; }
+        order_match_idx_type get_order_match_idx() const {
+            return order_match_idx_type::make_from_word_sequence<uint64_t>(sym_pair_id, order_side.value, (uint64_t)price, order_id);
+        }
     };
 
-    typedef eosio::multi_index<"order"_n, order_t> order_table;
+    using order_match_idx = indexed_by<"ordermatch"_n, const_mem_fun<order_t, order_match_idx_type,
+           &order_t::get_order_match_idx>>;
 
-    inline static order_table make_order_table(name self) {
+    typedef eosio::multi_index<"order"_n, order_t, order_match_idx> order_table;
+
+    inline static order_table make_order_table(const name &self) {
         return order_table(self, self.value/*scope*/);
     }
 

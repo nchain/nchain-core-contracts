@@ -291,6 +291,7 @@ BOOST_FIXTURE_TEST_CASE( dex_settle_test, dex_tester ) try {
     EXECUTE_ACTION(eosio_token.transfer(N(alice), N(dex), ASSET("100.0000 USD"), buy_memo));
     auto buy_order = get_order(0);
     REQUIRE_MATCHING_OBJECT( buy_order, mvo()
+        ("sym_pair_id", sym_pair_id().id)
         ("order_id", 0)
         ("owner", "alice")
         ("order_type", "limit")
@@ -309,6 +310,7 @@ BOOST_FIXTURE_TEST_CASE( dex_settle_test, dex_tester ) try {
     EXECUTE_ACTION(eosio_token.transfer(N(bob), N(dex), ASSET("0.01000000 BTC"), sell_memo));
     auto sell_order = get_order(1);
     REQUIRE_MATCHING_OBJECT( sell_order, mvo()
+        ("sym_pair_id", sym_pair_id().id)
         ("order_id", 1)
         ("owner", "bob")
         ("order_type", "limit")
@@ -325,6 +327,7 @@ BOOST_FIXTURE_TEST_CASE( dex_settle_test, dex_tester ) try {
     EXECUTE_ACTION(settle(0, 1, ASSET("0.01000000 BTC"), ASSET("100.0000 USD"), 1000000000000, ""));
     auto deal_buy_order = get_order(0);
     REQUIRE_MATCHING_OBJECT( deal_buy_order, mvo()
+        ("sym_pair_id", sym_pair_id().id)
         ("order_id", "0")
         ("owner", "alice")
         ("order_type", "limit")
@@ -338,6 +341,7 @@ BOOST_FIXTURE_TEST_CASE( dex_settle_test, dex_tester ) try {
     );
     auto deal_sell_order = get_order(1);
     REQUIRE_MATCHING_OBJECT( deal_sell_order, mvo()
+        ("sym_pair_id", sym_pair_id().id)
         ("order_id", "1")
         ("owner", "bob")
         ("order_type", "limit")

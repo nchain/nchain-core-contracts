@@ -174,7 +174,7 @@ void dex::ontransfer(name from, name to, asset quantity, string memo) {
         auto sym_pair_it = index.find( make_symbols_idx(order.asset_quant.symbol, order.coin_quant.symbol) );
         check( sym_pair_it != index.end(),
             "The symbol pair '" + symbol_pair_to_string(order.asset_quant.symbol, order.coin_quant.symbol) + "' does not exist");
-
+        order.sym_pair_id = sym_pair_it->sym_pair_id;
         // check amount
 
         if (order.order_side == order_side::BUY) {
@@ -210,7 +210,7 @@ void dex::ontransfer(name from, name to, asset quantity, string memo) {
 
         // TODO: need to add the total order coin/asset amount?
 
-        order_table order_tbl(get_self(), get_self().value);
+        auto order_tbl = make_order_table(get_self());
         // TODO: implement auto inc id by global table
         order.order_id = order_tbl.available_primary_key();
         order.owner = from;
@@ -273,7 +273,7 @@ void dex::settle(const uint64_t &buy_id, const uint64_t &sell_id, const asset &a
     require_auth( _config.settler );
 
     //1. get and check buy_order and sell_order
-    order_table order_tbl(get_self(), get_self().value);
+    auto order_tbl = make_order_table(get_self());
     const auto &buy_order = order_tbl.get(buy_id, "unable to find buy order");
     const auto &sell_order = order_tbl.get(sell_id, "unable to find sell order");
     check(!buy_order.is_finish, "the buy order is finish");
