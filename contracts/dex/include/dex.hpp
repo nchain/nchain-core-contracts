@@ -8,6 +8,9 @@
 using namespace std;
 using namespace eosio;
 
+typedef name order_type_t;
+typedef name order_side_t;
+
 class [[eosio::contract]] dex : public contract {
 public:
     using contract::contract;
@@ -55,8 +58,8 @@ public:
     struct [[eosio::table]] order_t {
         uint64_t order_id; // auto-increment
         name owner;
-        string order_type;
-        string order_side;
+        order_type_t order_type;
+        order_side_t order_side;
         asset asset_quant;
         asset coin_quant;
         int64_t price;

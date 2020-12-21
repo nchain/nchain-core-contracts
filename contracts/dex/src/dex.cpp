@@ -8,23 +8,23 @@ using namespace std;
 
 
 namespace order_type {
-   static const string_view LIMIT = "limit";
-   static const string_view MARKET = "market_price";
-   static const set<string_view> MODES = {
+   static const name LIMIT = "limit"_n;
+   static const name MARKET = "market"_n;
+   static const set<name> MODES = {
       LIMIT, MARKET
    };
-   inline bool is_valid(const string_view &mode) {
+   inline bool is_valid(const name &mode) {
       return MODES.count(mode);
    }
 }
 
 namespace order_side {
-   static const string_view BUY = "buy";
-   static const string_view SELL = "sell";
-   static const set<string_view> MODES = {
+   static const name BUY = "buy"_n;
+   static const name SELL = "sell"_n;
+   static const set<name> MODES = {
       BUY, SELL
    };
-   inline bool is_valid(const string_view &mode) {
+   inline bool is_valid(const name &mode) {
       return MODES.count(mode);
    }
 }
@@ -48,14 +48,16 @@ int64_t parse_ratio(string_view str) {
    return ret.value;
 }
 
-string parse_order_type(string_view str) {
-    check(order_type::is_valid(str), "invalid order_type=" + string{str});
-    return string{str};
+name parse_order_type(string_view str) {
+    name ret(str);
+    check(order_type::is_valid(ret), "invalid order_type=" + string{str});
+    return ret;
 }
 
-string parse_order_side(string_view str) {
-    check(order_side::is_valid(str), "invalid order_side=" + string{str});
-    return string{str};
+name parse_order_side(string_view str) {
+    name ret(str);
+    check(order_side::is_valid(ret), "invalid order_side=" + string{str});
+    return ret;
 }
 
 inline int64_t power(int64_t base, int64_t exp) {
@@ -223,8 +225,8 @@ void dex::ontransfer(name from, name to, asset quantity, string memo) {
     }
 }
 
-string get_taker_side(const dex::order_t &buy_order, const dex::order_t &sell_order) {
-    string taker_side;
+order_type_t get_taker_side(const dex::order_t &buy_order, const dex::order_t &sell_order) {
+    order_type_t taker_side;
     if (buy_order.order_type != sell_order.order_type) {
         if (buy_order.order_type == order_type::MARKET) {
             taker_side = order_side::BUY;
@@ -238,7 +240,7 @@ string get_taker_side(const dex::order_t &buy_order, const dex::order_t &sell_or
     return taker_side;
 }
 
-int64_t calc_match_fee(const dex::order_t &order, const dex::config &_config, const string &taker_side, int64_t amount) {
+int64_t calc_match_fee(const dex::order_t &order, const dex::config &_config, const order_type_t &taker_side, int64_t amount) {
 
     int64_t ratio = 0;
     if (order.order_side == taker_side) {
@@ -395,7 +397,6 @@ void dex::settle(const uint64_t &buy_id, const uint64_t &sell_id, const asset &a
         a.deal_asset_amount = seller_deal_asset_amount;
         a.deal_coin_amount = seller_deal_coin_amount;
         a.is_finish = sell_order_finish;
-            a = sell_order;
     });
 }
 
