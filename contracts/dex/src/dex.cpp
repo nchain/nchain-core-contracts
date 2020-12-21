@@ -8,10 +8,10 @@ using namespace std;
 
 
 namespace order_type {
-   static const string_view LIMIT_PRICE = "limit_price";
-   static const string_view MARKET_PRICE = "market_price";
+   static const string_view LIMIT = "limit";
+   static const string_view MARKET = "market_price";
    static const set<string_view> MODES = {
-      LIMIT_PRICE, MARKET_PRICE
+      LIMIT, MARKET
    };
    inline bool is_valid(const string_view &mode) {
       return MODES.count(mode);
@@ -194,7 +194,7 @@ void dex::ontransfer(name from, name to, asset quantity, string memo) {
         if (order.order_side == order_side::BUY) {
             // the frozen token is coins, save in order.coin_quant
             check(order.coin_quant.amount == quantity.amount, "The input coin_quant must be equal to the transfer quantity for sell order");
-            if (order.order_type == order_type::LIMIT_PRICE) {
+            if (order.order_type == order_type::LIMIT) {
                 // check(false, "assets=" + std::to_string(order.asset_quant.amount) +
                 //     ", price=" + std::to_string(order.price) +
                 //     ", input=" + std::to_string(order.coin_quant.amount) +
@@ -205,7 +205,7 @@ void dex::ontransfer(name from, name to, asset quantity, string memo) {
                           sym_pair_it->min_asset_quant.to_string());
                 check(order.coin_quant == calc_coin_quant(order.asset_quant, order.price, order.coin_quant.symbol),
                     "The input coin_quant must be equal to the calc_coin_quant for limit buy order");
-            } else { //(order.order_type == order_type::MARKET_PRICE)
+            } else { //(order.order_type == order_type::MARKET)
                 // the deal limit amount is coins, save in order.coin_quant
                 check(order.asset_quant.amount == 0, "The input asset amount must be 0 for market buy order");
                 check(order.coin_quant >= sym_pair_it->min_coin_quant,
@@ -242,10 +242,10 @@ void dex::ontransfer(name from, name to, asset quantity, string memo) {
 string get_taker_side(const dex::order_t &buy_order, const dex::order_t &sell_order) {
     string taker_side;
     if (buy_order.order_type != sell_order.order_type) {
-        if (buy_order.order_type == order_type::MARKET_PRICE) {
+        if (buy_order.order_type == order_type::MARKET) {
             taker_side = order_side::BUY;
         } else {
-            // assert(sell_order.order_type == order_type::MARKET_PRICE);
+            // assert(sell_order.order_type == order_type::MARKET);
             taker_side = order_side::SELL;
         }
     } else { // buy_order.order_type == sell_order.order_type
@@ -310,22 +310,22 @@ void dex::settle(const uint64_t &buy_id, const uint64_t &sell_id, const asset &a
 
     // 4. check price match
     check(price > 0, "The deal price must be positive");
-    if (buy_order.order_type == order_type::LIMIT_PRICE && sell_order.order_type == order_type::LIMIT_PRICE) {
+    if (buy_order.order_type == order_type::LIMIT && sell_order.order_type == order_type::LIMIT) {
         check(price <= buy_order.price, "the deal price must <= buy_order.price");
         check(price >= sell_order.price, "the deal price must >= sell_order.price");
-    } else if (buy_order.order_type == order_type::LIMIT_PRICE && sell_order.order_type == order_type::MARKET_PRICE) {
-        check(price == buy_order.price, "the deal price must == buy_order.price when sell_order is MARKET_PRICE");
-    } else if (buy_order.order_type == order_type::MARKET_PRICE && sell_order.order_type == order_type::LIMIT_PRICE) {
-        check(price == sell_order.price, "the deal price must == sell_order.price when buy_order is MARKET_PRICE");
+    } else if (buy_order.order_type == order_type::LIMIT && sell_order.order_type == order_type::MARKET) {
+        check(price == buy_order.price, "the deal price must == buy_order.price when sell_order is MARKET");
+    } else if (buy_order.order_type == order_type::MARKET && sell_order.order_type == order_type::LIMIT) {
+        check(price == sell_order.price, "the deal price must == sell_order.price when buy_order is MARKET");
     } else {
-        check(buy_order.order_type == order_type::MARKET_PRICE && sell_order.order_type == order_type::MARKET_PRICE, "order type mismatch");
+        check(buy_order.order_type == order_type::MARKET && sell_order.order_type == order_type::MARKET, "order type mismatch");
     }
 
     // 5. check deal amount match
     check(coin_quant.amount > 0 && asset_quant.amount > 0, "The deal amounts must be positive");
     int64_t deal_coin_diff = coin_quant.amount - calc_coin_amount(asset_quant, price, coin_quant.symbol);
     bool is_coin_amount_match = false;
-    if (buy_order.order_type == order_type::MARKET_PRICE) {
+    if (buy_order.order_type == order_type::MARKET) {
         is_coin_amount_match = (std::abs(deal_coin_diff) <= std::max<int64_t>(1, (1 * price / PRICE_PRECISION)));
     } else {
         is_coin_amount_match = (deal_coin_diff == 0);
@@ -340,7 +340,7 @@ void dex::settle(const uint64_t &buy_id, const uint64_t &sell_id, const asset &a
 
     // 6. check the order amount limits
     // 6.1 check the buy_order amount limit
-    if (buy_order.order_type == order_type::MARKET_PRICE) {
+    if (buy_order.order_type == order_type::MARKET) {
         check(buy_order.coin_quant.amount >= buyer_deal_coin_amount,
             "the deal coin_quant.amount exceed residual coin amount of buy_order");
     } else {
@@ -386,7 +386,7 @@ void dex::settle(const uint64_t &buy_id, const uint64_t &sell_id, const asset &a
     // 9.1 check buy order fullfiled to del or update
     bool buy_order_finish = false;
     bool buy_order_fulfilled = false;
-    if (buy_order.order_type == order_type::LIMIT_PRICE) {
+    if (buy_order.order_type == order_type::LIMIT) {
         buy_order_finish = (buy_order.asset_quant.amount == buyer_deal_asset_amount);
         if (buy_order_finish) {
             if (buy_order.coin_quant.amount > buyer_deal_coin_amount) {
@@ -394,7 +394,7 @@ void dex::settle(const uint64_t &buy_id, const uint64_t &sell_id, const asset &a
                 transfer_out(get_self(), _config.bank, buy_order.owner, asset(refund_coins, coin_quant.symbol), "refund_coins");
             }
         }
-    } else { // buy_order.order_type == order_type::MARKET_PRICE
+    } else { // buy_order.order_type == order_type::MARKET
         buy_order_finish = buy_order.coin_quant.amount == buy_order.deal_coin_amount;
     }
     // udpate buy order
