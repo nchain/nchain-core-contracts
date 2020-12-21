@@ -29,17 +29,6 @@ namespace order_side {
    }
 }
 
-namespace open_mode {
-   static const string_view PUBLIC = "public";
-   static const string_view PRIVATE = "private";
-   static const set<string_view> MODES = {
-      PUBLIC, PRIVATE
-   };
-   inline bool is_valid(const string_view &mode) {
-      return MODES.count(mode);
-   }
-}
-
 int64_t parse_price(string_view str) {
    safe<int64_t> ret;
    to_int(str, ret);
@@ -66,11 +55,6 @@ string parse_order_type(string_view str) {
 
 string parse_order_side(string_view str) {
     check(order_side::is_valid(str), "invalid order_side=" + string{str});
-    return string{str};
-}
-
-string parse_open_mode(string_view str) {
-    check(open_mode::is_valid(str), "invalid open_mode=" + string{str});
     return string{str};
 }
 
