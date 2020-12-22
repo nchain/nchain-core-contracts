@@ -5,30 +5,6 @@
 using namespace eosio;
 using namespace std;
 
-
-
-namespace order_type {
-   static const name LIMIT = "limit"_n;
-   static const name MARKET = "market"_n;
-   static const set<name> MODES = {
-      LIMIT, MARKET
-   };
-   inline bool is_valid(const name &mode) {
-      return MODES.count(mode);
-   }
-}
-
-namespace order_side {
-   static const name BUY = "buy"_n;
-   static const name SELL = "sell"_n;
-   static const set<name> MODES = {
-      BUY, SELL
-   };
-   inline bool is_valid(const name &mode) {
-      return MODES.count(mode);
-   }
-}
-
 int64_t parse_price(string_view str) {
    safe<int64_t> ret;
    to_int(str, ret);
@@ -93,6 +69,22 @@ int64_t calc_coin_amount(const asset &asset_quant, const int64_t price, const sy
     return coin_amount;
 }
 
+int64_t calc_asset_amount(const asset &coin_quant, const int64_t price, const symbol &asset_symbol) {
+    // should use the max precision to calc
+    int64_t digit_diff = asset_symbol.precision() - coin_quant.symbol.precision();
+    int64_t coin_amount = coin_quant.amount;
+    if (digit_diff > 0) {
+        coin_amount = multiply_decimal64(coin_amount, calc_precision(digit_diff), 1);
+    }
+
+    int64_t asset_amount = divide_decimal64(coin_amount, price, PRICE_PRECISION);
+    if (digit_diff < 0) {
+        asset_amount = multiply_decimal64(asset_amount, 1, calc_precision(0 - digit_diff));
+    }
+
+    return asset_amount;
+}
+
 asset calc_coin_quant(const asset &asset_quant, const int64_t price, const symbol &coin_symbol) {
     return asset(calc_coin_amount(asset_quant, price, coin_symbol), coin_symbol);
 }
@@ -129,8 +121,7 @@ void dex::setsympair(const symbol &asset_symbol, const symbol &coin_symbol,
 
      auto sym_pair_id = sym_pair_tbl.available_primary_key();
 
-    // auto index = sym_pair_tbl.get_index<symbols_idx::index_name>();
-    auto index = sym_pair_tbl.get_index<"symbolsidx"_n>();
+    auto index = sym_pair_tbl.get_index<static_cast<name::raw>(symbols_idx::index_name)>();
     check( index.find( make_symbols_idx(asset_symbol, coin_symbol) ) == index.end(), "The symbol pair exist");
     check( index.find( revert_symbols_idx(asset_symbol, coin_symbol) ) == index.end(), "The reverted symbol pair exist");
 
@@ -434,4 +425,160 @@ dex::config dex::get_default_config() {
         DEX_MAKER_FEE_RATIO,    // int64_t maker_ratio;
         DEX_TAKER_FEE_RATIO     // int64_t taker_ratio;
     };
+}
+
+void get_match_amounts(const dex::order_t &taker_order, const dex::order_t &maker_order, uint64_t &match_assets, uint64_t &match_coins) {
+    uint64_t match_price = maker_order.price;
+    int64_t taker_free_assets = 0;
+    if (taker_order.order_side == order_side::BUY && taker_order.order_type == order_type::MARKET) {
+        taker_free_assets = calc_asset_amount(taker_order.coin_quant, match_price, taker_order.asset_quant.symbol);
+        if (taker_free_assets == 0) { // dust amount
+            check(maker_order.asset_quant.amount > 0, "The maker order asset_amount is 0");
+            match_assets = 1;
+            match_coins = taker_order.coin_quant.amount;
+            return;
+        }
+    } else {
+        check(taker_order.asset_quant.amount >= taker_order.deal_asset_amount, "taker_order.asset_quant.amount >= taker_order.deal_asset_amount");
+        taker_free_assets = taker_order.asset_quant.amount - taker_order.deal_asset_amount;
+    }
+
+    check(maker_order.asset_quant.amount >= maker_order.deal_asset_amount, "maker_order.asset_quant.amount >= maker_order.deal_asset_amount");
+    int64_t maker_free_assets = maker_order.asset_quant.amount - maker_order.deal_asset_amount;
+
+    match_assets = std::min(taker_free_assets, maker_free_assets);
+    match_coins = calc_coin_amount(asset(match_assets, taker_order.asset_quant.symbol), match_price, taker_order.coin_quant.symbol);
+}
+
+void dex::process_order(dex::order_t &taker_order) {
+
+    auto order_tbl = make_order_table(get_self());
+    auto match_index = order_tbl.get_index<static_cast<name::raw>(order_match_idx::index_name)>();
+    order_side_t maker_side = (taker_order.order_side == order_side::BUY) ? order_side::SELL : order_side::BUY;
+
+    auto maker_it = match_index.end();
+    if (maker_side == order_side::BUY) {
+        auto lowest_key = dex::make_order_match_idx(taker_order.sym_pair_id, maker_side, std::numeric_limits<uint64_t>::max(), 0);
+        maker_it = match_index.upper_bound(lowest_key);
+    } else { // maker_side == order_side::SELL
+        auto lowest_key = dex::make_order_match_idx(taker_order.sym_pair_id, maker_side, 0, 0);
+        maker_it = match_index.upper_bound(lowest_key);
+    }
+    std::list<order_t> match_orders;
+    while (maker_it != match_index.end()) {
+        const order_t &maker_order = *maker_it;
+        if (maker_order.sym_pair_id != taker_order.sym_pair_id || maker_order.order_side != maker_side) {
+            break;
+        }
+        // 1. check and get the match_price
+        if (taker_order.order_type == order_type::LIMIT) {
+            if (maker_order.order_side == order_side::BUY) {
+                if (taker_order.price > maker_order.price) {
+                    break;
+                }
+            } else if (maker_order.order_side == order_side::SELL) {
+                if (taker_order.price < maker_order.price) {
+                    break;
+                }
+            }
+        }
+        uint64_t match_price = maker_order.price;
+
+        // 2. get match amounts
+        uint64_t match_coins = 0;
+        uint64_t match_assets = 0;
+        get_match_amounts(taker_order, maker_order, match_assets, match_coins);
+
+        match_orders.push_back(maker_order);
+        auto &updated_maker_order = match_orders.back();
+
+        auto &buy_order = taker_order.order_side == order_side::BUY ? taker_order : updated_maker_order;
+        auto &sell_order = taker_order.order_side == order_side::SELL ? taker_order : updated_maker_order;
+
+        // the seller receive coins
+        int64_t seller_recv_coins = match_coins;
+        // the buyer receive assets
+        int64_t buyer_recv_assets = match_assets;
+        const symbol &asset_symbol = taker_order.asset_quant.symbol;
+        const symbol &coin_symbol = taker_order.coin_quant.symbol;
+        // 7. calc match fees
+        // 7.1 calc match asset fee payed by buyer
+        int64_t asset_match_fee = calc_match_fee(buy_order, _config, taker_order.order_side, buyer_recv_assets);
+        if (asset_match_fee > 0) {
+            buyer_recv_assets = sub_fee(buyer_recv_assets, asset_match_fee, "buyer_recv_assets");
+            // pay the asset_match_fee to payee
+            transfer_out(get_self(), _config.bank, _config.payee, asset(asset_match_fee, asset_symbol), "asset_match_fee");
+        }
+
+        // 7.2. calc match coin fee payed by seller for exhange
+        int64_t coin_match_fee = calc_match_fee(sell_order, _config, taker_order.order_side, seller_recv_coins);
+        if (coin_match_fee) {
+            seller_recv_coins = sub_fee(seller_recv_coins, coin_match_fee, "seller_recv_coins");
+            // pay the coin_match_fee to payee
+            transfer_out(get_self(), _config.bank, _config.payee, asset(coin_match_fee, coin_symbol), "coin_match_fee");
+        }
+
+        // 8. transfer the coins and assets to seller and buyer
+        // 8.1. transfer the coins to seller
+        transfer_out(get_self(), _config.bank, sell_order.owner, asset(seller_recv_coins, coin_symbol), "seller_recv_coins");
+        // 8.2. transfer the assets to buyer
+        transfer_out(get_self(), _config.bank, buy_order.owner, asset(buyer_recv_assets, asset_symbol), "buyer_recv_assets");
+        // match sell <-> buy order
+
+        uint64_t buyer_total_match_assets = buy_order.deal_asset_amount + match_assets;
+        uint64_t buyer_total_match_coins = buy_order.deal_coin_amount + match_coins;
+
+        uint64_t seller_total_match_assets = sell_order.deal_asset_amount + match_assets;
+        uint64_t seller_total_match_coins = sell_order.deal_coin_amount + match_coins;
+        // 9. check order fullfiled to del or update
+        // 9.1 check buy order fullfiled to del or update
+        updated_maker_order.deal_asset_amount += match_assets;
+        updated_maker_order.deal_coin_amount += match_coins;
+        check(updated_maker_order.deal_asset_amount <= updated_maker_order.asset_quant.amount, "The match assets is overflow for maker order");
+        updated_maker_order.is_finish = updated_maker_order.deal_asset_amount == updated_maker_order.asset_quant.amount;
+
+        taker_order.deal_asset_amount += match_assets;
+        taker_order.deal_coin_amount += match_coins;
+        if (taker_order.order_side == order_side::BUY && taker_order.order_type == order_type::MARKET) {
+            check(taker_order.deal_coin_amount <= taker_order.coin_quant.amount, "The match coins is overflow for market buy taker order");
+            taker_order.is_finish = taker_order.deal_coin_amount == taker_order.coin_quant.amount;
+        } else {
+            check(taker_order.deal_asset_amount <= taker_order.asset_quant.amount, "The match assets is overflow for taker order");
+            taker_order.is_finish = taker_order.deal_asset_amount == taker_order.asset_quant.amount;
+        }
+
+
+        check(taker_order.is_finish || updated_maker_order.is_finish, "Neither taker nor taker is finished");
+
+        if (updated_maker_order.is_finish && updated_maker_order.order_side == order_side::BUY) {
+            check(updated_maker_order.deal_coin_amount <= updated_maker_order.coin_quant.amount, "The match coins is overflow for limit buy maker order");
+            if (updated_maker_order.coin_quant.amount > updated_maker_order.deal_coin_amount) {
+                int64_t refund_coins = buy_order.coin_quant.amount - updated_maker_order.deal_coin_amount;
+                transfer_out(get_self(), _config.bank, buy_order.owner, asset(refund_coins, coin_symbol), "refund_coins");
+            }
+        }
+        if (taker_order.is_finish) {
+            break;
+        }
+
+        // TODO: check max match count
+        maker_it++;
+    }
+
+    // TODO: save maker orders
+    if (taker_order.is_finish) {
+        if (taker_order.order_type == order_type::LIMIT && taker_order.order_side == order_side::BUY) {
+            // refund coins
+        }
+    } else { // !taker_order.is_finish
+        if (taker_order.order_type == order_type::LIMIT) {
+            // new limit order and save to db
+        } else { //taker_order.order_type == order_type::MARKET
+            if (taker_order.order_side == order_side::BUY) {
+                // refund coins
+            } else {
+                // reund assets
+            }
+        }
+    }
 }

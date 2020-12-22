@@ -11,6 +11,28 @@ using namespace eosio;
 typedef name order_type_t;
 typedef name order_side_t;
 
+namespace order_type {
+   static const name LIMIT = "limit"_n;
+   static const name MARKET = "market"_n;
+   static const set<name> MODES = {
+      LIMIT, MARKET
+   };
+   inline bool is_valid(const name &mode) {
+      return MODES.count(mode);
+   }
+}
+
+namespace order_side {
+   static const name BUY = "buy"_n;
+   static const name SELL = "sell"_n;
+   static const set<name> MODES = {
+      BUY, SELL
+   };
+   inline bool is_valid(const name &mode) {
+      return MODES.count(mode);
+   }
+}
+
 class [[eosio::contract]] dex : public contract {
 public:
     using contract::contract;
@@ -55,7 +77,14 @@ public:
         return symbol_pair_table(self, self.value/*scope*/);
     }
 
-    using order_match_idx_type = fixed_bytes<32>;
+    using order_match_idx_key = fixed_bytes<32>;
+    inline static order_match_idx_key make_order_match_idx(uint64_t sym_pair_id, const order_side_t &side, uint64_t price, uint64_t order_id) {
+        if (side == order_side::BUY) {
+            return order_match_idx_key::make_from_word_sequence<uint64_t>(sym_pair_id, side.value, std::numeric_limits<uint64_t>::max() - price, order_id);
+        } else {
+            return order_match_idx_key::make_from_word_sequence<uint64_t>(sym_pair_id, side.value, price, order_id);
+        }
+    }
 
     struct [[eosio::table]] order_t {
         uint64_t sym_pair_id; // id of symbol_pair_table
@@ -72,12 +101,12 @@ public:
         // TODO: should del the order when finish??
         bool is_finish            = false;  //!< order is finish
         uint64_t primary_key() const { return order_id; }
-        order_match_idx_type get_order_match_idx() const {
-            return order_match_idx_type::make_from_word_sequence<uint64_t>(sym_pair_id, order_side.value, (uint64_t)price, order_id);
+        order_match_idx_key get_order_match_idx() const {
+            return dex::make_order_match_idx(sym_pair_id, order_side, price, order_id);
         }
     };
 
-    using order_match_idx = indexed_by<"ordermatch"_n, const_mem_fun<order_t, order_match_idx_type,
+    using order_match_idx = indexed_by<"ordermatch"_n, const_mem_fun<order_t, order_match_idx_key,
            &order_t::get_order_match_idx>>;
 
     typedef eosio::multi_index<"order"_n, order_t, order_match_idx> order_table;
@@ -113,6 +142,8 @@ public:
     using cancel_action     = action_wrapper<"cancel"_n, &dex::cancel>;
 private:
     config get_default_config();
+    void process_order(order_t &order);
+
     config_table _conf_tbl;
     config _config;
 };
