@@ -12,24 +12,38 @@ typedef name order_type_t;
 typedef name order_side_t;
 
 namespace order_type {
-   static const name LIMIT = "limit"_n;
-   static const name MARKET = "market"_n;
-   static const set<name> MODES = {
-      LIMIT, MARKET
+   static const order_type_t LIMIT = "limit"_n;
+   static const order_type_t MARKET = "market"_n;
+   // order_type_t -> index
+   static const map<order_type_t, uint8_t> ENUM_MAP = {
+      {LIMIT, 1},
+      {MARKET, 2}
    };
-   inline bool is_valid(const name &mode) {
-      return MODES.count(mode);
+   inline bool is_valid(const order_type_t &value) {
+      return ENUM_MAP.count(value);
+   }
+   inline uint8_t index(const order_type_t &value) {
+        auto it = ENUM_MAP.find(value);
+        check(it != ENUM_MAP.end(), "Invalid order_type=" + value.to_string());
+        return it->second;
    }
 }
 
 namespace order_side {
-   static const name BUY = "buy"_n;
-   static const name SELL = "sell"_n;
-   static const set<name> MODES = {
-      BUY, SELL
+   static const order_side_t BUY = "buy"_n;
+   static const order_side_t SELL = "sell"_n;
+   // name -> index
+   static const map<order_side_t, uint8_t> ENUM_MAP = {
+      {BUY, 1},
+      {SELL, 2}
    };
-   inline bool is_valid(const name &mode) {
-      return MODES.count(mode);
+   inline bool is_valid(const order_side_t &value) {
+      return ENUM_MAP.count(value);
+   }
+   inline uint8_t index(const order_side_t &value) {
+        auto it = ENUM_MAP.find(value);
+        check(it != ENUM_MAP.end(), "Invalid order_type=" + value.to_string());
+        return it->second;
    }
 }
 
