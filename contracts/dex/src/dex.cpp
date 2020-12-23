@@ -458,10 +458,10 @@ void dex::process_order(dex::order_t &taker_order) {
 
     auto maker_it = match_index.end();
     if (maker_side == order_side::BUY) {
-        auto lowest_key = dex::make_order_match_idx(taker_order.sym_pair_id, maker_side, std::numeric_limits<uint64_t>::max(), 0);
+        auto lowest_key = dex::make_order_match_idx(taker_order.sym_pair_id, maker_side, order_type::NONE, std::numeric_limits<uint64_t>::max(), 0);
         maker_it = match_index.upper_bound(lowest_key);
     } else { // maker_side == order_side::SELL
-        auto lowest_key = dex::make_order_match_idx(taker_order.sym_pair_id, maker_side, 0, 0);
+        auto lowest_key = dex::make_order_match_idx(taker_order.sym_pair_id, maker_side, order_type::NONE, 0, 0);
         maker_it = match_index.upper_bound(lowest_key);
     }
     std::list<order_t> match_orders;

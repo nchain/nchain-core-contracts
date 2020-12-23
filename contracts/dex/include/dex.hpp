@@ -12,6 +12,7 @@ typedef name order_type_t;
 typedef name order_side_t;
 
 namespace order_type {
+   static const order_type_t NONE = order_type_t();
    static const order_type_t LIMIT = "limit"_n;
    static const order_type_t MARKET = "market"_n;
    // order_type_t -> index
@@ -23,6 +24,7 @@ namespace order_type {
       return ENUM_MAP.count(value);
    }
    inline uint8_t index(const order_type_t &value) {
+        if (value == NONE) return 0;
         auto it = ENUM_MAP.find(value);
         check(it != ENUM_MAP.end(), "Invalid order_type=" + value.to_string());
         return it->second;
@@ -30,6 +32,7 @@ namespace order_type {
 }
 
 namespace order_side {
+   static const order_type_t NONE = order_type_t();
    static const order_side_t BUY = "buy"_n;
    static const order_side_t SELL = "sell"_n;
    // name -> index
@@ -41,6 +44,7 @@ namespace order_side {
       return ENUM_MAP.count(value);
    }
    inline uint8_t index(const order_side_t &value) {
+        if (value == NONE) return 0;
         auto it = ENUM_MAP.find(value);
         check(it != ENUM_MAP.end(), "Invalid order_type=" + value.to_string());
         return it->second;
@@ -92,12 +96,10 @@ public:
     }
 
     using order_match_idx_key = fixed_bytes<32>;
-    inline static order_match_idx_key make_order_match_idx(uint64_t sym_pair_id, const order_side_t &side, uint64_t price, uint64_t order_id) {
-        if (side == order_side::BUY) {
-            return order_match_idx_key::make_from_word_sequence<uint64_t>(sym_pair_id, side.value, std::numeric_limits<uint64_t>::max() - price, order_id);
-        } else {
-            return order_match_idx_key::make_from_word_sequence<uint64_t>(sym_pair_id, side.value, price, order_id);
-        }
+    inline static order_match_idx_key make_order_match_idx(uint64_t sym_pair_id, const order_side_t &side, const order_type_t &type, uint64_t price, uint64_t order_id) {
+        uint64_t option = uint64_t(order_side::index(side)) << 56 | uint64_t(order_type::index(type)) << 48;
+        uint64_t price_factor = (side == order_side::BUY) ? std::numeric_limits<uint64_t>::max() - price : price;
+        return order_match_idx_key::make_from_word_sequence<uint64_t>(sym_pair_id, option, price_factor, order_id);
     }
 
     struct [[eosio::table]] order_t {
@@ -116,7 +118,7 @@ public:
         bool is_finish            = false;  //!< order is finish
         uint64_t primary_key() const { return order_id; }
         order_match_idx_key get_order_match_idx() const {
-            return dex::make_order_match_idx(sym_pair_id, order_side, price, order_id);
+            return dex::make_order_match_idx(sym_pair_id, order_side, order_type, price, order_id);
         }
     };
 
