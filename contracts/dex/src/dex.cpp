@@ -550,13 +550,7 @@ void dex::process_order(dex::order_t &taker_order) {
 
         check(taker_order.is_finish || maker_order.is_finish, "Neither taker nor taker is finished");
 
-        if (maker_order.is_finish && maker_order.order_side == order_side::BUY) {
-            check(maker_order.deal_coin_amount <= maker_order.coin_quant.amount, "The match coins is overflow for limit buy maker order");
-            if (maker_order.coin_quant.amount > maker_order.deal_coin_amount) {
-                int64_t refund_coins = buy_order.coin_quant.amount - maker_order.deal_coin_amount;
-                transfer_out(get_self(), _config.bank, buy_order.owner, asset(refund_coins, coin_symbol), "refund_coins");
-            }
-        }
+
         if (taker_order.is_finish) {
             break;
         }
@@ -566,19 +560,64 @@ void dex::process_order(dex::order_t &taker_order) {
     }
 
     // TODO: save maker orders
+    if (!match_orders.empty()) {
+        auto &back_order = match_orders.back();
+        if (back_order.is_finish && back_order.order_side == order_side::BUY) {
+            process_refund(back_order);
+        }
+        for(const auto &item : match_orders) {
+            const auto &order_store = order_tbl.get(item.order_id);
+            order_tbl.modify(order_store, same_payer, [&]( auto& a ) {
+                a = item;
+            });
+        }
+    }
+
     if (taker_order.is_finish) {
         if (taker_order.order_type == order_type::LIMIT && taker_order.order_side == order_side::BUY) {
-            // refund coins
+            process_refund(taker_order);
         }
     } else { // !taker_order.is_finish
         if (taker_order.order_type == order_type::LIMIT) {
-            // new limit order and save to db
+            auto order_tbl = make_order_table(get_self());
+            // TODO: implement auto inc id by global table
+            taker_order.order_id = order_tbl.available_primary_key();
+            check(order_tbl.find(taker_order.order_id) == order_tbl.end(), "The order is exist. order_id=" + std::to_string(taker_order.order_id));
+
+            order_tbl.emplace( get_self(), [&]( auto& o ) {
+                o = taker_order;
+            });
         } else { //taker_order.order_type == order_type::MARKET
             if (taker_order.order_side == order_side::BUY) {
-                // refund coins
+                process_refund(taker_order);
             } else {
-                // reund assets
+                check(taker_order.asset_quant.amount >= taker_order.deal_asset_amount, "The match coins is overflow for market_sell_taker_order");
+                if (taker_order.asset_quant.amount > taker_order.deal_asset_amount) {
+                    int64_t refunds = taker_order.coin_quant.amount - taker_order.deal_coin_amount;
+                    transfer_out(get_self(), _config.bank, taker_order.owner, asset(refunds, taker_order.coin_quant.symbol), "refund_coins");
+                    taker_order.deal_coin_amount = taker_order.coin_quant.amount;
+                }
             }
         }
     }
 }
+
+void dex::process_refund(dex::order_t &order) {
+    if (order.order_side == order_side::BUY) {
+        check(order.deal_coin_amount <= order.coin_quant.amount, "The match coins is overflow for buy order " + std::to_string(order.order_id));
+        if (order.coin_quant.amount > order.deal_coin_amount) {
+            int64_t refunds = order.coin_quant.amount - order.deal_coin_amount;
+            transfer_out(get_self(), _config.bank, order.owner, asset(refunds, order.coin_quant.symbol), "refund_coins");
+            order.deal_coin_amount = order.coin_quant.amount;
+        }
+    } else {
+        check(order.asset_quant.amount >= order.deal_asset_amount, "The match coins is overflow for sell order " + std::to_string(order.order_id));
+        if (order.asset_quant.amount > order.deal_asset_amount) {
+            int64_t refunds = order.coin_quant.amount - order.deal_coin_amount;
+            transfer_out(get_self(), _config.bank, order.owner, asset(refunds, order.coin_quant.symbol), "refund_coins");
+            order.deal_coin_amount = order.coin_quant.amount;
+        }
+    }
+}
+
+

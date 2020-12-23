@@ -143,6 +143,7 @@ public:
 private:
     config get_default_config();
     void process_order(order_t &order);
+    void process_refund(order_t &order);
 
     config_table _conf_tbl;
     config _config;
