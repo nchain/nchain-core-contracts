@@ -115,7 +115,7 @@ public:
         int64_t deal_asset_amount = 0;      //!< total deal asset amount
         int64_t deal_coin_amount  = 0;      //!< total deal coin amount
         // TODO: should del the order when finish??
-        bool is_finish            = false;  //!< order is finish
+        bool is_complete            = false;  //!< order is finish
         uint64_t primary_key() const { return order_id; }
         order_match_idx_key get_order_match_idx() const {
             return dex::make_order_match_idx(sym_pair_id, order_side, order_type, price, order_id);
