@@ -4,6 +4,7 @@
 
 using namespace eosio;
 using namespace std;
+using namespace dex;
 
 int64_t parse_price(string_view str) {
    safe<int64_t> ret;
@@ -97,7 +98,7 @@ inline string symbol_pair_to_string(const symbol &asset_symbol, const symbol &co
     return symbol_to_string(asset_symbol) + "/" + symbol_to_string(coin_symbol);
 }
 
-void dex::setconfig(const dex::config &conf) {
+void dex_contract::setconfig(const dex::config &conf) {
     require_auth( get_self() );
     check(is_account(conf.admin), "The admin account does not exist");
     check(is_account(conf.settler), "The settler account does not exist");
@@ -109,7 +110,7 @@ void dex::setconfig(const dex::config &conf) {
     _conf_tbl.set(conf, get_self());
 }
 
-void dex::setsympair(const symbol &asset_symbol, const symbol &coin_symbol,
+void dex_contract::setsympair(const symbol &asset_symbol, const symbol &coin_symbol,
                      const asset &min_asset_quant, const asset &min_coin_quant, bool enabled) {
     require_auth( _config.admin );
     auto sym_pair_tbl = make_symbol_pair_table(get_self());
@@ -137,7 +138,7 @@ void dex::setsympair(const symbol &asset_symbol, const symbol &coin_symbol,
     });
 }
 
-void dex::ontransfer(name from, name to, asset quantity, string memo) {
+void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
     if (from == get_self()) {
         return; // transfer out from this contract
     }
@@ -259,7 +260,7 @@ void transfer_out(const name &contract, const name &bank, const name &to, const 
 }
 
 #if 0
-void dex::settle(const uint64_t &buy_id, const uint64_t &sell_id, const asset &asset_quant,
+void dex_contract::settle(const uint64_t &buy_id, const uint64_t &sell_id, const asset &asset_quant,
                  const asset &coin_quant, const int64_t &price, const string &memo) {
 
     require_auth( _config.settler );
@@ -393,7 +394,7 @@ void dex::settle(const uint64_t &buy_id, const uint64_t &sell_id, const asset &a
 }
 #endif
 
-void dex::cancel(const uint64_t &order_id) {
+void dex_contract::cancel(const uint64_t &order_id) {
     auto order_tbl = make_order_table(get_self());
     auto it = order_tbl.find(order_id);
     check(it != order_tbl.end(), "The order does not exist");
@@ -417,7 +418,7 @@ void dex::cancel(const uint64_t &order_id) {
     });
 }
 
-dex::config dex::get_default_config() {
+dex::config dex_contract::get_default_config() {
     check(is_account(BANK), "The default bank account does not exist");
     return {
         get_self(),             // name admin;
@@ -453,7 +454,7 @@ void get_match_amounts(const dex::order_t &taker_order, const dex::order_t &make
 }
 
 /*
-void dex::process_order(dex::order_t &taker_order) {
+void dex_contract::process_order(dex::order_t &taker_order) {
 
     auto order_tbl = make_order_table(get_self());
     auto match_index = order_tbl.get_index<static_cast<name::raw>(order_match_idx::index_name)>();
@@ -606,7 +607,7 @@ void dex::process_order(dex::order_t &taker_order) {
 }
 */
 
-void dex::process_refund(dex::order_t &order) {
+void dex_contract::process_refund(dex::order_t &order) {
     if (order.order_side == order_side::BUY) {
         check(order.deal_coin_amount <= order.coin_quant.amount, "The match coins is overflow for buy order " + std::to_string(order.order_id));
         if (order.coin_quant.amount > order.deal_coin_amount) {
@@ -691,7 +692,7 @@ private:
 };
 
 
-void dex::match() {
+void dex_contract::match() {
     require_auth( _config.settler );
     auto order_tbl = make_order_table(get_self());
     auto match_index = order_tbl.get_index<static_cast<name::raw>(order_match_idx::index_name)>();
