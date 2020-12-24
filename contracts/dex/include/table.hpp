@@ -84,11 +84,11 @@ namespace dex {
         bool enabled;
 
         uint128_t primary_key() const { return sym_pair_id; }
-        uint128_t make_symbols_idx() const { return dex::make_symbols_idx(asset_symbol, coin_symbol); }
+        uint128_t get_symbols_idx() const { return make_symbols_idx(asset_symbol, coin_symbol); }
     };
 
     using symbols_idx = indexed_by<"symbolsidx"_n, const_mem_fun<symbol_pair_t, uint128_t,
-           &symbol_pair_t::make_symbols_idx>>;
+           &symbol_pair_t::get_symbols_idx>>;
 
     typedef eosio::multi_index<"sympair"_n, symbol_pair_t, symbols_idx> symbol_pair_table;
 
@@ -119,7 +119,7 @@ namespace dex {
         bool is_complete            = false;  //!< order is finish
         uint64_t primary_key() const { return order_id; }
         order_match_idx_key get_order_match_idx() const {
-            return dex::make_order_match_idx(sym_pair_id, order_side, order_type, price, order_id);
+            return make_order_match_idx(sym_pair_id, order_side, order_type, price, order_id);
         }
     };
 
@@ -133,5 +133,70 @@ namespace dex {
     }
 
 
+    template<typename match_index_t>
+    class matching_order_iterator {
+    public:
+        bool is_matching = false;
+    public:
+        matching_order_iterator(match_index_t &match_index, uint64_t sym_pair_id, order_type_t type,
+                    order_side_t side)
+            : _match_index(match_index), _it(match_index.end()), _sym_pair_id(sym_pair_id),
+            _order_type(type), _order_side(side) {}
+
+        void first() {
+            order_match_idx_key key;
+            if (_order_side == order_side::BUY) {
+                key = make_order_match_idx(_sym_pair_id, _order_side, _order_type, std::numeric_limits<uint64_t>::max(), 0);
+            } else { // _order_side == order_side::SELL
+                key = make_order_match_idx(_sym_pair_id, _order_side, _order_type, 0, 0);
+            }
+            _it = _match_index.upper_bound(key);
+            _is_valid = process_data();
+        };
+
+        void next() {
+            _it++;
+            _is_valid = process_data();
+        }
+
+        bool is_valid() const {
+            return _is_valid;
+        }
+
+        inline const order_t &stored_order() {
+            assert(_is_valid);
+            return *_it;
+        }
+
+        inline order_t& begin_match() {
+            is_matching = true;
+            return _matching_order;
+        }
+
+        inline order_t& matching_order() {
+            return _matching_order;
+        }
+
+    private:
+        bool process_data() {
+            is_matching = false;
+            if (_it == _match_index.end()) return false;
+
+            const auto &stored_order = *_it;
+            if (stored_order.sym_pair_id != _sym_pair_id || stored_order.order_side != _order_side || stored_order.order_type != _order_type ) {
+                return false;
+            }
+            return true;
+        }
+
+        match_index_t &_match_index;
+        typename match_index_t::const_iterator _it;
+        uint64_t _sym_pair_id;
+        order_type_t _order_type;
+        order_side_t _order_side;
+        bool _is_valid = false;
+
+        order_t _matching_order;
+    };
 
 }// namespace dex
