@@ -45,7 +45,7 @@ public:
 private:
     dex::config get_default_config();
     // void process_order(order_t &order);
-    void process_refund(dex::order_t &order);
+    void process_refund(dex::order_t &buy_order);
 
     dex::config_table _conf_tbl;
     dex::config _config;

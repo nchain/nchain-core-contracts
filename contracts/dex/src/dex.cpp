@@ -607,20 +607,16 @@ void dex_contract::process_order(dex::order_t &taker_order) {
 }
 */
 
-void dex_contract::process_refund(dex::order_t &order) {
-    if (order.order_side == order_side::BUY) {
-        check(order.deal_coin_amount <= order.coin_quant.amount, "The match coins is overflow for buy order " + std::to_string(order.order_id));
-        if (order.coin_quant.amount > order.deal_coin_amount) {
-            int64_t refunds = order.coin_quant.amount - order.deal_coin_amount;
-            transfer_out(get_self(), _config.bank, order.owner, asset(refunds, order.coin_quant.symbol), "refund_coins");
-            order.deal_coin_amount = order.coin_quant.amount;
-        }
-    } else {
-        check(order.asset_quant.amount >= order.deal_asset_amount, "The match coins is overflow for sell order " + std::to_string(order.order_id));
-        if (order.asset_quant.amount > order.deal_asset_amount) {
-            int64_t refunds = order.coin_quant.amount - order.deal_coin_amount;
-            transfer_out(get_self(), _config.bank, order.owner, asset(refunds, order.coin_quant.symbol), "refund_coins");
-            order.deal_coin_amount = order.coin_quant.amount;
+void dex_contract::process_refund(dex::order_t &buy_order) {
+    ASSERT(buy_order.order_side == order_side::BUY);
+    if (buy_order.order_type == order_type::LIMIT) {
+        check(buy_order.deal_coin_amount <= buy_order.coin_quant.amount,
+              "The match coins is overflow for buy limit order " +
+                  std::to_string(buy_order.order_id));
+        if (buy_order.coin_quant.amount > buy_order.deal_coin_amount) {
+            int64_t refunds = buy_order.coin_quant.amount - buy_order.deal_coin_amount;
+            transfer_out(get_self(), _config.bank, buy_order.owner, asset(refunds, buy_order.coin_quant.symbol), "refund_coins");
+            buy_order.deal_coin_amount = buy_order.coin_quant.amount;
         }
     }
 }
@@ -719,14 +715,8 @@ void dex_contract::match() {
         check(buy_order.is_complete || sell_order.is_complete, "Neither taker nor maker is finish");
 
         // process refund
-        if (buy_order.is_complete && buy_order.order_type == order_type::LIMIT) {
-            check(buy_order.deal_coin_amount <= buy_order.coin_quant.amount, "The match coins is overflow for limit buy order " + std::to_string(buy_order.order_id));
-            if (buy_order.coin_quant.amount > buy_order.deal_coin_amount) {
-                int64_t refunds = buy_order.coin_quant.amount - buy_order.deal_coin_amount;
-                transfer_out(get_self(), _config.bank, buy_order.owner, asset(refunds, buy_order.coin_quant.symbol), "refund_coins");
-                buy_order.deal_coin_amount = buy_order.coin_quant.amount;
-            }
-        }
+        if (buy_order.is_complete)
+            process_refund(buy_order);
 
         if (taker_it.matching_order().is_complete) {
             // TODO: add to matched_orders
