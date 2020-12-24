@@ -145,20 +145,24 @@ public:
     [[eosio::on_notify("*::transfer")]] void ontransfer(name from, name to, asset quantity,
                                                         string memo);
     // todo: should use checksum to indicate the order
+/*
     [[eosio::action]] void settle(const uint64_t &buy_id, const uint64_t &sell_id,
                                   const asset &asset_quant, const asset &coin_quant,
                                   const int64_t &price, const string &memo);
+*/
+    [[eosio::action]] void match();
 
     [[eosio::action]] void cancel(const uint64_t &order_id);
 
     using setconfig_action = action_wrapper<"setconfig"_n, &dex::setconfig>;
     using setsympair_action = action_wrapper<"setsympair"_n, &dex::setsympair>;
     using ontransfer_action = action_wrapper<"ontransfer"_n, &dex::ontransfer>;
-    using settle_action     = action_wrapper<"settle"_n, &dex::settle>;
+    // using settle_action     = action_wrapper<"settle"_n, &dex::settle>;
+    using match_action     = action_wrapper<"match"_n, &dex::match>;
     using cancel_action     = action_wrapper<"cancel"_n, &dex::cancel>;
 private:
     config get_default_config();
-    void process_order(order_t &order);
+    // void process_order(order_t &order);
     void process_refund(order_t &order);
 
     config_table _conf_tbl;
