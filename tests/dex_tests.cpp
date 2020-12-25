@@ -198,26 +198,26 @@ public:
         );
     }
 
-    struct auto_inc_id {
-        uint64_t id = 0;
-        uint64_t next_id = 0;
+    // struct auto_inc_id {
+    //     uint64_t id = 1;
+    //     uint64_t next_id = 2;
 
-        void next() {
-            if (next_id == 0) {
-                // first value
-                id = 0;
-                next_id = 1;
-            } else {
-                id = next_id;
-                next_id++;
-            }
-        }
-    };
+    //     void next() {
+    //         if (next_id == 0) {
+    //             // first value
+    //             id = 1;
+    //             next_id = 2;
+    //         } else {
+    //             id = next_id;
+    //             next_id++;
+    //         }
+    //     }
+    // };
 
-    auto_inc_id& sym_pair_id() {
-        static auto_inc_id id;
-        return id;
-    }
+    // auto_inc_id& sym_pair_id() {
+    //     static auto_inc_id id;
+    //     return id;
+    // }
 
 
     action_result setsympair( const symbol &asset_symbol, const symbol &coin_symbol, const asset &min_asset_quant, const asset &min_coin_quant, bool enabled ) {
@@ -228,22 +228,22 @@ public:
             ( "min_coin_quant", min_coin_quant)
             ( "enabled", enabled)
         );
-        sym_pair_id().next();
+        // sym_pair_id().next();
         return ret;
     }
 
-    action_result settle(const uint64_t &buy_id, const uint64_t &sell_id,
-                            const asset &asset_quant, const asset &coin_quant,
-                            const int64_t &price, const string &memo) {
-        return push_action( N(dex.settler), N(settle), mvo()
-            ( "buy_id", buy_id)
-            ( "sell_id", sell_id)
-            ( "asset_quant", asset_quant)
-            ( "coin_quant", coin_quant)
-            ( "price", price)
-            ( "memo", memo)
-        );
-    }
+    // action_result settle(const uint64_t &buy_id, const uint64_t &sell_id,
+    //                         const asset &asset_quant, const asset &coin_quant,
+    //                         const int64_t &price, const string &memo) {
+    //     return push_action( N(dex.settler), N(settle), mvo()
+    //         ( "buy_id", buy_id)
+    //         ( "sell_id", sell_id)
+    //         ( "asset_quant", asset_quant)
+    //         ( "coin_quant", coin_quant)
+    //         ( "price", price)
+    //         ( "memo", memo)
+    //     );
+    // }
     action_result cancel(const uint64_t &order_id) {
         return push_action( N(dex), N(cancel), mvo()
             ( "order_id", order_id)
@@ -275,9 +275,10 @@ BOOST_FIXTURE_TEST_CASE( dex_settle_test, dex_tester ) try {
     // add symbol pair for trading
     EXECUTE_ACTION(setsympair(BTC_SYMBOL, USD_SYMBOL, ASSET("0.00001000 BTC"), ASSET("0.1000 USD"), true));
     produce_blocks(1);
-    auto sym_pair = get_symbol_pair(sym_pair_id().id);
+    uint64_t sym_pair_id = 1;
+    auto sym_pair = get_symbol_pair(sym_pair_id);
     REQUIRE_MATCHING_OBJECT( sym_pair, mvo()
-        ("sym_pair_id", sym_pair_id().id)
+        ("sym_pair_id", sym_pair_id)
         ("asset_symbol", BTC_SYMBOL)
         ("coin_symbol", USD_SYMBOL)
         ("min_asset_quant", "0.00001000 BTC")
@@ -289,10 +290,11 @@ BOOST_FIXTURE_TEST_CASE( dex_settle_test, dex_tester ) try {
     //order  order:<type>:<side>:<asset_quant>:<coin_quant>:<price>:<ex_id>
     string buy_memo = "order:limit:buy:0.01000000 BTC:100.0000 USD:1000000000000";
     EXECUTE_ACTION(eosio_token.transfer(N(alice), N(dex), ASSET("100.0000 USD"), buy_memo));
-    auto buy_order = get_order(0);
+    uint64_t order_id = 1;
+    auto buy_order = get_order(order_id);
     REQUIRE_MATCHING_OBJECT( buy_order, mvo()
-        ("sym_pair_id", sym_pair_id().id)
-        ("order_id", 0)
+        ("sym_pair_id", sym_pair_id)
+        ("order_id", order_id)
         ("owner", "alice")
         ("order_type", "limit")
         ("order_side", "buy")
@@ -301,17 +303,18 @@ BOOST_FIXTURE_TEST_CASE( dex_settle_test, dex_tester ) try {
         ("price", "1000000000000")
         ("deal_asset_amount", "0")
         ("deal_coin_amount", "0")
-        ("is_finish", "0")
+        ("is_complete", "0")
     );
 
     // sell order
     //order  order:<type>:<side>:<asset_quant>:<coin_quant>:<price>:<ex_id>
     string sell_memo = "order:limit:sell:0.01000000 BTC:0.0000 USD:1000000000000";
     EXECUTE_ACTION(eosio_token.transfer(N(bob), N(dex), ASSET("0.01000000 BTC"), sell_memo));
-    auto sell_order = get_order(1);
+    order_id++;
+    auto sell_order = get_order(order_id);
     REQUIRE_MATCHING_OBJECT( sell_order, mvo()
-        ("sym_pair_id", sym_pair_id().id)
-        ("order_id", 1)
+        ("sym_pair_id", sym_pair_id)
+        ("order_id", order_id)
         ("owner", "bob")
         ("order_type", "limit")
         ("order_side", "sell")
@@ -320,39 +323,39 @@ BOOST_FIXTURE_TEST_CASE( dex_settle_test, dex_tester ) try {
         ("price", "1000000000000")
         ("deal_asset_amount", "0")
         ("deal_coin_amount", "0")
-        ("is_finish", "0")
+        ("is_complete", "0")
     );
 
-    // settle
-    EXECUTE_ACTION(settle(0, 1, ASSET("0.01000000 BTC"), ASSET("100.0000 USD"), 1000000000000, ""));
-    auto deal_buy_order = get_order(0);
-    REQUIRE_MATCHING_OBJECT( deal_buy_order, mvo()
-        ("sym_pair_id", sym_pair_id().id)
-        ("order_id", "0")
-        ("owner", "alice")
-        ("order_type", "limit")
-        ("order_side", "buy")
-        ("asset_quant", "0.01000000 BTC")
-        ("coin_quant", "100.0000 USD")
-        ("price", "1000000000000")
-        ("deal_asset_amount", "1000000")
-        ("deal_coin_amount", "1000000")
-        ("is_finish", "1")
-    );
-    auto deal_sell_order = get_order(1);
-    REQUIRE_MATCHING_OBJECT( deal_sell_order, mvo()
-        ("sym_pair_id", sym_pair_id().id)
-        ("order_id", "1")
-        ("owner", "bob")
-        ("order_type", "limit")
-        ("order_side", "sell")
-        ("asset_quant", "0.01000000 BTC")
-        ("coin_quant", "0.0000 USD")
-        ("price", "1000000000000")
-        ("deal_asset_amount", "1000000")
-        ("deal_coin_amount", "1000000")
-        ("is_finish", "1")
-    );
+    // // settle
+    // EXECUTE_ACTION(settle(0, 1, ASSET("0.01000000 BTC"), ASSET("100.0000 USD"), 1000000000000, ""));
+    // auto deal_buy_order = get_order(0);
+    // REQUIRE_MATCHING_OBJECT( deal_buy_order, mvo()
+    //     ("sym_pair_id", sym_pair_id().id)
+    //     ("order_id", "0")
+    //     ("owner", "alice")
+    //     ("order_type", "limit")
+    //     ("order_side", "buy")
+    //     ("asset_quant", "0.01000000 BTC")
+    //     ("coin_quant", "100.0000 USD")
+    //     ("price", "1000000000000")
+    //     ("deal_asset_amount", "1000000")
+    //     ("deal_coin_amount", "1000000")
+    //     ("is_finish", "1")
+    // );
+    // auto deal_sell_order = get_order(1);
+    // REQUIRE_MATCHING_OBJECT( deal_sell_order, mvo()
+    //     ("sym_pair_id", sym_pair_id().id)
+    //     ("order_id", "1")
+    //     ("owner", "bob")
+    //     ("order_type", "limit")
+    //     ("order_side", "sell")
+    //     ("asset_quant", "0.01000000 BTC")
+    //     ("coin_quant", "0.0000 USD")
+    //     ("price", "1000000000000")
+    //     ("deal_asset_amount", "1000000")
+    //     ("deal_coin_amount", "1000000")
+    //     ("is_finish", "1")
+    // );
 } FC_LOG_AND_RETHROW()
 
 BOOST_AUTO_TEST_SUITE_END()
