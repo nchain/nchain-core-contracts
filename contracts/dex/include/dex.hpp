@@ -32,6 +32,7 @@ public:
                                   const asset &asset_quant, const asset &coin_quant,
                                   const int64_t &price, const string &memo);
 */
+    // TODO: const set<uint64_t> &sym_pairs
     [[eosio::action]] void match();
 
     [[eosio::action]] void cancel(const uint64_t &order_id);

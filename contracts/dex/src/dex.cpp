@@ -623,6 +623,8 @@ void dex_contract::process_refund(dex::order_t &buy_order) {
 
 void dex_contract::match() {
     require_auth( _config.settler );
+    // TODO: validate sym_pairs??
+
     auto order_tbl = make_order_table(get_self());
     auto match_index = order_tbl.get_index<static_cast<name::raw>(order_match_idx::index_name)>();
     // TODO: input sym_pair_id
@@ -650,6 +652,7 @@ void dex_contract::match() {
         }
 
         // TODO: get price for maket order
+
         uint64_t match_price = maker_it.stored_order().price;
 
         // 2. get match amounts
@@ -728,10 +731,24 @@ void dex_contract::match() {
         }
     }
 
+    if (limit_buy_it.is_matching) {
+        match_orders.push_back(limit_buy_it.matching_order());
+    }
+
+    if (limit_sell_it.is_matching) {
+        match_orders.push_back(limit_sell_it.matching_order());
+    }
     // 2. match market_buy_orders and limit_sell_orders
     // 3. match limit_buy_orders and market_sell_orders
     // 4. match market_buy_orders and market_sell_orders
 
     // TODO: process matching order which is not completed in iterators
     // TODO: save orders
+
+    for(const auto &item : match_orders) {
+        const auto &order_store = order_tbl.get(item.order_id);
+        order_tbl.modify(order_store, same_payer, [&]( auto& a ) {
+            a = item;
+        });
+    }
 }
