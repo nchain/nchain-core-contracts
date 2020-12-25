@@ -13,4 +13,9 @@ constexpr int64_t DEX_TAKER_FEE_RATIO       = 8;         // 0.04%, dex taker fee
 constexpr int64_t MEMO_LEN_MAX              = 255;        // 0.001%, max memo length
 constexpr int64_t URL_LEN_MAX               = 255;        // 0.001%, max url length
 
+#define DEX_CONTRACT_PROP eosio::contract("dex")
+#define DEX_CONTRACT [[DEX_CONTRACT_PROP]]
+#define DEX_TABLE [[eosio::table, DEX_CONTRACT_PROP]]
+#define DEX_TABLE_NAME(name) [[eosio::table(name), DEX_CONTRACT_PROP]]
+
 constexpr eosio::name BANK                  = "eosio.token"_n;

@@ -5,6 +5,7 @@
 #include <eosio/name.hpp>
 #include <eosio/asset.hpp>
 #include <eosio/singleton.hpp>
+#include "dex_const.hpp"
 
 namespace dex {
 
@@ -56,7 +57,7 @@ namespace dex {
     }
 
 
-    struct [[eosio::table]] config {
+    struct DEX_TABLE config {
         name admin;   // admin of this contract
         name settler; // settler
         name payee;   // payee of this contract
@@ -67,7 +68,7 @@ namespace dex {
 
     typedef eosio::singleton< "config"_n, config > config_table;
 
-    struct [[eosio::table]] global {
+    struct DEX_TABLE global {
         uint64_t order_id    = 0; // the auto-increament id of order
         uint64_t sym_pair_id = 0; // settler
     };
@@ -99,7 +100,7 @@ namespace dex {
         return uint128_t(coin_symbol.raw()) << 64 | uint128_t(asset_symbol.raw());
     }
 
-    struct [[eosio::table]] symbol_pair_t {
+    struct DEX_TABLE symbol_pair_t {
         uint64_t sym_pair_id; // auto-increment
         symbol asset_symbol;
         symbol coin_symbol;
@@ -127,7 +128,7 @@ namespace dex {
         return order_match_idx_key::make_from_word_sequence<uint64_t>(sym_pair_id, option, price_factor, order_id);
     }
 
-    struct [[eosio::table]] order_t {
+    struct DEX_TABLE order_t {
         uint64_t sym_pair_id; // id of symbol_pair_table
         uint64_t order_id; // auto-increment
         name owner;

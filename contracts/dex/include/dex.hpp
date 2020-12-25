@@ -7,9 +7,7 @@
 using namespace std;
 using namespace eosio;
 
-
-
-class [[eosio::contract]] dex_contract : public contract {
+class DEX_CONTRACT dex_contract : public contract {
 public:
     using contract::contract;
 
