@@ -67,6 +67,30 @@ namespace dex {
 
     typedef eosio::singleton< "config"_n, config > config_table;
 
+    struct [[eosio::table]] global {
+        uint64_t order_id    = 0; // the auto-increament id of order
+        uint64_t sym_pair_id = 0; // settler
+    };
+
+    typedef eosio::singleton< "global"_n, global > global_table;
+
+    inline uint64_t new_auto_inc_id(uint64_t &id) {
+        if (id == 0 || id == std::numeric_limits<uint64_t>::max()) {
+            id = 1;
+        } else {
+            id++;
+        }
+        return id;
+    }
+
+    inline uint64_t new_order_id(global &g) {
+        return new_auto_inc_id(g.order_id);
+    }
+
+    inline uint64_t new_sym_pair_id(global &g) {
+        return new_auto_inc_id(g.sym_pair_id);
+    }
+
     static inline uint128_t make_symbols_idx(const symbol &asset_symbol, const symbol &coin_symbol) {
         return uint128_t(asset_symbol.raw()) << 64 | uint128_t(coin_symbol.raw());
     }

@@ -120,22 +120,32 @@ void dex_contract::setsympair(const symbol &asset_symbol, const symbol &coin_sym
     check(asset_symbol == min_asset_quant.symbol, "Incorrect symbol of min_coin_quant");
     check(coin_symbol == min_coin_quant.symbol, "Incorrect symbol of min_asset_quant");
 
-     auto sym_pair_id = sym_pair_tbl.available_primary_key();
 
     auto index = sym_pair_tbl.get_index<static_cast<name::raw>(symbols_idx::index_name)>();
-    check( index.find( make_symbols_idx(asset_symbol, coin_symbol) ) == index.end(), "The symbol pair exist");
     check( index.find( revert_symbols_idx(asset_symbol, coin_symbol) ) == index.end(), "The reverted symbol pair exist");
 
-    check( sym_pair_tbl.find(sym_pair_id) == sym_pair_tbl.end(), "The symbol pair id exist");
-
-    sym_pair_tbl.emplace(get_self(), [&](auto &sym_pair) {
-        sym_pair.sym_pair_id = sym_pair_tbl.available_primary_key();
-        sym_pair.asset_symbol = asset_symbol;
-        sym_pair.coin_symbol = coin_symbol;
-        sym_pair.min_asset_quant = min_asset_quant;
-        sym_pair.min_coin_quant = min_coin_quant;
-        sym_pair.enabled = enabled;
-    });
+    auto it = index.find( make_symbols_idx(asset_symbol, coin_symbol));
+    if (it == index.end()) {
+        // new sym pair
+        auto sym_pair_id = dex::new_sym_pair_id(_global);
+        check( sym_pair_tbl.find(sym_pair_id) == sym_pair_tbl.end(), "The symbol pair id exist");
+        sym_pair_tbl.emplace(get_self(), [&](auto &sym_pair) {
+            sym_pair.sym_pair_id = sym_pair_id;
+            sym_pair.asset_symbol = asset_symbol;
+            sym_pair.coin_symbol = coin_symbol;
+            sym_pair.min_asset_quant = min_asset_quant;
+            sym_pair.min_coin_quant = min_coin_quant;
+            sym_pair.enabled = enabled;
+        });
+    } else {
+        sym_pair_tbl.modify(*it, same_payer, [&]( auto& sym_pair ) {
+            sym_pair.asset_symbol = asset_symbol;
+            sym_pair.coin_symbol = coin_symbol;
+            sym_pair.min_asset_quant = min_asset_quant;
+            sym_pair.min_coin_quant = min_coin_quant;
+            sym_pair.enabled = enabled;
+        });
+    }
 }
 
 void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
@@ -204,7 +214,7 @@ void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
 
         auto order_tbl = make_order_table(get_self());
         // TODO: implement auto inc id by global table
-        order.order_id = order_tbl.available_primary_key();
+        order.order_id = dex::new_order_id(_global);
         order.owner = from;
 
         check(order_tbl.find(order.order_id) == order_tbl.end(), "The order is exist. order_id=" + std::to_string(order.order_id));
