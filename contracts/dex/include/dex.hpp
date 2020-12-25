@@ -13,9 +13,13 @@ public:
 
 public:
     dex_contract(name receiver, name code, datastream<const char *> ds)
-        : contract(receiver, code, ds), _conf_tbl(get_self(), get_self().value), _global_tbl(get_self(), get_self().value) {
+        : contract(receiver, code, ds), _conf_tbl(get_self(), get_self().value),
+          _global(dex::global_state::make_global(get_self())) {
         _config = _conf_tbl.exists() ? _conf_tbl.get() : get_default_config();
-        _global = _global_tbl.exists() ? _global_tbl.get() : dex::global{};
+    }
+
+    ~dex_contract() {
+        _global->save(get_self());
     }
 
     [[eosio::action]] void setconfig(const dex::config &conf);
@@ -50,6 +54,5 @@ private:
 
     dex::config_table _conf_tbl;
     dex::config _config;
-    dex::global_table _global_tbl;
-    dex::global _global;
+    dex::global_state::ptr_t _global;
 };

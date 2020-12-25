@@ -127,7 +127,7 @@ void dex_contract::setsympair(const symbol &asset_symbol, const symbol &coin_sym
     auto it = index.find( make_symbols_idx(asset_symbol, coin_symbol));
     if (it == index.end()) {
         // new sym pair
-        auto sym_pair_id = dex::new_sym_pair_id(_global);
+        auto sym_pair_id = dex::new_sym_pair_id(*_global);
         check( sym_pair_tbl.find(sym_pair_id) == sym_pair_tbl.end(), "The symbol pair id exist");
         sym_pair_tbl.emplace(get_self(), [&](auto &sym_pair) {
             sym_pair.sym_pair_id = sym_pair_id;
@@ -214,7 +214,7 @@ void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
 
         auto order_tbl = make_order_table(get_self());
         // TODO: implement auto inc id by global table
-        order.order_id = dex::new_order_id(_global);
+        order.order_id = dex::new_order_id(*_global);
         order.owner = from;
 
         check(order_tbl.find(order.order_id) == order_tbl.end(), "The order is exist. order_id=" + std::to_string(order.order_id));

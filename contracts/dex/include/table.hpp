@@ -75,6 +75,38 @@ namespace dex {
 
     typedef eosio::singleton< "global"_n, global > global_table;
 
+    struct global_state: public global {
+    public:
+        bool changed = false;
+
+        using ptr_t = std::unique_ptr<global_state>;
+
+        static ptr_t make_global(const name &contract) {
+            std::shared_ptr<global_table> global_tbl;
+            auto ret = std::make_unique<global_state>();
+            ret->_global_tbl = std::make_unique<global_table>(contract, contract.value);
+
+            if (ret->_global_tbl->exists()) {
+                static_cast<global&>(*ret) = ret->_global_tbl->get();
+            }
+            return ret;
+        }
+
+        inline void change() {
+            changed = true;
+        }
+
+        inline void save(const name &payer) {
+            if (changed) {
+                auto &g = static_cast<global&>(*this);
+                _global_tbl->set(g, payer);
+                changed = false;
+            }
+        }
+    private:
+        std::unique_ptr<global_table> _global_tbl;
+    };
+
     inline uint64_t new_auto_inc_id(uint64_t &id) {
         if (id == 0 || id == std::numeric_limits<uint64_t>::max()) {
             id = 1;
@@ -84,11 +116,13 @@ namespace dex {
         return id;
     }
 
-    inline uint64_t new_order_id(global &g) {
+    inline uint64_t new_order_id(global_state &g) {
+        g.change();
         return new_auto_inc_id(g.order_id);
     }
 
-    inline uint64_t new_sym_pair_id(global &g) {
+    inline uint64_t new_sym_pair_id(global_state &g) {
+        g.change();
         return new_auto_inc_id(g.sym_pair_id);
     }
 
