@@ -650,12 +650,16 @@ void dex_contract::match() {
         sym_pair_list.push_back(*sym_pair_it);
     }
 
+    int32_t matched_count = 0;
     for (const auto &sym_pair : sym_pair_list) {
-        match_sym_pair(sym_pair);
+        if (matched_count < DEX_MATCH_COUNT_MAX) {
+            match_sym_pair(sym_pair, matched_count);
+        }
     }
+    check(matched_count > 0, "The matched count == 0");
 }
 
-void dex_contract::match_sym_pair(const dex::symbol_pair_t &sym_pair) {
+void dex_contract::match_sym_pair(const dex::symbol_pair_t &sym_pair, int32_t &matched_count) {
 
     auto order_tbl = make_order_table(get_self());
     auto match_index = order_tbl.get_index<static_cast<name::raw>(order_match_idx::index_name)>();
@@ -665,7 +669,7 @@ void dex_contract::match_sym_pair(const dex::symbol_pair_t &sym_pair) {
     // 1. match limit_buy_orders and limit_sell_orders
     auto limit_buy_it = matching_order_iterator(match_index, sym_pair_id, order_side::BUY, order_type::LIMIT);
     auto limit_sell_it = matching_order_iterator(match_index, sym_pair_id, order_side::SELL, order_type::LIMIT);
-    while (limit_buy_it.is_valid() && limit_sell_it.is_valid() &&
+    while (matched_count < DEX_MATCH_COUNT_MAX && limit_buy_it.is_valid() && limit_sell_it.is_valid() &&
             limit_buy_it.stored_order().price >= limit_sell_it.stored_order().price) {
         auto &maker_it = limit_buy_it.stored_order().order_id < limit_sell_it.stored_order().order_id ? limit_buy_it : limit_sell_it;
         auto &taker_it = limit_buy_it.stored_order().order_id < limit_sell_it.stored_order().order_id ? limit_sell_it : limit_buy_it;
@@ -762,6 +766,7 @@ void dex_contract::match_sym_pair(const dex::symbol_pair_t &sym_pair) {
             match_orders.push_back(maker_it.matching_order());
             maker_it.next();
         }
+        matched_count++;
     }
 
     if (limit_buy_it.is_matching) {
