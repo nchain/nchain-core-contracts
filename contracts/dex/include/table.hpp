@@ -180,8 +180,8 @@ namespace dex {
         int64_t price;
         uint64_t external_id; // external id
 
-        int64_t deal_asset_amount = 0;      //!< total deal asset amount
-        int64_t deal_coin_amount  = 0;      //!< total deal coin amount
+        int64_t matched_assets = 0;      //!< total matched asset amount
+        int64_t matched_coins  = 0;      //!< total matched coin amount
         // TODO: should del the order when finish??
         bool is_complete            = false;  //!< order is finish
         uint64_t primary_key() const { return order_id; }
@@ -203,8 +203,8 @@ namespace dex {
                 PP(asset_quant),
                 PP(coin_quant),
                 PP(price),
-                PP(deal_asset_amount),
-                PP(deal_coin_amount),
+                PP(matched_assets),
+                PP(matched_coins),
                 PP(is_complete)
             );
 

@@ -286,8 +286,8 @@ BOOST_FIXTURE_TEST_CASE( dex_settle_test, dex_tester ) try {
         ("coin_quant", "100.0000 USD")
         ("price", "1000000000000")
         ("external_id", 1)
-        ("deal_asset_amount", "0")
-        ("deal_coin_amount", "0")
+        ("matched_assets", "0")
+        ("matched_coins", "0")
         ("is_complete", "0")
     );
 
@@ -307,8 +307,8 @@ BOOST_FIXTURE_TEST_CASE( dex_settle_test, dex_tester ) try {
         ("coin_quant", "0.0000 USD")
         ("price", "1000000000000")
         ("external_id", 2)
-        ("deal_asset_amount", "0")
-        ("deal_coin_amount", "0")
+        ("matched_assets", "0")
+        ("matched_coins", "0")
         ("is_complete", "0")
     );
 
@@ -334,8 +334,8 @@ BOOST_FIXTURE_TEST_CASE( dex_settle_test, dex_tester ) try {
     //     ("asset_quant", "0.01000000 BTC")
     //     ("coin_quant", "100.0000 USD")
     //     ("price", "1000000000000")
-    //     ("deal_asset_amount", "1000000")
-    //     ("deal_coin_amount", "1000000")
+    //     ("matched_assets", "1000000")
+    //     ("matched_coins", "1000000")
     //     ("is_finish", "1")
     // );
 
@@ -349,8 +349,8 @@ BOOST_FIXTURE_TEST_CASE( dex_settle_test, dex_tester ) try {
     //     ("asset_quant", "0.01000000 BTC")
     //     ("coin_quant", "0.0000 USD")
     //     ("price", "1000000000000")
-    //     ("deal_asset_amount", "1000000")
-    //     ("deal_coin_amount", "1000000")
+    //     ("matched_assets", "1000000")
+    //     ("matched_coins", "1000000")
     //     ("is_finish", "1")
     // );
 } FC_LOG_AND_RETHROW()

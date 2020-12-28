@@ -328,11 +328,11 @@ void dex_contract::settle(const uint64_t &buy_id, const uint64_t &sell_id, const
     }
     check(is_coin_amount_match, "The deal coin amount mismatch with the calc_coin_amount");
 
-    uint64_t buyer_deal_coin_amount = buy_order.deal_coin_amount + coin_quant.amount;
-    uint64_t buyer_deal_asset_amount = buy_order.deal_asset_amount + asset_quant.amount;
+    uint64_t buyer_deal_coin_amount = buy_order.matched_coins + coin_quant.amount;
+    uint64_t buyer_deal_asset_amount = buy_order.matched_assets + asset_quant.amount;
 
-    uint64_t seller_deal_coin_amount = sell_order.deal_coin_amount + coin_quant.amount;
-    uint64_t seller_deal_asset_amount = sell_order.deal_asset_amount + asset_quant.amount;
+    uint64_t seller_deal_coin_amount = sell_order.matched_coins + coin_quant.amount;
+    uint64_t seller_deal_asset_amount = sell_order.matched_assets + asset_quant.amount;
 
     // 6. check the order amount limits
     // 6.1 check the buy_order amount limit
@@ -391,12 +391,12 @@ void dex_contract::settle(const uint64_t &buy_id, const uint64_t &sell_id, const
             }
         }
     } else { // buy_order.order_type == order_type::MARKET
-        buy_order_finish = buy_order.coin_quant.amount == buy_order.deal_coin_amount;
+        buy_order_finish = buy_order.coin_quant.amount == buy_order.matched_coins;
     }
     // udpate buy order
     order_tbl.modify(buy_order, get_self(), [&]( auto& a ) {
-        a.deal_asset_amount = buyer_deal_asset_amount;
-        a.deal_coin_amount = buyer_deal_coin_amount;
+        a.matched_assets = buyer_deal_asset_amount;
+        a.matched_coins = buyer_deal_coin_amount;
         a.is_complete = buy_order_finish;
     });
 
@@ -404,8 +404,8 @@ void dex_contract::settle(const uint64_t &buy_id, const uint64_t &sell_id, const
     bool sell_order_finish = (sell_order.asset_quant.amount == seller_deal_asset_amount);
     // udpate sell order
     order_tbl.modify(sell_order, get_self(), [&]( auto& a ) {
-        a.deal_asset_amount = seller_deal_asset_amount;
-        a.deal_coin_amount = seller_deal_coin_amount;
+        a.matched_assets = seller_deal_asset_amount;
+        a.matched_coins = seller_deal_coin_amount;
         a.is_complete = sell_order_finish;
     });
 }
@@ -421,12 +421,12 @@ void dex_contract::cancel(const uint64_t &order_id) {
     require_auth(order.owner);
     asset quantity;
     if (order.order_side == order_side::BUY) {
-        check(order.coin_quant.amount > order.deal_coin_amount, "Invalid order coin amount");
-        quantity = asset(order.coin_quant.amount - order.deal_coin_amount, order.coin_quant.symbol);
+        check(order.coin_quant.amount > order.matched_coins, "Invalid order coin amount");
+        quantity = asset(order.coin_quant.amount - order.matched_coins, order.coin_quant.symbol);
     } else {
         // order.order_side == order_side::SELL
-        check(order.asset_quant.amount > order.deal_asset_amount, "Invalid order asset amount");
-        quantity = asset(order.asset_quant.amount - order.deal_asset_amount, order.asset_quant.symbol);
+        check(order.asset_quant.amount > order.matched_assets, "Invalid order asset amount");
+        quantity = asset(order.asset_quant.amount - order.matched_assets, order.asset_quant.symbol);
     }
     transfer_out(get_self(), _config.bank, order.owner, quantity, "cancel_order");
 
@@ -459,12 +459,12 @@ void get_match_amounts(const dex::order_t &taker_order, const dex::order_t &make
             return;
         }
     } else {
-        check(taker_order.asset_quant.amount >= taker_order.deal_asset_amount, "taker_order.asset_quant.amount >= taker_order.deal_asset_amount");
-        taker_free_assets = taker_order.asset_quant.amount - taker_order.deal_asset_amount;
+        check(taker_order.asset_quant.amount >= taker_order.matched_assets, "taker_order.asset_quant.amount >= taker_order.matched_assets");
+        taker_free_assets = taker_order.asset_quant.amount - taker_order.matched_assets;
     }
 
-    check(maker_order.asset_quant.amount >= maker_order.deal_asset_amount, "maker_order.asset_quant.amount >= maker_order.deal_asset_amount");
-    int64_t maker_free_assets = maker_order.asset_quant.amount - maker_order.deal_asset_amount;
+    check(maker_order.asset_quant.amount >= maker_order.matched_assets, "maker_order.asset_quant.amount >= maker_order.matched_assets");
+    int64_t maker_free_assets = maker_order.asset_quant.amount - maker_order.matched_assets;
 
     match_assets = std::min(taker_free_assets, maker_free_assets);
     match_coins = calc_coin_amount(asset(match_assets, taker_order.asset_quant.symbol), match_price, taker_order.coin_quant.symbol);
@@ -546,26 +546,26 @@ void dex_contract::process_order(dex::order_t &taker_order) {
         transfer_out(get_self(), _config.bank, buy_order.owner, asset(buyer_recv_assets, asset_symbol), "buyer_recv_assets");
         // match sell <-> buy order
 
-        uint64_t buyer_total_match_assets = buy_order.deal_asset_amount + match_assets;
-        uint64_t buyer_total_match_coins = buy_order.deal_coin_amount + match_coins;
+        uint64_t buyer_total_match_assets = buy_order.matched_assets + match_assets;
+        uint64_t buyer_total_match_coins = buy_order.matched_coins + match_coins;
 
-        uint64_t seller_total_match_assets = sell_order.deal_asset_amount + match_assets;
-        uint64_t seller_total_match_coins = sell_order.deal_coin_amount + match_coins;
+        uint64_t seller_total_match_assets = sell_order.matched_assets + match_assets;
+        uint64_t seller_total_match_coins = sell_order.matched_coins + match_coins;
         // 9. check order fullfiled to del or update
         // 9.1 check buy order fullfiled to del or update
-        maker_order.deal_asset_amount += match_assets;
-        maker_order.deal_coin_amount += match_coins;
-        check(maker_order.deal_asset_amount <= maker_order.asset_quant.amount, "The match assets is overflow for maker order");
-        maker_order.is_complete = maker_order.deal_asset_amount == maker_order.asset_quant.amount;
+        maker_order.matched_assets += match_assets;
+        maker_order.matched_coins += match_coins;
+        check(maker_order.matched_assets <= maker_order.asset_quant.amount, "The match assets is overflow for maker order");
+        maker_order.is_complete = maker_order.matched_assets == maker_order.asset_quant.amount;
 
-        taker_order.deal_asset_amount += match_assets;
-        taker_order.deal_coin_amount += match_coins;
+        taker_order.matched_assets += match_assets;
+        taker_order.matched_coins += match_coins;
         if (taker_order.order_side == order_side::BUY && taker_order.order_type == order_type::MARKET) {
-            check(taker_order.deal_coin_amount <= taker_order.coin_quant.amount, "The match coins is overflow for market buy taker order");
-            taker_order.is_complete = taker_order.deal_coin_amount == taker_order.coin_quant.amount;
+            check(taker_order.matched_coins <= taker_order.coin_quant.amount, "The match coins is overflow for market buy taker order");
+            taker_order.is_complete = taker_order.matched_coins == taker_order.coin_quant.amount;
         } else {
-            check(taker_order.deal_asset_amount <= taker_order.asset_quant.amount, "The match assets is overflow for taker order");
-            taker_order.is_complete = taker_order.deal_asset_amount == taker_order.asset_quant.amount;
+            check(taker_order.matched_assets <= taker_order.asset_quant.amount, "The match assets is overflow for taker order");
+            taker_order.is_complete = taker_order.matched_assets == taker_order.asset_quant.amount;
         }
 
 
@@ -612,11 +612,11 @@ void dex_contract::process_order(dex::order_t &taker_order) {
             if (taker_order.order_side == order_side::BUY) {
                 process_refund(taker_order);
             } else {
-                check(taker_order.asset_quant.amount >= taker_order.deal_asset_amount, "The match coins is overflow for market_sell_taker_order");
-                if (taker_order.asset_quant.amount > taker_order.deal_asset_amount) {
-                    int64_t refunds = taker_order.coin_quant.amount - taker_order.deal_coin_amount;
+                check(taker_order.asset_quant.amount >= taker_order.matched_assets, "The match coins is overflow for market_sell_taker_order");
+                if (taker_order.asset_quant.amount > taker_order.matched_assets) {
+                    int64_t refunds = taker_order.coin_quant.amount - taker_order.matched_coins;
                     transfer_out(get_self(), _config.bank, taker_order.owner, asset(refunds, taker_order.coin_quant.symbol), "refund_coins");
-                    taker_order.deal_coin_amount = taker_order.coin_quant.amount;
+                    taker_order.matched_coins = taker_order.coin_quant.amount;
                 }
             }
         }
@@ -627,13 +627,13 @@ void dex_contract::process_order(dex::order_t &taker_order) {
 void dex_contract::process_refund(dex::order_t &buy_order) {
     ASSERT(buy_order.order_side == order_side::BUY);
     if (buy_order.order_type == order_type::LIMIT) {
-        check(buy_order.deal_coin_amount <= buy_order.coin_quant.amount,
+        check(buy_order.matched_coins <= buy_order.coin_quant.amount,
               "The match coins is overflow for buy limit order " +
                   std::to_string(buy_order.order_id));
-        if (buy_order.coin_quant.amount > buy_order.deal_coin_amount) {
-            int64_t refunds = buy_order.coin_quant.amount - buy_order.deal_coin_amount;
+        if (buy_order.coin_quant.amount > buy_order.matched_coins) {
+            int64_t refunds = buy_order.coin_quant.amount - buy_order.matched_coins;
             transfer_out(get_self(), _config.bank, buy_order.owner, asset(refunds, buy_order.coin_quant.symbol), "refund_coins");
-            buy_order.deal_coin_amount = buy_order.coin_quant.amount;
+            buy_order.matched_coins = buy_order.coin_quant.amount;
         }
     }
 }
@@ -730,20 +730,20 @@ void dex_contract::match_sym_pair(const dex::symbol_pair_t &sym_pair) {
 
         // 9. check order fullfiled to del or update
         // 9.1 check buy order fullfiled to del or update
-        buy_order.deal_asset_amount += match_assets;
-        buy_order.deal_coin_amount += match_coins;
+        buy_order.matched_assets += match_assets;
+        buy_order.matched_coins += match_coins;
         if (buy_order.order_type == order_type::MARKET) {
-            check(buy_order.deal_coin_amount <= buy_order.coin_quant.amount, "The match coins is overflow for market buy taker order");
-            buy_order.is_complete = buy_order.deal_coin_amount == buy_order.coin_quant.amount;
+            check(buy_order.matched_coins <= buy_order.coin_quant.amount, "The match coins is overflow for market buy taker order");
+            buy_order.is_complete = buy_order.matched_coins == buy_order.coin_quant.amount;
         } else {
-            check(buy_order.deal_asset_amount <= buy_order.asset_quant.amount, "The match assets is overflow for sell order");
-            buy_order.is_complete = buy_order.deal_asset_amount == buy_order.asset_quant.amount;
+            check(buy_order.matched_assets <= buy_order.asset_quant.amount, "The match assets is overflow for sell order");
+            buy_order.is_complete = buy_order.matched_assets == buy_order.asset_quant.amount;
         }
 
-        sell_order.deal_asset_amount += match_assets;
-        sell_order.deal_coin_amount += match_coins;
-        check(sell_order.deal_asset_amount <= sell_order.asset_quant.amount, "The match assets is overflow for sell order");
-        sell_order.is_complete = sell_order.deal_asset_amount == sell_order.asset_quant.amount;
+        sell_order.matched_assets += match_assets;
+        sell_order.matched_coins += match_coins;
+        check(sell_order.matched_assets <= sell_order.asset_quant.amount, "The match assets is overflow for sell order");
+        sell_order.is_complete = sell_order.matched_assets == sell_order.asset_quant.amount;
 
         // matching
         check(buy_order.is_complete || sell_order.is_complete, "Neither taker nor maker is finish");
