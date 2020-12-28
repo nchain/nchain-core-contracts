@@ -7,6 +7,11 @@
 #include <eosio/singleton.hpp>
 #include "dex_const.hpp"
 
+
+#define PP(prop) "," #prop ":", prop
+#define PP0(prop) #prop ":", prop
+#define PRINT_PROPERTIES(...) eosio::print("{", __VA_ARGS__, "}")
+
 namespace dex {
 
     using namespace eosio;
@@ -164,10 +169,6 @@ namespace dex {
         return ret;
     }
 
-
-#define PP(prop) "," #prop ":", prop
-#define PP0(prop) #prop ":", prop
-#define PRINT_PROPERTIES(...) eosio::print("{", __VA_ARGS__, "}")
     struct DEX_TABLE order_t {
         uint64_t sym_pair_id; // id of symbol_pair_table
         uint64_t order_id; // auto-increment
