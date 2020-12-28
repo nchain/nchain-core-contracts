@@ -36,7 +36,7 @@ public:
                                   const asset &asset_quant, const asset &coin_quant,
                                   const int64_t &price, const string &memo);
 */
-    // TODO: const set<uint64_t> &sym_pairs
+    // TODO: const list<uint64_t> &sym_pairs
     [[eosio::action]] void match();
 
     [[eosio::action]] void cancel(const uint64_t &order_id);
@@ -51,6 +51,7 @@ private:
     dex::config get_default_config();
     // void process_order(order_t &order);
     void process_refund(dex::order_t &buy_order);
+    void match_sym_pair(const dex::symbol_pair_t &sym_pair);
 
     dex::config_table _conf_tbl;
     dex::config _config;

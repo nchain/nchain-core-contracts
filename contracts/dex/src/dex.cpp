@@ -634,11 +634,26 @@ void dex_contract::process_refund(dex::order_t &buy_order) {
 void dex_contract::match() {
     require_auth( _config.settler );
     // TODO: validate sym_pairs??
+    // get sym_pair_list
+    std::list<symbol_pair_t> sym_pair_list;
+    auto sym_pair_tbl = dex::make_symbol_pair_table(get_self());
+    auto sym_pair_it = sym_pair_tbl.begin();
+    for (; sym_pair_it != sym_pair_tbl.end(); sym_pair_it++) {
+        // TODO: check is enabled
+        sym_pair_list.push_back(*sym_pair_it);
+    }
+
+    for (const auto &sym_pair : sym_pair_list) {
+        match_sym_pair(sym_pair);
+    }
+}
+
+void dex_contract::match_sym_pair(const dex::symbol_pair_t &sym_pair) {
 
     auto order_tbl = make_order_table(get_self());
     auto match_index = order_tbl.get_index<static_cast<name::raw>(order_match_idx::index_name)>();
-    // TODO: input sym_pair_id
-    uint64_t sym_pair_id = 1;
+
+    uint64_t sym_pair_id = sym_pair.sym_pair_id;
     std::list<order_t> match_orders;
     // 1. match limit_buy_orders and limit_sell_orders
     auto limit_buy_it = matching_order_iterator(match_index, sym_pair_id, order_side::BUY, order_type::LIMIT);
@@ -662,7 +677,6 @@ void dex_contract::match() {
 
         print("matching buy_order=", limit_buy_it.stored_order(), "\n");
         print("matching sell_order=", limit_sell_it.stored_order(), "\n");
-        // TODO: get price for maket order
 
         uint64_t match_price = maker_it.stored_order().price;
 
@@ -755,7 +769,6 @@ void dex_contract::match() {
     // 4. match market_buy_orders and market_sell_orders
 
     // TODO: process matching order which is not completed in iterators
-    // TODO: save orders
 
     for(const auto &item : match_orders) {
         const auto &order_store = order_tbl.get(item.order_id);
@@ -771,4 +784,3 @@ void dex_contract::match() {
         }
     }
 }
-
