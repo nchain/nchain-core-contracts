@@ -159,9 +159,15 @@ namespace dex {
     inline static order_match_idx_key make_order_match_idx(uint64_t sym_pair_id, const order_side_t &side, const order_type_t &type, uint64_t price, uint64_t order_id) {
         uint64_t option = uint64_t(order_side::index(side)) << 56 | uint64_t(order_type::index(type)) << 48;
         uint64_t price_factor = (side == order_side::BUY) ? std::numeric_limits<uint64_t>::max() - price : price;
-        return order_match_idx_key::make_from_word_sequence<uint64_t>(sym_pair_id, option, price_factor, order_id);
+        auto ret = order_match_idx_key::make_from_word_sequence<uint64_t>(sym_pair_id, option, price_factor, order_id);
+        print("make order match idx=", ret, "\n");
+        return ret;
     }
 
+
+#define PP(prop) "," #prop ":", prop
+#define PP0(prop) #prop ":", prop
+#define PRINT_PROPERTIES(...) eosio::print("{", __VA_ARGS__, "}")
     struct DEX_TABLE order_t {
         uint64_t sym_pair_id; // id of symbol_pair_table
         uint64_t order_id; // auto-increment
@@ -180,6 +186,23 @@ namespace dex {
         order_match_idx_key get_order_match_idx() const {
             return make_order_match_idx(sym_pair_id, order_side, order_type, price, order_id);
         }
+
+        void print() const {
+            PRINT_PROPERTIES(
+                PP0(sym_pair_id),
+                PP(order_id),
+                PP(owner),
+                PP(order_type),
+                PP(order_side),
+                PP(asset_quant),
+                PP(coin_quant),
+                PP(price),
+                PP(deal_asset_amount),
+                PP(deal_coin_amount),
+                PP(is_complete)
+            );
+
+        }
     };
 
     using order_match_idx = indexed_by<"ordermatch"_n, const_mem_fun<order_t, order_match_idx_key,
@@ -191,29 +214,30 @@ namespace dex {
         return order_table(self, self.value/*scope*/);
     }
 
-
     template<typename match_index_t>
     class matching_order_iterator {
     public:
         bool is_matching = false;
+        order_match_idx_key key;
     public:
-        matching_order_iterator(match_index_t &match_index, uint64_t sym_pair_id, order_type_t type,
-                    order_side_t side)
+        matching_order_iterator(match_index_t &match_index, uint64_t sym_pair_id, order_side_t side,
+                                order_type_t type)
             : _match_index(match_index), _it(match_index.end()), _sym_pair_id(sym_pair_id),
-            _order_type(type), _order_side(side) {}
+              _order_side(side), _order_type(type) {
 
-        void first() {
-            order_match_idx_key key;
+            print("creating matching order itr! sym_pair_id=", _sym_pair_id, ", side=", _order_side, ", type=", _order_type, "\n");
             if (_order_side == order_side::BUY) {
-                key = make_order_match_idx(_sym_pair_id, _order_side, _order_type, std::numeric_limits<uint64_t>::max(), 0);
+                key = make_order_match_idx(_sym_pair_id, _order_side, _order_type,
+                                           std::numeric_limits<uint64_t>::max(), 0);
             } else { // _order_side == order_side::SELL
                 key = make_order_match_idx(_sym_pair_id, _order_side, _order_type, 0, 0);
             }
-            _it = _match_index.upper_bound(key);
+            _it       = _match_index.upper_bound(key);
             _is_valid = process_data();
         };
 
         void next() {
+            // print("nnnnnnnnn next");
             _it++;
             _is_valid = process_data();
         }
@@ -228,7 +252,10 @@ namespace dex {
         }
 
         inline order_t& begin_match() {
-            is_matching = true;
+            if (!is_matching) {
+                _matching_order = *_it;
+                is_matching = true;
+            }
             return _matching_order;
         }
 
@@ -239,9 +266,16 @@ namespace dex {
     private:
         bool process_data() {
             is_matching = false;
-            if (_it == _match_index.end()) return false;
+            if (_it == _match_index.end()) {
+                print("matching order itr end! sym_pair_id=", _sym_pair_id, ", side=", _order_side, ", type=", _order_type, "\n");
+                return false;
+            }
 
             const auto &stored_order = *_it;
+            check(key < stored_order.get_order_match_idx(), "the start key must < found order key");
+            // print("start key=", key, ", found key=", stored_order.get_order_match_idx(), "\n");
+
+            print("found order! order=", stored_order, "\n");
             if (stored_order.sym_pair_id != _sym_pair_id || stored_order.order_side != _order_side || stored_order.order_type != _order_type ) {
                 return false;
             }

@@ -263,7 +263,7 @@ int64_t sub_fee(int64_t &amount, int64_t fee, const string &msg) {
 
 void transfer_out(const name &contract, const name &bank, const name &to, const asset &quantity,
                   const string &memo) {
-
+    print("transfer_out (", PP0(contract), PP(bank), PP(to), PP(quantity), PP(memo), ")\n");
     action(permission_level{contract, "active"_n}, bank, "transfer"_n,
            std::make_tuple(contract, to, quantity, memo))
         .send();
@@ -638,14 +638,13 @@ void dex_contract::match() {
     auto order_tbl = make_order_table(get_self());
     auto match_index = order_tbl.get_index<static_cast<name::raw>(order_match_idx::index_name)>();
     // TODO: input sym_pair_id
-    uint64_t sym_pair_id = 0;
+    uint64_t sym_pair_id = 1;
     std::list<order_t> match_orders;
     // 1. match limit_buy_orders and limit_sell_orders
     auto limit_buy_it = matching_order_iterator(match_index, sym_pair_id, order_side::BUY, order_type::LIMIT);
-    auto limit_sell_it = matching_order_iterator(match_index, sym_pair_id, order_side::BUY, order_type::LIMIT);
+    auto limit_sell_it = matching_order_iterator(match_index, sym_pair_id, order_side::SELL, order_type::LIMIT);
     while (limit_buy_it.is_valid() && limit_sell_it.is_valid() &&
-            limit_buy_it.stored_order().price > limit_sell_it.stored_order().price) {
-
+            limit_buy_it.stored_order().price >= limit_sell_it.stored_order().price) {
         auto &maker_it = limit_buy_it.stored_order().order_id < limit_sell_it.stored_order().order_id ? limit_buy_it : limit_sell_it;
         auto &taker_it = limit_buy_it.stored_order().order_id < limit_sell_it.stored_order().order_id ? limit_sell_it : limit_buy_it;
 
@@ -661,6 +660,8 @@ void dex_contract::match() {
             }
         }
 
+        print("matching buy_order=", limit_buy_it.stored_order(), "\n");
+        print("matching sell_order=", limit_sell_it.stored_order(), "\n");
         // TODO: get price for maket order
 
         uint64_t match_price = maker_it.stored_order().price;
@@ -676,7 +677,6 @@ void dex_contract::match() {
 
         auto &buy_order = taker_order.order_side == order_side::BUY ? taker_order : maker_order;
         auto &sell_order = taker_order.order_side == order_side::SELL ? taker_order : maker_order;
-
         // the seller receive coins
         int64_t seller_recv_coins = match_coins;
         // the buyer receive assets
@@ -732,11 +732,13 @@ void dex_contract::match() {
             process_refund(buy_order);
 
         if (taker_it.matching_order().is_complete) {
-            // TODO: add to matched_orders
+            print("match taker order complete=", taker_it.matching_order(), "\n");
+            match_orders.push_back(taker_it.matching_order());
             taker_it.next();
         }
         if (maker_it.matching_order().is_complete) {
-            // TODO: add to matched_orders
+            print("match maker order complete=", maker_it.matching_order(), "\n");
+            match_orders.push_back(maker_it.matching_order());
             maker_it.next();
         }
     }
@@ -757,8 +759,16 @@ void dex_contract::match() {
 
     for(const auto &item : match_orders) {
         const auto &order_store = order_tbl.get(item.order_id);
-        order_tbl.modify(order_store, same_payer, [&]( auto& a ) {
-            a = item;
-        });
+        if (item.is_complete) {
+            // TODO: save the matching order detail
+            print("erase complete order=", item, "\n");
+            order_tbl.erase(order_store);
+        } else {
+            print("modify uncomplete order=", item, "\n");
+            order_tbl.modify(order_store, same_payer, [&]( auto& a ) {
+                a = item;
+            });
+        }
     }
 }
+

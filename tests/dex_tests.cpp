@@ -189,6 +189,7 @@ public:
     fc::variant get_order( uint64_t order_id)
     {
         vector<char> data = get_row_by_account( N(dex), N(dex), N(order), name(order_id) );
+        std::cout << "data empty=" << data.empty() << std::endl;
         return data.empty() ? fc::variant() : abi_ser.binary_to_variant( "order_t", data, abi_serializer_max_time );
     }
 
@@ -197,28 +198,6 @@ public:
             ( "conf", conf)
         );
     }
-
-    // struct auto_inc_id {
-    //     uint64_t id = 1;
-    //     uint64_t next_id = 2;
-
-    //     void next() {
-    //         if (next_id == 0) {
-    //             // first value
-    //             id = 1;
-    //             next_id = 2;
-    //         } else {
-    //             id = next_id;
-    //             next_id++;
-    //         }
-    //     }
-    // };
-
-    // auto_inc_id& sym_pair_id() {
-    //     static auto_inc_id id;
-    //     return id;
-    // }
-
 
     action_result setsympair( const symbol &asset_symbol, const symbol &coin_symbol, const asset &min_asset_quant, const asset &min_coin_quant, bool enabled ) {
         auto ret = push_action( N(dex.admin), N(setsympair), mvo()
@@ -230,6 +209,11 @@ public:
         );
         // sym_pair_id().next();
         return ret;
+    }
+
+    action_result match() {
+        return push_action( N(dex.settler), N(match), mvo()
+        );
     }
 
     // action_result settle(const uint64_t &buy_id, const uint64_t &sell_id,
@@ -328,6 +312,16 @@ BOOST_FIXTURE_TEST_CASE( dex_settle_test, dex_tester ) try {
 
     // // settle
     // EXECUTE_ACTION(settle(0, 1, ASSET("0.01000000 BTC"), ASSET("100.0000 USD"), 1000000000000, ""));
+
+    // match
+    EXECUTE_ACTION(match());
+    produce_blocks(1);
+
+    auto matched_buy_order = get_order(1);
+    BOOST_CHECK( matched_buy_order.is_null());
+    auto matched_sell_order = get_order(2);
+    BOOST_CHECK( matched_sell_order.is_null());
+
     // auto deal_buy_order = get_order(0);
     // REQUIRE_MATCHING_OBJECT( deal_buy_order, mvo()
     //     ("sym_pair_id", sym_pair_id().id)
@@ -342,6 +336,7 @@ BOOST_FIXTURE_TEST_CASE( dex_settle_test, dex_tester ) try {
     //     ("deal_coin_amount", "1000000")
     //     ("is_finish", "1")
     // );
+
     // auto deal_sell_order = get_order(1);
     // REQUIRE_MATCHING_OBJECT( deal_sell_order, mvo()
     //     ("sym_pair_id", sym_pair_id().id)
