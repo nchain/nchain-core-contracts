@@ -13,6 +13,12 @@ int64_t parse_price(string_view str) {
    return ret.value;
 }
 
+uint64_t parse_external_id(string_view str) {
+   safe<uint64_t> ret;
+   to_int(str, ret);
+   return ret.value;
+}
+
 void validate_fee_ratio(int64_t ratio, const string &title) {
     check(ratio >= 0 && ratio <= FEE_RATIO_MAX,
           "The " + title + " out of range [0, " + std::to_string(FEE_RATIO_MAX) + "]");
@@ -158,14 +164,15 @@ void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
     check(bank == _config.bank, "The bank must be " + _config.bank.to_string());
 
     vector<string_view> params = split(memo, ":");
-    if (params.size() == 6 && params[0] == "order") {
-      // order:<type>:<side>:<asset_quant>:<coin_quant>:<price>
+    if (params.size() == 7 && params[0] == "order") {
+      // order:<type>:<side>:<asset_quant>:<coin_quant>:<price>:ext_id
         order_t order;
         order.order_type = parse_order_type(params[1]);
         order.order_side = parse_order_side(params[2]);
         order.asset_quant = asset_from_string(params[3]);
         order.coin_quant = asset_from_string(params[4]);
         order.price = parse_price(params[5]);
+        order.external_id = parse_external_id(params[6]);
 
         auto sym_pair_tbl = make_symbol_pair_table(get_self());
         check(order.asset_quant.symbol.is_valid(), "Invalid asset symbol");

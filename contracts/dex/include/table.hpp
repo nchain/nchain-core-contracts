@@ -178,6 +178,7 @@ namespace dex {
         asset asset_quant;
         asset coin_quant;
         int64_t price;
+        uint64_t external_id; // external id
 
         int64_t deal_asset_amount = 0;      //!< total deal asset amount
         int64_t deal_coin_amount  = 0;      //!< total deal coin amount
@@ -186,6 +187,10 @@ namespace dex {
         uint64_t primary_key() const { return order_id; }
         order_match_idx_key get_order_match_idx() const {
             return make_order_match_idx(sym_pair_id, order_side, order_type, price, order_id);
+        }
+
+        uint64_t get_external_idx() const {
+            return external_id;
         }
 
         void print() const {
@@ -208,8 +213,10 @@ namespace dex {
 
     using order_match_idx = indexed_by<"ordermatch"_n, const_mem_fun<order_t, order_match_idx_key,
            &order_t::get_order_match_idx>>;
+    using order_external_idx = indexed_by<"orderextidx"_n, const_mem_fun<order_t, uint64_t,
+           &order_t::get_external_idx>>;
 
-    typedef eosio::multi_index<"order"_n, order_t, order_match_idx> order_table;
+    typedef eosio::multi_index<"order"_n, order_t, order_match_idx, order_external_idx> order_table;
 
     inline static order_table make_order_table(const name &self) {
         return order_table(self, self.value/*scope*/);

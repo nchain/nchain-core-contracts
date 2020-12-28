@@ -272,7 +272,7 @@ BOOST_FIXTURE_TEST_CASE( dex_settle_test, dex_tester ) try {
 
     // buy order
     //order  order:<type>:<side>:<asset_quant>:<coin_quant>:<price>:<ex_id>
-    string buy_memo = "order:limit:buy:0.01000000 BTC:100.0000 USD:1000000000000";
+    string buy_memo = "order:limit:buy:0.01000000 BTC:100.0000 USD:1000000000000:1";
     EXECUTE_ACTION(eosio_token.transfer(N(alice), N(dex), ASSET("100.0000 USD"), buy_memo));
     uint64_t order_id = 1;
     auto buy_order = get_order(order_id);
@@ -285,6 +285,7 @@ BOOST_FIXTURE_TEST_CASE( dex_settle_test, dex_tester ) try {
         ("asset_quant", "0.01000000 BTC")
         ("coin_quant", "100.0000 USD")
         ("price", "1000000000000")
+        ("external_id", 1)
         ("deal_asset_amount", "0")
         ("deal_coin_amount", "0")
         ("is_complete", "0")
@@ -292,7 +293,7 @@ BOOST_FIXTURE_TEST_CASE( dex_settle_test, dex_tester ) try {
 
     // sell order
     //order  order:<type>:<side>:<asset_quant>:<coin_quant>:<price>:<ex_id>
-    string sell_memo = "order:limit:sell:0.01000000 BTC:0.0000 USD:1000000000000";
+    string sell_memo = "order:limit:sell:0.01000000 BTC:0.0000 USD:1000000000000:2";
     EXECUTE_ACTION(eosio_token.transfer(N(bob), N(dex), ASSET("0.01000000 BTC"), sell_memo));
     order_id++;
     auto sell_order = get_order(order_id);
@@ -305,6 +306,7 @@ BOOST_FIXTURE_TEST_CASE( dex_settle_test, dex_tester ) try {
         ("asset_quant", "0.01000000 BTC")
         ("coin_quant", "0.0000 USD")
         ("price", "1000000000000")
+        ("external_id", 2)
         ("deal_asset_amount", "0")
         ("deal_coin_amount", "0")
         ("is_complete", "0")
