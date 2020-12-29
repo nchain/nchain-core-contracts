@@ -30,12 +30,6 @@ public:
 
     [[eosio::on_notify("*::transfer")]] void ontransfer(name from, name to, asset quantity,
                                                         string memo);
-    // todo: should use checksum to indicate the order
-/*
-    [[eosio::action]] void settle(const uint64_t &buy_id, const uint64_t &sell_id,
-                                  const asset &asset_quant, const asset &coin_quant,
-                                  const int64_t &price, const string &memo);
-*/
     // TODO: const list<uint64_t> &sym_pairs
     [[eosio::action]] void match();
 
@@ -44,12 +38,10 @@ public:
     using setconfig_action = action_wrapper<"setconfig"_n, &dex_contract::setconfig>;
     using setsympair_action = action_wrapper<"setsympair"_n, &dex_contract::setsympair>;
     using ontransfer_action = action_wrapper<"ontransfer"_n, &dex_contract::ontransfer>;
-    // using settle_action     = action_wrapper<"settle"_n, &dex::settle>;
     using match_action     = action_wrapper<"match"_n, &dex_contract::match>;
     using cancel_action     = action_wrapper<"cancel"_n, &dex_contract::cancel>;
 private:
     dex::config get_default_config();
-    // void process_order(order_t &order);
     void process_refund(dex::order_t &buy_order);
     void match_sym_pair(const dex::symbol_pair_t &sym_pair, int32_t &matched_count);
 
