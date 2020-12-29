@@ -474,38 +474,29 @@ void dex_contract::match_sym_pair(const dex::symbol_pair_t &sym_pair, int32_t &m
     auto order_tbl = make_order_table(get_self());
     auto match_index = order_tbl.get_index<static_cast<name::raw>(order_match_idx::index_name)>();
 
-    uint64_t sym_pair_id = sym_pair.sym_pair_id;
-    std::list<order_t> match_orders;
-    // 1. match limit_buy_orders and limit_sell_orders
     auto matching_pair_it = matching_pair_iterator(match_index, sym_pair);
     while (matched_count < DEX_MATCH_COUNT_MAX && matching_pair_it.can_match()) {
         auto &maker_it = matching_pair_it.maker_it();
         auto &taker_it = matching_pair_it.taker_it();
 
+        auto &taker_order = taker_it.begin_match();
+        auto &maker_order = maker_it.begin_match();
         print("matching taker_order=", maker_it.stored_order(), "\n");
         print("matching maker_order=", taker_it.stored_order(), "\n");
 
         uint64_t match_price = maker_it.stored_order().price;
 
-        // 2. get match amounts
         uint64_t match_coins = 0;
         uint64_t match_assets = 0;
         get_match_amounts(taker_it.stored_order(), maker_it.stored_order(), match_assets, match_coins);
 
-        // match_orders.push_back(maker_order_store);
-        auto &taker_order = taker_it.begin_match();
-        auto &maker_order = maker_it.begin_match();
-
         auto &buy_order = taker_order.order_side == order_side::BUY ? taker_order : maker_order;
         auto &sell_order = taker_order.order_side == order_side::SELL ? taker_order : maker_order;
-        // the seller receive coins
         int64_t seller_recv_coins = match_coins;
-        // the buyer receive assets
         int64_t buyer_recv_assets = match_assets;
         const symbol &asset_symbol = taker_order.asset_quant.symbol;
         const symbol &coin_symbol = taker_order.coin_quant.symbol;
-        // 7. calc match fees
-        // 7.1 calc match asset fee payed by buyer
+
         int64_t asset_match_fee = calc_match_fee(buy_order, _config, taker_order.order_side, buyer_recv_assets);
         if (asset_match_fee > 0) {
             buyer_recv_assets = sub_fee(buyer_recv_assets, asset_match_fee, "buyer_recv_assets");
@@ -513,23 +504,19 @@ void dex_contract::match_sym_pair(const dex::symbol_pair_t &sym_pair, int32_t &m
             transfer_out(get_self(), _config.bank, _config.payee, asset(asset_match_fee, asset_symbol), "asset_match_fee");
         }
 
-        // 7.2. calc match coin fee payed by seller for exhange
         int64_t coin_match_fee = calc_match_fee(sell_order, _config, taker_order.order_side, seller_recv_coins);
-        if (coin_match_fee) {
+        if (coin_match_fee > 0) {
             seller_recv_coins = sub_fee(seller_recv_coins, coin_match_fee, "seller_recv_coins");
             // pay the coin_match_fee to payee
             transfer_out(get_self(), _config.bank, _config.payee, asset(coin_match_fee, coin_symbol), "coin_match_fee");
         }
 
-        // 8. transfer the coins and assets to seller and buyer
-        // 8.1. transfer the coins to seller
+        // transfer the coins to seller
         transfer_out(get_self(), _config.bank, sell_order.owner, asset(seller_recv_coins, coin_symbol), "seller_recv_coins");
-        // 8.2. transfer the assets to buyer
+        // transfer the assets to buyer
         transfer_out(get_self(), _config.bank, buy_order.owner, asset(buyer_recv_assets, asset_symbol), "buyer_recv_assets");
-        // match sell <-> buy order
 
-        // 9. check order fullfiled to del or update
-        // 9.1 check buy order fullfiled to del or update
+        // check buy order fullfiled to del or update
         buy_order.matched_assets += match_assets;
         buy_order.matched_coins += match_coins;
         if (buy_order.order_type == order_type::MARKET) {
