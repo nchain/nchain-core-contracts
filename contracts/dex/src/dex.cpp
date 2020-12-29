@@ -376,24 +376,33 @@ public:
     using order_iterator = matching_order_iterator<match_index_t>;
     using order_iterator_vector = std::vector<order_iterator*>;
 
-    matching_pair_iterator(match_index_t &match_index, const dex::symbol_pair_t &sym_pair): _match_index(match_index), _sym_pair(sym_pair),
-        limit_buy_it(match_index, sym_pair.sym_pair_id, order_side::BUY, order_type::LIMIT),
-        limit_sell_it(match_index, sym_pair.sym_pair_id, order_side::SELL, order_type::LIMIT),
-        market_buy_it(match_index, sym_pair.sym_pair_id, order_side::BUY, order_type::MARKET),
-        market_sell_it(match_index, sym_pair.sym_pair_id, order_side::SELL, order_type::MARKET),
-        _order_it_list(std::move(order_iterator_vector{&limit_buy_it, &limit_sell_it, &market_buy_it, &market_sell_it})) {
+    matching_pair_iterator(match_index_t &match_index, const dex::symbol_pair_t &sym_pair)
+        : _match_index(match_index), _sym_pair(sym_pair),
+          limit_buy_it(match_index, sym_pair.sym_pair_id, order_side::BUY, order_type::LIMIT),
+          limit_sell_it(match_index, sym_pair.sym_pair_id, order_side::SELL, order_type::LIMIT),
+          market_buy_it(match_index, sym_pair.sym_pair_id, order_side::BUY, order_type::MARKET),
+          market_sell_it(match_index, sym_pair.sym_pair_id, order_side::SELL, order_type::MARKET) {
 
         process_data();
     }
 
-    void next() {
+    template<typename table_t>
+    void complete_and_next(table_t &table) {
         if (_taker_it->is_complete()) {
-            _taker_it->next();
+            _taker_it->complete_and_next(table);
         }
         if (_maker_it->is_complete()) {
-            _maker_it->next();
+            _maker_it->complete_and_next(table);
         }
         process_data();
+    }
+
+    template<typename table_t>
+    void save_matching_order(table_t &table) {
+        limit_buy_it.save_matching_order(table);
+        limit_sell_it.save_matching_order(table);
+        market_buy_it.save_matching_order(table);
+        market_sell_it.save_matching_order(table);
     }
 
     bool can_match() const  {
@@ -409,9 +418,6 @@ public:
         return *_taker_it;
     }
 
-    order_iterator_vector& order_it_list() {
-        return _order_it_list;
-    }
 private:
     const dex::symbol_pair_t &_sym_pair;
     match_index_t &_match_index;
@@ -419,7 +425,6 @@ private:
     order_iterator limit_sell_it;
     order_iterator market_buy_it;
     order_iterator market_sell_it;
-    order_iterator_vector _order_it_list;
 
     order_iterator *_taker_it = nullptr;
     order_iterator *_maker_it = nullptr;
@@ -543,44 +548,17 @@ void dex_contract::match_sym_pair(const dex::symbol_pair_t &sym_pair, int32_t &m
         // matching
         check(buy_order.is_complete || sell_order.is_complete, "Neither taker nor maker is finish");
 
+        // TODO: save the matching order detail
+
         // process refund
         if (buy_order.is_complete)
             process_refund(buy_order);
 
-        if (taker_it.is_complete()) {
-            print("match taker order complete=", taker_it.matching_order(), "\n");
-            match_orders.push_back(taker_it.matching_order());
-            // taker_it.next();
-        }
-        if (maker_it.is_complete()) {
-            print("match maker order complete=", maker_it.matching_order(), "\n");
-            match_orders.push_back(maker_it.matching_order());
-            // maker_it.next();
-        }
         matched_count++;
-        matching_pair_it.next();
+
+        matching_pair_it.complete_and_next(order_tbl);
     }
 
+    matching_pair_it.save_matching_order(order_tbl);
 
-    for (auto order_it : matching_pair_it.order_it_list()) {
-        if (order_it->is_matching && !order_it->is_complete()) {
-            match_orders.push_back(order_it->matching_order());
-        }
-    }
-
-    // TODO: process matching order which is not completed in iterators
-
-    for(const auto &item : match_orders) {
-        const auto &order_store = order_tbl.get(item.order_id);
-        if (item.is_complete) {
-            // TODO: save the matching order detail
-            print("erase complete order=", item, "\n");
-            order_tbl.erase(order_store);
-        } else {
-            print("modify uncomplete order=", item, "\n");
-            order_tbl.modify(order_store, same_payer, [&]( auto& a ) {
-                a = item;
-            });
-        }
-    }
 }

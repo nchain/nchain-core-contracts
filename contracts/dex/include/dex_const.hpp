@@ -21,3 +21,5 @@ constexpr int64_t URL_LEN_MAX               = 255;        // 0.001%, max url len
 #define DEX_TABLE_NAME(name) [[eosio::table(name), DEX_CONTRACT_PROP]]
 
 constexpr eosio::name BANK                  = "eosio.token"_n;
+
+#define ASSERT(exp) check(exp, #exp)

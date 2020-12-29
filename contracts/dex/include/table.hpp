@@ -225,8 +225,12 @@ namespace dex {
     template<typename match_index_t>
     class matching_order_iterator {
     public:
-        bool is_matching = false;
-        order_match_idx_key key;
+        enum status_t {
+            CLOSED,
+            OPENED,
+            MATCHING,
+            COMPLETE
+        };
     public:
         matching_order_iterator(match_index_t &match_index, uint64_t sym_pair_id, order_side_t side,
                                 order_type_t type)
@@ -235,34 +239,43 @@ namespace dex {
 
             print("creating matching order itr! sym_pair_id=", _sym_pair_id, ", side=", _order_side, ", type=", _order_type, "\n");
             if (_order_side == order_side::BUY) {
-                key = make_order_match_idx(_sym_pair_id, _order_side, _order_type,
+                _key = make_order_match_idx(_sym_pair_id, _order_side, _order_type,
                                            std::numeric_limits<uint64_t>::max(), 0);
             } else { // _order_side == order_side::SELL
-                key = make_order_match_idx(_sym_pair_id, _order_side, _order_type, 0, 0);
+                _key = make_order_match_idx(_sym_pair_id, _order_side, _order_type, 0, 0);
             }
-            _it       = _match_index.upper_bound(key);
-            _is_valid = process_data();
+            _it       = _match_index.upper_bound(_key);
+            process_data();
         };
 
-        void next() {
-            // print("nnnnnnnnn next");
+        template<typename table_t>
+        void complete_and_next(table_t &table) {
+            ASSERT(is_complete());
+            const auto &store_order = *_it;
             _it++;
-            _is_valid = process_data();
+            table.erase(store_order);
+            process_data();
         }
 
-        bool is_valid() const {
-            return _is_valid;
+        template<typename table_t>
+        void save_matching_order(table_t &table) {
+            if (is_matching()) {
+                table.modify(*_it, same_payer, [&]( auto& a ) {
+                    a = _matching_order;
+                });
+            }
         }
 
         inline const order_t &stored_order() {
-            assert(_is_valid);
+            ASSERT(is_valid());
             return *_it;
         }
 
         inline order_t& begin_match() {
-            if (!is_matching) {
+            ASSERT(_status == OPENED || _status == MATCHING);
+            if (_status == OPENED) {
                 _matching_order = *_it;
-                is_matching = true;
+                _status = MATCHING;
             }
             return _matching_order;
         }
@@ -271,35 +284,45 @@ namespace dex {
             return _matching_order;
         }
 
-        inline bool is_complete() {
-            return _matching_order.is_complete;
+        inline bool is_valid() const {
+            return _status != CLOSED;
+        }
+
+        inline bool is_complete() const {
+            return _status == COMPLETE;
+        }
+
+        inline bool is_matching() const {
+            return _status == MATCHING;
         }
 
     private:
-        bool process_data() {
-            is_matching = false;
+        void process_data() {
+            _status = CLOSED;
             if (_it == _match_index.end()) {
                 print("matching order itr end! sym_pair_id=", _sym_pair_id, ", side=", _order_side, ", type=", _order_type, "\n");
                 return false;
             }
 
             const auto &stored_order = *_it;
-            check(key < stored_order.get_order_match_idx(), "the start key must < found order key");
+            check(_key < stored_order.get_order_match_idx(), "the start key must < found order key");
             // print("start key=", key, ", found key=", stored_order.get_order_match_idx(), "\n");
 
             print("found order! order=", stored_order, "\n");
             if (stored_order.sym_pair_id != _sym_pair_id || stored_order.order_side != _order_side || stored_order.order_type != _order_type ) {
                 return false;
             }
+            _status = OPENED;
             return true;
         }
 
         match_index_t &_match_index;
+        order_match_idx_key _key;
         typename match_index_t::const_iterator _it;
         uint64_t _sym_pair_id;
         order_type_t _order_type;
         order_side_t _order_side;
-        bool _is_valid = false;
+        status_t _status = CLOSED;
 
         order_t _matching_order;
     };

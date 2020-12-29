@@ -9,8 +9,6 @@
 
 using namespace std;
 
-#define ASSERT(exp) check(exp, #exp)
-
 template<typename T>
 int128_t divide_decimal(int128_t a, int128_t b, int128_t precision) {
     int128_t tmp = 10 * a * precision  / b;
