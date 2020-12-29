@@ -279,9 +279,8 @@ void transfer_out(const name &contract, const name &bank, const name &to, const 
 void dex_contract::cancel(const uint64_t &order_id) {
     auto order_tbl = make_order_table(get_self());
     auto it = order_tbl.find(order_id);
-    check(it != order_tbl.end(), "The order does not exist");
+    check(it != order_tbl.end(), "The order does not exist or has been matched");
     auto order = *it;
-    check(!order.is_complete, "The order is finish");
     // TODO: support the owner auth to cancel order?
     require_auth(order.owner);
     asset quantity;
@@ -388,10 +387,10 @@ public:
     }
 
     void next() {
-        if (_taker_it->matching_order().is_complete) {
+        if (_taker_it->is_complete()) {
             _taker_it->next();
         }
-        if (_maker_it->matching_order().is_complete) {
+        if (_maker_it->is_complete()) {
             _maker_it->next();
         }
         process_data();
@@ -548,12 +547,12 @@ void dex_contract::match_sym_pair(const dex::symbol_pair_t &sym_pair, int32_t &m
         if (buy_order.is_complete)
             process_refund(buy_order);
 
-        if (taker_it.matching_order().is_complete) {
+        if (taker_it.is_complete()) {
             print("match taker order complete=", taker_it.matching_order(), "\n");
             match_orders.push_back(taker_it.matching_order());
             // taker_it.next();
         }
-        if (maker_it.matching_order().is_complete) {
+        if (maker_it.is_complete()) {
             print("match maker order complete=", maker_it.matching_order(), "\n");
             match_orders.push_back(maker_it.matching_order());
             // maker_it.next();
@@ -564,7 +563,7 @@ void dex_contract::match_sym_pair(const dex::symbol_pair_t &sym_pair, int32_t &m
 
 
     for (auto order_it : matching_pair_it.order_it_list()) {
-        if (order_it->is_matching && !order_it->matching_order().is_complete) {
+        if (order_it->is_matching && !order_it->is_complete()) {
             match_orders.push_back(order_it->matching_order());
         }
     }

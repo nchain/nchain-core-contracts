@@ -271,6 +271,10 @@ namespace dex {
             return _matching_order;
         }
 
+        inline bool is_complete() {
+            return _matching_order.is_complete;
+        }
+
     private:
         bool process_data() {
             is_matching = false;
