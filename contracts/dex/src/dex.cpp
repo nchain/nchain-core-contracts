@@ -664,12 +664,14 @@ template<typename match_index_t>
 class matching_pair_iterator {
 public:
     using order_iterator = matching_order_iterator<match_index_t>;
+    using order_iterator_vector = std::vector<order_iterator*>;
 
     matching_pair_iterator(match_index_t &match_index, const dex::symbol_pair_t &sym_pair): _match_index(match_index), _sym_pair(sym_pair),
         limit_buy_it(match_index, sym_pair.sym_pair_id, order_side::BUY, order_type::LIMIT),
         limit_sell_it(match_index, sym_pair.sym_pair_id, order_side::SELL, order_type::LIMIT),
         market_buy_it(match_index, sym_pair.sym_pair_id, order_side::BUY, order_type::MARKET),
-        market_sell_it(match_index, sym_pair.sym_pair_id, order_side::SELL, order_type::MARKET) {
+        market_sell_it(match_index, sym_pair.sym_pair_id, order_side::SELL, order_type::MARKET),
+        _order_it_list(std::move(order_iterator_vector{&limit_buy_it, &limit_sell_it, &market_buy_it, &market_sell_it})) {
 
         process_data();
     }
@@ -688,13 +690,17 @@ public:
         return _can_match;
     }
 
-    order_iterator maker_it() {
+    order_iterator& maker_it() {
         ASSERT(_can_match);
         return *_maker_it;
     }
-    order_iterator taker_it() {
+    order_iterator& taker_it() {
         ASSERT(_can_match);
         return *_taker_it;
+    }
+
+    order_iterator_vector& order_it_list() {
+        return _order_it_list;
     }
 private:
     const dex::symbol_pair_t &_sym_pair;
@@ -703,6 +709,7 @@ private:
     order_iterator limit_sell_it;
     order_iterator market_buy_it;
     order_iterator market_sell_it;
+    order_iterator_vector _order_it_list;
 
     order_iterator *_taker_it = nullptr;
     order_iterator *_maker_it = nullptr;
@@ -713,7 +720,7 @@ private:
         _maker_it = nullptr;
         _can_match = false;
         if (market_buy_it.is_valid() && market_sell_it.is_valid()) {
-            _taker_it = (market_buy_it.stored_order().order_id < market_sell_it.stored_order().order_id) ? &market_buy_it : market_sell_it;
+            _taker_it = (market_buy_it.stored_order().order_id < market_sell_it.stored_order().order_id) ? &market_buy_it : &market_sell_it;
             _maker_it = (_taker_it->stored_order().order_side == dex::order_side::BUY) ? &limit_sell_it : &limit_buy_it;
             _can_match = _maker_it->is_valid();
         }
@@ -747,33 +754,35 @@ private:
 
 void dex_contract::match_sym_pair(const dex::symbol_pair_t &sym_pair, int32_t &matched_count) {
 
+    if (matched_count >= DEX_MATCH_COUNT_MAX) return; //  meet max matched count
+
     auto order_tbl = make_order_table(get_self());
     auto match_index = order_tbl.get_index<static_cast<name::raw>(order_match_idx::index_name)>();
 
     uint64_t sym_pair_id = sym_pair.sym_pair_id;
     std::list<order_t> match_orders;
     // 1. match limit_buy_orders and limit_sell_orders
-    auto limit_buy_it = matching_order_iterator(match_index, sym_pair_id, order_side::BUY, order_type::LIMIT);
-    auto limit_sell_it = matching_order_iterator(match_index, sym_pair_id, order_side::SELL, order_type::LIMIT);
-    while (matched_count < DEX_MATCH_COUNT_MAX && limit_buy_it.is_valid() && limit_sell_it.is_valid() &&
-            limit_buy_it.stored_order().price >= limit_sell_it.stored_order().price) {
-        auto &maker_it = limit_buy_it.stored_order().order_id < limit_sell_it.stored_order().order_id ? limit_buy_it : limit_sell_it;
-        auto &taker_it = limit_buy_it.stored_order().order_id < limit_sell_it.stored_order().order_id ? limit_sell_it : limit_buy_it;
+    auto matching_pair_it = matching_pair_iterator(match_index, sym_pair);
+    // auto limit_buy_it = matching_order_iterator(match_index, sym_pair_id, order_side::BUY, order_type::LIMIT);
+    // auto limit_sell_it = matching_order_iterator(match_index, sym_pair_id, order_side::SELL, order_type::LIMIT);
+    while (matched_count < DEX_MATCH_COUNT_MAX && matching_pair_it.can_match()) {
+        auto &maker_it = matching_pair_it.maker_it();
+        auto &taker_it = matching_pair_it.taker_it();
 
-        if (taker_it.stored_order().order_type == order_type::LIMIT) {
-            if (taker_it.stored_order().order_side == order_side::BUY) {
-                if (taker_it.stored_order().price < maker_it.stored_order().price) {
-                    break; // price unmatch
-                }
-            } else if (taker_it.stored_order().order_side == order_side::SELL) {
-                if (taker_it.stored_order().price > maker_it.stored_order().price) {
-                    break; // price unmatch
-                }
-            }
-        }
+        // if (taker_it.stored_order().order_type == order_type::LIMIT) {
+        //     if (taker_it.stored_order().order_side == order_side::BUY) {
+        //         if (taker_it.stored_order().price < maker_it.stored_order().price) {
+        //             break; // price unmatch
+        //         }
+        //     } else if (taker_it.stored_order().order_side == order_side::SELL) {
+        //         if (taker_it.stored_order().price > maker_it.stored_order().price) {
+        //             break; // price unmatch
+        //         }
+        //     }
+        // }
 
-        print("matching buy_order=", limit_buy_it.stored_order(), "\n");
-        print("matching sell_order=", limit_sell_it.stored_order(), "\n");
+        print("matching taker_order=", maker_it.stored_order(), "\n");
+        print("matching maker_order=", taker_it.stored_order(), "\n");
 
         uint64_t match_price = maker_it.stored_order().price;
 
@@ -845,26 +854,23 @@ void dex_contract::match_sym_pair(const dex::symbol_pair_t &sym_pair, int32_t &m
         if (taker_it.matching_order().is_complete) {
             print("match taker order complete=", taker_it.matching_order(), "\n");
             match_orders.push_back(taker_it.matching_order());
-            taker_it.next();
+            // taker_it.next();
         }
         if (maker_it.matching_order().is_complete) {
             print("match maker order complete=", maker_it.matching_order(), "\n");
             match_orders.push_back(maker_it.matching_order());
-            maker_it.next();
+            // maker_it.next();
         }
         matched_count++;
+        matching_pair_it.next();
     }
 
-    if (limit_buy_it.is_matching) {
-        match_orders.push_back(limit_buy_it.matching_order());
-    }
 
-    if (limit_sell_it.is_matching) {
-        match_orders.push_back(limit_sell_it.matching_order());
+    for (auto order_it : matching_pair_it.order_it_list()) {
+        if (order_it->is_matching && !order_it->matching_order().is_complete) {
+            match_orders.push_back(order_it->matching_order());
+        }
     }
-    // 2. match market_buy_orders and limit_sell_orders
-    // 3. match limit_buy_orders and market_sell_orders
-    // 4. match market_buy_orders and market_sell_orders
 
     // TODO: process matching order which is not completed in iterators
 
