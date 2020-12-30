@@ -320,39 +320,41 @@ BOOST_FIXTURE_TEST_CASE( dex_settle_test, dex_tester ) try {
     produce_blocks(1);
 
     auto matched_buy_order = get_order(1);
-    BOOST_CHECK( matched_buy_order.is_null());
-    auto matched_sell_order = get_order(2);
-    BOOST_CHECK( matched_sell_order.is_null());
+    // BOOST_CHECK( matched_buy_order.is_null());
+    // BOOST_CHECK( matched_sell_order.is_null());
 
+    BOOST_CHECK(!matched_buy_order.is_null());
     // auto deal_buy_order = get_order(0);
-    // REQUIRE_MATCHING_OBJECT( deal_buy_order, mvo()
-    //     ("sym_pair_id", sym_pair_id().id)
-    //     ("order_id", "0")
-    //     ("owner", "alice")
-    //     ("order_type", "limit")
-    //     ("order_side", "buy")
-    //     ("asset_quant", "0.01000000 BTC")
-    //     ("coin_quant", "100.0000 USD")
-    //     ("price", "1000000000000")
-    //     ("matched_assets", "1000000")
-    //     ("matched_coins", "1000000")
-    //     ("is_finish", "1")
-    // );
+    REQUIRE_MATCHING_OBJECT( matched_buy_order, mvo()
+        ("sym_pair_id", sym_pair_id)
+        ("order_id", 1)
+        ("owner", "alice")
+        ("order_type", "limit")
+        ("order_side", "buy")
+        ("asset_quant", "0.01000000 BTC")
+        ("coin_quant", "100.0000 USD")
+        ("price", "1000000000000")
+        ("external_id", 1)
+        ("matched_assets", "1000000")
+        ("matched_coins", "1000000")
+        ("is_complete", 1)
+    );
 
-    // auto deal_sell_order = get_order(1);
-    // REQUIRE_MATCHING_OBJECT( deal_sell_order, mvo()
-    //     ("sym_pair_id", sym_pair_id().id)
-    //     ("order_id", "1")
-    //     ("owner", "bob")
-    //     ("order_type", "limit")
-    //     ("order_side", "sell")
-    //     ("asset_quant", "0.01000000 BTC")
-    //     ("coin_quant", "0.0000 USD")
-    //     ("price", "1000000000000")
-    //     ("matched_assets", "1000000")
-    //     ("matched_coins", "1000000")
-    //     ("is_finish", "1")
-    // );
+    auto matched_sell_order = get_order(2);
+    REQUIRE_MATCHING_OBJECT( matched_sell_order, mvo()
+        ("sym_pair_id", sym_pair_id)
+        ("order_id", 2)
+        ("owner", "bob")
+        ("order_type", "limit")
+        ("order_side", "sell")
+        ("asset_quant", "0.01000000 BTC")
+        ("coin_quant", "0.0000 USD")
+        ("price", "1000000000000")
+        ("external_id", 2)
+        ("matched_assets", "1000000")
+        ("matched_coins", "1000000")
+        ("is_complete", 1)
+    );
 } FC_LOG_AND_RETHROW()
 
 BOOST_AUTO_TEST_SUITE_END()

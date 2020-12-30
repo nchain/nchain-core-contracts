@@ -75,10 +75,10 @@ namespace dex {
 
             print("creating matching order itr! sym_pair_id=", _sym_pair_id, ", side=", _order_side, ", type=", _order_type, "\n");
             if (_order_side == order_side::BUY) {
-                _key = make_order_match_idx(_sym_pair_id, _order_side, _order_type,
+                _key = make_order_match_idx(_sym_pair_id, false, _order_side, _order_type,
                                            std::numeric_limits<uint64_t>::max(), 0);
             } else { // _order_side == order_side::SELL
-                _key = make_order_match_idx(_sym_pair_id, _order_side, _order_type, 0, 0);
+                _key = make_order_match_idx(_sym_pair_id, false, _order_side, _order_type, 0, 0);
             }
             _it       = _match_index.upper_bound(_key);
             process_data();
@@ -89,7 +89,11 @@ namespace dex {
             ASSERT(is_complete());
             const auto &store_order = *_it;
             _it++;
-            table.erase(store_order);
+            table.modify(store_order, same_payer, [&]( auto& a ) {
+                a.matched_assets = _matched_assets;
+                a.matched_coins = _matched_coins;
+                a.is_complete = true;
+            });
             process_data();
         }
 
@@ -196,10 +200,11 @@ namespace dex {
             check(_key < stored_order.get_order_match_idx(), "the start key must < found order key");
             // print("start key=", key, ", found key=", stored_order.get_order_match_idx(), "\n");
 
-            print("found order! order=", stored_order, "\n");
-            if (stored_order.sym_pair_id != _sym_pair_id || stored_order.order_side != _order_side || stored_order.order_type != _order_type ) {
+            if (stored_order.sym_pair_id != _sym_pair_id || stored_order.is_complete ||
+                stored_order.order_side != _order_side || stored_order.order_type != _order_type) {
                 return;
             }
+            print("found order! order=", stored_order, "\n");
             _matched_assets = stored_order.matched_assets;
             _matched_coins  = stored_order.matched_coins;
             _status = OPENED;

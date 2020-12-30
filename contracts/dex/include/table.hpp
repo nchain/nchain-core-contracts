@@ -161,8 +161,12 @@ namespace dex {
     }
 
     using order_match_idx_key = fixed_bytes<32>;
-    inline static order_match_idx_key make_order_match_idx(uint64_t sym_pair_id, const order_side_t &side, const order_type_t &type, uint64_t price, uint64_t order_id) {
-        uint64_t option = uint64_t(order_side::index(side)) << 56 | uint64_t(order_type::index(type)) << 48;
+    inline static order_match_idx_key make_order_match_idx(uint64_t sym_pair_id, bool is_complete,
+                                                           const order_side_t &side,
+                                                           const order_type_t &type, uint64_t price,
+                                                           uint64_t order_id) {
+        uint64_t option = uint64_t(is_complete) << 56 | uint64_t(order_side::index(side)) << 48 |
+                          uint64_t(order_type::index(type)) << 40;
         uint64_t price_factor = (side == order_side::BUY) ? std::numeric_limits<uint64_t>::max() - price : price;
         auto ret = order_match_idx_key::make_from_word_sequence<uint64_t>(sym_pair_id, option, price_factor, order_id);
         print("make order match idx=", ret, "\n");
@@ -181,9 +185,10 @@ namespace dex {
         uint64_t external_id; // external id
         int64_t matched_assets = 0;      //!< total matched asset amount
         int64_t matched_coins  = 0;      //!< total matched coin amount
+        bool    is_complete = false;
         uint64_t primary_key() const { return order_id; }
         order_match_idx_key get_order_match_idx() const {
-            return make_order_match_idx(sym_pair_id, order_side, order_type, price, order_id);
+            return make_order_match_idx(sym_pair_id, is_complete, order_side, order_type, price, order_id);
         }
 
         uint64_t get_external_idx() const {
@@ -201,7 +206,8 @@ namespace dex {
                 PP(coin_quant),
                 PP(price),
                 PP(matched_assets),
-                PP(matched_coins)
+                PP(matched_coins),
+                PP(is_complete)
             );
 
         }
