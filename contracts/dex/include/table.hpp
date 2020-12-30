@@ -257,7 +257,8 @@ namespace dex {
         void save_matching_order(table_t &table) {
             if (is_matching()) {
                 table.modify(*_it, same_payer, [&]( auto& a ) {
-                    a = _matching_order;
+                    a.matched_assets = _matched_assets;
+                    a.matched_coins = _matched_coins;
                 });
             }
         }
@@ -267,58 +268,44 @@ namespace dex {
             return *_it;
         }
 
-        inline order_t& match(uint64_t matched_coins, uint64_t matched_assets) {
+        inline void match(uint64_t new_matched_assets, uint64_t new_matched_coins) {
             ASSERT(_status == OPENED || _status == MATCHING);
             if (_status == OPENED) {
-                _matching_order = *_it;
                 _status = MATCHING;
             }
             bool complete = false;
 
-            _matching_order.matched_assets += matched_assets;
-            _matching_order.matched_coins += matched_coins;
-            if (_matching_order.order_side == order_side::BUY) {
-                check(_matching_order.matched_coins <= _matching_order.coin_quant.amount,
-                        "The matched coins=" + std::to_string(_matching_order.matched_coins) +
-                        " is overflow for buy coins=" + std::to_string(_matching_order.coin_quant.amount));
-                if (_matching_order.order_type == order_type::MARKET) {
-                    complete = _matching_order.matched_coins == _matching_order.coin_quant.amount;
+            _matched_assets += new_matched_assets;
+            _matched_coins += new_matched_coins;
+            const auto &order = *_it;
+            if (order.order_side == order_side::BUY) {
+                check(_matched_coins <= order.coin_quant.amount,
+                        "The matched coins=" + std::to_string(_matched_coins) +
+                        " is overflow for buy coins=" + std::to_string(order.coin_quant.amount));
+                if (order.order_type == order_type::MARKET) {
+                    complete = _matched_coins == order.coin_quant.amount;
                 } else {
-                    check(_matching_order.matched_assets <= _matching_order.asset_quant.amount,
-                        "The matched assets=" + std::to_string(_matching_order.matched_assets) +
-                        " is overflow for limit buy assets=" + std::to_string(_matching_order.asset_quant.amount));
-                    complete = _matching_order.matched_assets == _matching_order.asset_quant.amount;
+                    check(_matched_assets <= order.asset_quant.amount,
+                        "The matched assets=" + std::to_string(_matched_assets) +
+                        " is overflow for limit buy assets=" + std::to_string(order.asset_quant.amount));
+                    complete = _matched_assets == order.asset_quant.amount;
                 }
             } else {
-                check(_matching_order.matched_assets <= _matching_order.asset_quant.amount,
-                    "The matched assets=" + std::to_string(_matching_order.matched_assets) +
-                    " is overflow for sell assets=" + std::to_string(_matching_order.asset_quant.amount));
-                complete = _matching_order.matched_assets == _matching_order.asset_quant.amount;
+                check(_matched_assets <= order.asset_quant.amount,
+                    "The matched assets=" + std::to_string(_matched_assets) +
+                    " is overflow for sell assets=" + std::to_string(order.asset_quant.amount));
+                complete = _matched_assets == order.asset_quant.amount;
             }
 
             if (complete) {
                 _status = COMPLETE;
-                if (_matching_order.order_side == order_side::BUY && _matching_order.order_type == order_type::LIMIT) {
-                    assert(_matching_order.coin_quant.amount >= _matching_order.matched_coins);
-                    if (_matching_order.coin_quant.amount > _matching_order.matched_coins) {
-                        _refund_coins = _matching_order.coin_quant.amount - _matching_order.matched_coins;
+                if (order.order_side == order_side::BUY && order.order_type == order_type::LIMIT) {
+                    assert(order.coin_quant.amount >= _matched_coins);
+                    if (order.coin_quant.amount > _matched_coins) {
+                        _refund_coins = order.coin_quant.amount - _matched_coins;
                     }
                 }
             }
-            return _matching_order;
-        }
-
-        inline order_t& begin_match() {
-            ASSERT(_status == OPENED || _status == MATCHING);
-            if (_status == OPENED) {
-                _matching_order = *_it;
-                _status = MATCHING;
-            }
-            return _matching_order;
-        }
-
-        inline order_t& matching_order() {
-            return _matching_order;
         }
 
         inline bool is_valid() const {
@@ -333,16 +320,33 @@ namespace dex {
             return _status == MATCHING;
         }
 
-        inline uint64_t get_refund_coins() const {
+        inline int64_t get_free_assets() const {
+            ASSERT(is_valid() && _it->asset_quant.amount >= _matched_assets);
+            return _it->asset_quant.amount - _matched_assets;
+        }
+
+        inline int64_t get_free_coins() const {
+            ASSERT(is_valid() && _it->coin_quant.amount >= _matched_coins);
+            return _it->coin_quant.amount - _matched_coins;
+        }
+
+        inline int64_t get_refund_coins() const {
             ASSERT(is_complete());
             return _refund_coins;
+        }
+
+        const order_side_t &order_side() const {
+            return _order_side;
+        }
+
+        const order_type_t &order_type() const {
+            return _order_type;
         }
 
     private:
         void process_data() {
             _status = CLOSED;
             _refund_coins = 0;
-            _matching_order = order_t();
             if (_it == _match_index.end()) {
                 print("matching order itr end! sym_pair_id=", _sym_pair_id, ", side=", _order_side, ", type=", _order_type, "\n");
                 return;
@@ -356,6 +360,8 @@ namespace dex {
             if (stored_order.sym_pair_id != _sym_pair_id || stored_order.order_side != _order_side || stored_order.order_type != _order_type ) {
                 return;
             }
+            _matched_assets = stored_order.matched_assets;
+            _matched_coins  = stored_order.matched_coins;
             _status = OPENED;
         }
 
@@ -367,7 +373,8 @@ namespace dex {
         order_side_t _order_side;
         status_t _status = CLOSED;
 
-        order_t _matching_order;
+        int64_t _matched_assets = 0;      //!< total matched asset amount
+        int64_t _matched_coins  = 0;      //!< total matched coin amount
         uint64_t _refund_coins = 0;
 
     };

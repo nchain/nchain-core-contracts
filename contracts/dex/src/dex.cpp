@@ -165,7 +165,7 @@ void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
 
     vector<string_view> params = split(memo, ":");
     if (params.size() == 7 && params[0] == "order") {
-      // order:<type>:<side>:<asset_quant>:<coin_quant>:<price>:ext_id
+      // order:<type>:<side>:<asset_quant>:<coin_quant>:<price>:<ext_id>
         order_t order;
         order.order_type = parse_order_type(params[1]);
         order.order_side = parse_order_side(params[2]);
@@ -311,29 +311,6 @@ dex::config dex_contract::get_default_config() {
     };
 }
 
-void get_match_amounts(const dex::order_t &taker_order, const dex::order_t &maker_order, uint64_t &match_assets, uint64_t &match_coins) {
-    uint64_t match_price = maker_order.price;
-    int64_t taker_free_assets = 0;
-    if (taker_order.order_side == order_side::BUY && taker_order.order_type == order_type::MARKET) {
-        taker_free_assets = calc_asset_amount(taker_order.coin_quant, match_price, taker_order.asset_quant.symbol);
-        if (taker_free_assets == 0) { // dust amount
-            check(maker_order.asset_quant.amount > 0, "The maker order asset_amount is 0");
-            match_assets = 1;
-            match_coins = taker_order.coin_quant.amount;
-            return;
-        }
-    } else {
-        check(taker_order.asset_quant.amount >= taker_order.matched_assets, "taker_order.asset_quant.amount >= taker_order.matched_assets");
-        taker_free_assets = taker_order.asset_quant.amount - taker_order.matched_assets;
-    }
-
-    check(maker_order.asset_quant.amount >= maker_order.matched_assets, "maker_order.asset_quant.amount >= maker_order.matched_assets");
-    int64_t maker_free_assets = maker_order.asset_quant.amount - maker_order.matched_assets;
-
-    match_assets = std::min(taker_free_assets, maker_free_assets);
-    match_coins = calc_coin_amount(asset(match_assets, taker_order.asset_quant.symbol), match_price, taker_order.coin_quant.symbol);
-}
-
 void dex_contract::process_refund(dex::order_t &buy_order) {
     ASSERT(buy_order.order_side == order_side::BUY);
     if (buy_order.order_type == order_type::LIMIT) {
@@ -418,6 +395,31 @@ public:
         return *_taker_it;
     }
 
+    void calc_matched_amounts(int64_t &matched_assets, int64_t &matched_coins) {
+        ASSERT(_maker_it->order_type() == order_type::LIMIT && _maker_it->stored_order().price > 0);
+        uint64_t matched_price = _maker_it->stored_order().price;
+        int64_t taker_free_assets = 0;
+        if (_taker_it->order_side() == order_side::BUY && _taker_it->order_type() == order_type::MARKET) {
+            auto taker_free_coins = _taker_it->get_free_coins();
+            check(taker_free_coins > 0, "MUST: taker_free_coins > 0");
+            taker_free_assets = calc_asset_amount(asset(taker_free_coins, _sym_pair.coin_symbol), matched_price, _sym_pair.asset_symbol);
+            if (taker_free_assets == 0) { // dust amount
+                check(_maker_it->get_free_assets() > 0, "The maker order free_assets is 0");
+                matched_assets = 1;
+                matched_coins = _taker_it->get_free_coins();
+                return;
+            }
+        } else {
+            taker_free_assets = _taker_it->get_free_assets();
+            check(taker_free_assets > 0, "MUST: taker_free_assets > 0");
+        }
+
+        int64_t maker_free_assets = _maker_it->get_free_assets();
+        check(maker_free_assets > 0, "MUST: maker_free_assets > 0");
+        matched_assets = std::min(taker_free_assets, maker_free_assets);
+        matched_coins = calc_coin_amount(asset(matched_assets, _sym_pair.asset_symbol), matched_price, _sym_pair.coin_symbol);
+    }
+
 private:
     const dex::symbol_pair_t &_sym_pair;
     match_index_t &_match_index;
@@ -479,36 +481,37 @@ void dex_contract::match_sym_pair(const dex::symbol_pair_t &sym_pair, int32_t &m
         auto &maker_it = matching_pair_it.maker_it();
         auto &taker_it = matching_pair_it.taker_it();
 
-        auto &taker_order = taker_it.begin_match();
-        auto &maker_order = maker_it.begin_match();
         print("matching taker_order=", maker_it.stored_order(), "\n");
         print("matching maker_order=", taker_it.stored_order(), "\n");
 
-        uint64_t match_price = maker_it.stored_order().price;
+        int64_t match_price = maker_it.stored_order().price;
 
-        uint64_t match_coins = 0;
-        uint64_t match_assets = 0;
-        get_match_amounts(taker_it.stored_order(), maker_it.stored_order(), match_assets, match_coins);
+        int64_t matched_coins = 0;
+        int64_t matched_assets = 0;
+        matching_pair_it.calc_matched_amounts(matched_assets, matched_coins);
 
-
-        auto &buy_it = taker_order.order_side == order_side::BUY ? taker_it : maker_it;
-        auto &sell_it = taker_order.order_side == order_side::SELL ? maker_it : taker_it;
+        auto &buy_it = (taker_it.order_side() == order_side::BUY) ? taker_it : maker_it;
+        auto &sell_it = (taker_it.order_side() == order_side::SELL) ? maker_it : taker_it;
 
         const auto &buy_order = buy_it.stored_order();
         const auto &sell_order = sell_it.stored_order();
-        int64_t seller_recv_coins = match_coins;
-        int64_t buyer_recv_assets = match_assets;
+        int64_t seller_recv_coins = matched_coins;
+        int64_t buyer_recv_assets = matched_assets;
         const symbol &asset_symbol = sym_pair.asset_symbol;
         const symbol &coin_symbol = sym_pair.coin_symbol;
 
-        int64_t asset_match_fee = calc_match_fee(buy_order, _config, taker_order.order_side, buyer_recv_assets);
+        taker_it.match(matched_assets, matched_coins);
+        maker_it.match(matched_assets, matched_coins);
+        check(taker_it.is_complete() || maker_it.is_complete(), "Neither taker nor maker is complete");
+
+        int64_t asset_match_fee = calc_match_fee(buy_order, _config, taker_it.order_side(), buyer_recv_assets);
         if (asset_match_fee > 0) {
             buyer_recv_assets = sub_fee(buyer_recv_assets, asset_match_fee, "buyer_recv_assets");
             // pay the asset_match_fee to payee
             transfer_out(get_self(), _config.bank, _config.payee, asset(asset_match_fee, asset_symbol), "asset_match_fee");
         }
 
-        int64_t coin_match_fee = calc_match_fee(sell_order, _config, taker_order.order_side, seller_recv_coins);
+        int64_t coin_match_fee = calc_match_fee(sell_order, _config, taker_it.order_side(), seller_recv_coins);
         if (coin_match_fee > 0) {
             seller_recv_coins = sub_fee(seller_recv_coins, coin_match_fee, "seller_recv_coins");
             // pay the coin_match_fee to payee
@@ -519,10 +522,6 @@ void dex_contract::match_sym_pair(const dex::symbol_pair_t &sym_pair, int32_t &m
         transfer_out(get_self(), _config.bank, sell_order.owner, asset(seller_recv_coins, coin_symbol), "seller_recv_coins");
         // transfer the assets to buyer
         transfer_out(get_self(), _config.bank, buy_order.owner, asset(buyer_recv_assets, asset_symbol), "buyer_recv_assets");
-
-        taker_it.match(match_assets, match_coins);
-        maker_it.match(match_assets, match_coins);
-        check(taker_it.is_complete() || maker_it.is_complete(), "Neither taker nor maker is complete");
 
         // TODO: save the matching order detail
 
