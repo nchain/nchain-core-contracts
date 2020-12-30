@@ -1,6 +1,7 @@
 #pragma once
 
 #include <limits>
+#include <eosio/check.hpp>
 /**
 *  This type is designed to provide automatic checks for
 *  integer overflow and default initialization. It will
@@ -12,6 +13,7 @@
 *  Implemented using spec from:
 *  https://www.securecoding.cert.org/confluence/display/c/INT32-C.+Ensure+that+operations+on+signed+integers+do+not+result+in+overflow
 */
+using namespace eosio;
 template<typename T>
 struct safe
 {

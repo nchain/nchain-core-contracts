@@ -1,5 +1,4 @@
 #include <dex.hpp>
-#include <utils.hpp>
 #include "dex_const.hpp"
 
 using namespace eosio;
@@ -41,59 +40,6 @@ name parse_order_side(string_view str) {
     name ret(str);
     check(order_side::is_valid(ret), "invalid order_side=" + string{str});
     return ret;
-}
-
-inline int64_t power(int64_t base, int64_t exp) {
-    int64_t ret = 1;
-    while( exp > 0  ) {
-        ret *= base; --exp;
-    }
-    return ret;
-}
-
-inline int64_t power10(int64_t exp) {
-    return power(10, exp);
-}
-
-inline int64_t calc_precision(int64_t digit) {
-    check(digit <= 18, "precision digit " + std::to_string(digit) + " should be <= 18");
-    return power10(digit);
-}
-
-int64_t calc_coin_amount(const asset &asset_quant, const int64_t price, const symbol &coin_symbol) {
-    // should use the max precision to calc
-    int64_t digit_diff = coin_symbol.precision() - asset_quant.symbol.precision();
-    int64_t asset_amount = asset_quant.amount;
-    if (digit_diff > 0) {
-        asset_amount = multiply_decimal64(asset_amount, calc_precision(digit_diff), 1);
-    }
-
-    int64_t coin_amount = multiply_decimal64(asset_amount, price, PRICE_PRECISION);
-    if (digit_diff < 0) {
-        coin_amount = multiply_decimal64(coin_amount, 1, calc_precision(0 - digit_diff));
-    }
-
-    return coin_amount;
-}
-
-int64_t calc_asset_amount(const asset &coin_quant, const int64_t price, const symbol &asset_symbol) {
-    // should use the max precision to calc
-    int64_t digit_diff = asset_symbol.precision() - coin_quant.symbol.precision();
-    int64_t coin_amount = coin_quant.amount;
-    if (digit_diff > 0) {
-        coin_amount = multiply_decimal64(coin_amount, calc_precision(digit_diff), 1);
-    }
-
-    int64_t asset_amount = divide_decimal64(coin_amount, price, PRICE_PRECISION);
-    if (digit_diff < 0) {
-        asset_amount = multiply_decimal64(asset_amount, 1, calc_precision(0 - digit_diff));
-    }
-
-    return asset_amount;
-}
-
-asset calc_coin_quant(const asset &asset_quant, const int64_t price, const symbol &coin_symbol) {
-    return asset(calc_coin_amount(asset_quant, price, coin_symbol), coin_symbol);
 }
 
 inline string symbol_to_string(const symbol &s) {
@@ -198,7 +144,7 @@ void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
                 check(order.asset_quant >= sym_pair_it->min_asset_quant,
                       "The input asset_quant is too smaller than " +
                           sym_pair_it->min_asset_quant.to_string());
-                check(order.coin_quant == calc_coin_quant(order.asset_quant, order.price, order.coin_quant.symbol),
+                check(order.coin_quant == dex::calc_coin_quant(order.asset_quant, order.price, order.coin_quant.symbol),
                     "The input coin_quant must be equal to the calc_coin_quant for limit buy order");
             } else { //(order.order_type == order_type::MARKET)
                 // the deal limit amount is coins, save in order.coin_quant
@@ -346,129 +292,6 @@ void dex_contract::match() {
     check(matched_count > 0, "The matched count == 0");
 }
 
-
-template<typename match_index_t>
-class matching_pair_iterator {
-public:
-    using order_iterator = matching_order_iterator<match_index_t>;
-    using order_iterator_vector = std::vector<order_iterator*>;
-
-    matching_pair_iterator(match_index_t &match_index, const dex::symbol_pair_t &sym_pair)
-        : _match_index(match_index), _sym_pair(sym_pair),
-          limit_buy_it(match_index, sym_pair.sym_pair_id, order_side::BUY, order_type::LIMIT),
-          limit_sell_it(match_index, sym_pair.sym_pair_id, order_side::SELL, order_type::LIMIT),
-          market_buy_it(match_index, sym_pair.sym_pair_id, order_side::BUY, order_type::MARKET),
-          market_sell_it(match_index, sym_pair.sym_pair_id, order_side::SELL, order_type::MARKET) {
-
-        process_data();
-    }
-
-    template<typename table_t>
-    void complete_and_next(table_t &table) {
-        if (_taker_it->is_complete()) {
-            _taker_it->complete_and_next(table);
-        }
-        if (_maker_it->is_complete()) {
-            _maker_it->complete_and_next(table);
-        }
-        process_data();
-    }
-
-    template<typename table_t>
-    void save_matching_order(table_t &table) {
-        limit_buy_it.save_matching_order(table);
-        limit_sell_it.save_matching_order(table);
-        market_buy_it.save_matching_order(table);
-        market_sell_it.save_matching_order(table);
-    }
-
-    bool can_match() const  {
-        return _can_match;
-    }
-
-    order_iterator& maker_it() {
-        ASSERT(_can_match);
-        return *_maker_it;
-    }
-    order_iterator& taker_it() {
-        ASSERT(_can_match);
-        return *_taker_it;
-    }
-
-    void calc_matched_amounts(int64_t &matched_assets, int64_t &matched_coins) {
-        ASSERT(_maker_it->order_type() == order_type::LIMIT && _maker_it->stored_order().price > 0);
-        uint64_t matched_price = _maker_it->stored_order().price;
-        int64_t taker_free_assets = 0;
-        if (_taker_it->order_side() == order_side::BUY && _taker_it->order_type() == order_type::MARKET) {
-            auto taker_free_coins = _taker_it->get_free_coins();
-            check(taker_free_coins > 0, "MUST: taker_free_coins > 0");
-            taker_free_assets = calc_asset_amount(asset(taker_free_coins, _sym_pair.coin_symbol), matched_price, _sym_pair.asset_symbol);
-            if (taker_free_assets == 0) { // dust amount
-                check(_maker_it->get_free_assets() > 0, "The maker order free_assets is 0");
-                matched_assets = 1;
-                matched_coins = _taker_it->get_free_coins();
-                return;
-            }
-        } else {
-            taker_free_assets = _taker_it->get_free_assets();
-            check(taker_free_assets > 0, "MUST: taker_free_assets > 0");
-        }
-
-        int64_t maker_free_assets = _maker_it->get_free_assets();
-        check(maker_free_assets > 0, "MUST: maker_free_assets > 0");
-        matched_assets = std::min(taker_free_assets, maker_free_assets);
-        matched_coins = calc_coin_amount(asset(matched_assets, _sym_pair.asset_symbol), matched_price, _sym_pair.coin_symbol);
-    }
-
-private:
-    const dex::symbol_pair_t &_sym_pair;
-    match_index_t &_match_index;
-    order_iterator limit_buy_it;
-    order_iterator limit_sell_it;
-    order_iterator market_buy_it;
-    order_iterator market_sell_it;
-
-    order_iterator *_taker_it = nullptr;
-    order_iterator *_maker_it = nullptr;
-    bool _can_match = false;
-
-    void process_data() {
-        _taker_it = nullptr;
-        _maker_it = nullptr;
-        _can_match = false;
-        if (market_buy_it.is_valid() && market_sell_it.is_valid()) {
-            _taker_it = (market_buy_it.stored_order().order_id < market_sell_it.stored_order().order_id) ? &market_buy_it : &market_sell_it;
-            _maker_it = (_taker_it->stored_order().order_side == dex::order_side::BUY) ? &limit_sell_it : &limit_buy_it;
-            _can_match = _maker_it->is_valid();
-        }
-        if (!_can_match) {
-            _can_match = true;
-            if (market_buy_it.is_valid() && limit_sell_it.is_valid()) {
-                _taker_it = &market_buy_it;
-                _maker_it = &limit_sell_it;
-            } else if (market_sell_it.is_valid() && limit_buy_it.is_valid()) {
-                _taker_it = &market_sell_it;
-                _maker_it = &limit_buy_it;
-            } else if (limit_buy_it.is_valid() && limit_sell_it.is_valid() && limit_buy_it.stored_order().price >= limit_sell_it.stored_order().price) {
-                if (limit_buy_it.stored_order().order_id < limit_sell_it.stored_order().order_id) {
-                    _taker_it = &limit_buy_it;
-                    _maker_it = &limit_sell_it;
-                } else {
-                    _taker_it = &limit_sell_it;
-                    _maker_it = &limit_buy_it;
-                }
-            } else {
-                _can_match = false;
-            }
-        }
-
-        if (!_can_match) {
-            _taker_it = nullptr;
-            _maker_it = nullptr;
-        }
-    }
-};
-
 void dex_contract::match_sym_pair(const dex::symbol_pair_t &sym_pair, int32_t &matched_count) {
 
     if (matched_count >= DEX_MATCH_COUNT_MAX) return; //  meet max matched count
@@ -476,7 +299,7 @@ void dex_contract::match_sym_pair(const dex::symbol_pair_t &sym_pair, int32_t &m
     auto order_tbl = make_order_table(get_self());
     auto match_index = order_tbl.get_index<static_cast<name::raw>(order_match_idx::index_name)>();
 
-    auto matching_pair_it = matching_pair_iterator(match_index, sym_pair);
+    auto matching_pair_it = dex::matching_pair_iterator(match_index, sym_pair);
     while (matched_count < DEX_MATCH_COUNT_MAX && matching_pair_it.can_match()) {
         auto &maker_it = matching_pair_it.maker_it();
         auto &taker_it = matching_pair_it.taker_it();

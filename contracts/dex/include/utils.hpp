@@ -3,6 +3,7 @@
 #include <string>
 #include <algorithm>
 #include <iterator>
+#include <eosio/eosio.hpp>
 #include "safe.hpp"
 
 #include <eosio/asset.hpp>
