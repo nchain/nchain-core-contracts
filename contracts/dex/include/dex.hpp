@@ -32,7 +32,11 @@ public:
     [[eosio::on_notify("*::transfer")]] void ontransfer(name from, name to, asset quantity,
                                                         string memo);
     // TODO: const list<uint64_t> &sym_pairs
-    [[eosio::action]] void match();
+    /**
+     *  @param max_count the max count of match item
+     *  @param sym_pairs the symol pairs to match. is empty, match all
+     */
+    [[eosio::action]] void match(uint32_t max_count, const vector<uint64_t> &sym_pairs);
 
     [[eosio::action]] void cancel(const uint64_t &order_id);
 
@@ -44,7 +48,7 @@ public:
 private:
     dex::config get_default_config();
     void process_refund(dex::order_t &buy_order);
-    void match_sym_pair(const dex::symbol_pair_t &sym_pair, int32_t &matched_count);
+    void match_sym_pair(const dex::symbol_pair_t &sym_pair, uint32_t max_count, uint32_t &matched_count);
 
     dex::config_table _conf_tbl;
     dex::config _config;

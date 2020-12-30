@@ -211,8 +211,10 @@ public:
         return ret;
     }
 
-    action_result match() {
+    action_result match(uint32_t max_count, const std::vector<uint64_t> &sym_pairs) {
         return push_action( N(dex.settler), N(match), mvo()
+            ("max_count", max_count)
+            ("sym_pairs", sym_pairs)
         );
     }
 
@@ -316,7 +318,7 @@ BOOST_FIXTURE_TEST_CASE( dex_settle_test, dex_tester ) try {
     // EXECUTE_ACTION(settle(0, 1, ASSET("0.01000000 BTC"), ASSET("100.0000 USD"), 1000000000000, ""));
 
     // match
-    EXECUTE_ACTION(match());
+    EXECUTE_ACTION(match(100, {})); // empty sym_pairs, match all sym_pairs
     produce_blocks(1);
 
     auto matched_buy_order = get_order(1);

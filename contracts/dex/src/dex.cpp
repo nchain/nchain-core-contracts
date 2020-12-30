@@ -271,36 +271,42 @@ void dex_contract::process_refund(dex::order_t &buy_order) {
     }
 }
 
-void dex_contract::match() {
+void dex_contract::match(uint32_t max_count, const vector<uint64_t> &sym_pairs) {
     require_auth( _config.settler );
     // TODO: validate sym_pairs??
     // get sym_pair_list
     std::list<symbol_pair_t> sym_pair_list;
     auto sym_pair_tbl = dex::make_symbol_pair_table(get_self());
-    auto sym_pair_it = sym_pair_tbl.begin();
-    for (; sym_pair_it != sym_pair_tbl.end(); sym_pair_it++) {
-        // TODO: check is enabled
-        sym_pair_list.push_back(*sym_pair_it);
+    if (!sym_pairs.empty()) {
+        for (auto sym_pair_id : sym_pairs) {
+            auto it = sym_pair_tbl.find(sym_pair_id);
+            check(it != sym_pair_tbl.end(), "The symbol pair=" + std::to_string(sym_pair_id) + " does not exist");
+            sym_pair_list.push_back(*it);
+        }
+    } else {
+        auto sym_pair_it = sym_pair_tbl.begin();
+        for (; sym_pair_it != sym_pair_tbl.end(); sym_pair_it++) {
+            // TODO: check is enabled
+            sym_pair_list.push_back(*sym_pair_it);
+        }
     }
 
-    int32_t matched_count = 0;
+    uint32_t matched_count = 0;
     for (const auto &sym_pair : sym_pair_list) {
-        if (matched_count < DEX_MATCH_COUNT_MAX) {
-            match_sym_pair(sym_pair, matched_count);
-        }
+        if (matched_count >= DEX_MATCH_COUNT_MAX) break;
+
+        match_sym_pair(sym_pair, max_count, matched_count);
     }
     check(matched_count > 0, "The matched count == 0");
 }
 
-void dex_contract::match_sym_pair(const dex::symbol_pair_t &sym_pair, int32_t &matched_count) {
-
-    if (matched_count >= DEX_MATCH_COUNT_MAX) return; //  meet max matched count
+void dex_contract::match_sym_pair(const dex::symbol_pair_t &sym_pair, uint32_t max_count, uint32_t &matched_count) {
 
     auto order_tbl = make_order_table(get_self());
     auto match_index = order_tbl.get_index<static_cast<name::raw>(order_match_idx::index_name)>();
 
     auto matching_pair_it = dex::matching_pair_iterator(match_index, sym_pair);
-    while (matched_count < DEX_MATCH_COUNT_MAX && matching_pair_it.can_match()) {
+    while (matched_count < max_count && matching_pair_it.can_match()) {
         auto &maker_it = matching_pair_it.maker_it();
         auto &taker_it = matching_pair_it.taker_it();
 
