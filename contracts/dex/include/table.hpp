@@ -271,6 +271,47 @@ namespace dex {
             return *_it;
         }
 
+        inline order_t& match(uint64_t matched_coins, uint64_t matched_assets) {
+            ASSERT(_status == OPENED || _status == MATCHING);
+            if (_status == OPENED) {
+                _matching_order = *_it;
+                _status = MATCHING;
+            }
+            bool complete = false;
+
+            _matching_order.matched_assets += matched_assets;
+            _matching_order.matched_coins += matched_coins;
+            if (_matching_order.order_side == order_side::BUY) {
+                check(_matching_order.matched_coins <= _matching_order.coin_quant.amount,
+                        "The matched coins=" + std::to_string(_matching_order.matched_coins) +
+                        " is overflow for buy coins=" + std::to_string(_matching_order.coin_quant.amount));
+                if (_matching_order.order_type == order_type::MARKET) {
+                    complete = _matching_order.matched_coins == _matching_order.coin_quant.amount;
+                } else {
+                    check(_matching_order.matched_assets <= _matching_order.asset_quant.amount,
+                        "The matched assets=" + std::to_string(_matching_order.matched_assets) +
+                        " is overflow for limit buy assets=" + std::to_string(_matching_order.asset_quant.amount));
+                    complete = _matching_order.matched_assets == _matching_order.asset_quant.amount;
+                }
+            } else {
+                check(_matching_order.matched_assets <= _matching_order.asset_quant.amount,
+                    "The matched assets=" + std::to_string(_matching_order.matched_assets) +
+                    " is overflow for sell assets=" + std::to_string(_matching_order.asset_quant.amount));
+                complete = _matching_order.matched_assets == _matching_order.asset_quant.amount;
+            }
+
+            if (complete) {
+                _status = COMPLETE;
+                if (_matching_order.order_side == order_side::BUY && _matching_order.order_type == order_type::LIMIT) {
+                    assert(_matching_order.coin_quant.amount >= _matching_order.matched_coins);
+                    if (_matching_order.coin_quant.amount > _matching_order.matched_coins) {
+                        _refund_coins = _matching_order.coin_quant.amount - _matching_order.matched_coins;
+                    }
+                }
+            }
+            return _matching_order;
+        }
+
         inline order_t& begin_match() {
             ASSERT(_status == OPENED || _status == MATCHING);
             if (_status == OPENED) {
@@ -296,12 +337,19 @@ namespace dex {
             return _status == MATCHING;
         }
 
+        inline uint64_t get_refund_coins() const {
+            ASSERT(is_complete());
+            return _refund_coins;
+        }
+
     private:
         void process_data() {
             _status = CLOSED;
+            _refund_coins = 0;
+            _matching_order = order_t();
             if (_it == _match_index.end()) {
                 print("matching order itr end! sym_pair_id=", _sym_pair_id, ", side=", _order_side, ", type=", _order_type, "\n");
-                return false;
+                return;
             }
 
             const auto &stored_order = *_it;
@@ -310,10 +358,9 @@ namespace dex {
 
             print("found order! order=", stored_order, "\n");
             if (stored_order.sym_pair_id != _sym_pair_id || stored_order.order_side != _order_side || stored_order.order_type != _order_type ) {
-                return false;
+                return;
             }
             _status = OPENED;
-            return true;
         }
 
         match_index_t &_match_index;
@@ -325,6 +372,8 @@ namespace dex {
         status_t _status = CLOSED;
 
         order_t _matching_order;
+        uint64_t _refund_coins = 0;
+
     };
 
 }// namespace dex
