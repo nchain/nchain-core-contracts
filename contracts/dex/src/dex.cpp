@@ -156,8 +156,8 @@ void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
         } else { // (order.order_side == order_side::SELL)
             // the frozen token is assets, save in order.asset_quant
             // the deal limit amount is assets, save in order.asset_quant
-            check(order.coin_quant.amount == 0, "The input coin amount must be 0 for buy order");
-            check(order.asset_quant == quantity, "The input asset_quant must be equal to the transfer quantity for buy order");
+            check(order.coin_quant.amount == 0, "The input coin amount must be 0 for sell order");
+            check(order.asset_quant == quantity, "The input asset_quant must be equal to the transfer quantity for sell order");
             check(order.asset_quant >= sym_pair_it->min_asset_quant,
                   "The input asset_quant is too smaller than " +
                       sym_pair_it->min_asset_quant.to_string());
@@ -240,8 +240,8 @@ void dex_contract::cancel(const uint64_t &order_id) {
     }
     transfer_out(get_self(), _config.bank, order.owner, quantity, "cancel_order");
 
-    order_tbl.modify(it, order.owner, [&]( auto& a ) {
-        a = order;
+    order_tbl.modify(it, same_payer, [&]( auto& a ) {
+        a.is_complete = true;
     });
 }
 
