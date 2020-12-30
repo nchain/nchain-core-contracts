@@ -61,7 +61,6 @@ namespace dex {
         }
     }
 
-
     struct DEX_TABLE config {
         name admin;   // admin of this contract
         name settler; // settler
@@ -69,6 +68,7 @@ namespace dex {
         name bank;    // bank
         int64_t maker_ratio;
         int64_t taker_ratio;
+        uint32_t max_match_count; // the max match count for creating new order,  if 0 will forbid match
     };
 
     typedef eosio::singleton< "config"_n, config > config_table;

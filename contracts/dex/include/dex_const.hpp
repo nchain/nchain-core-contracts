@@ -10,7 +10,7 @@ constexpr int64_t FEE_RATIO_MAX             = 5000;      // 50%, max fee ratio
 constexpr int64_t DEX_MAKER_FEE_RATIO       = 4;         // 0.04%, dex maker fee ratio
 constexpr int64_t DEX_TAKER_FEE_RATIO       = 8;         // 0.04%, dex taker fee ratio
 
-constexpr int32_t DEX_MATCH_COUNT_MAX       = 50;         // max dex match count
+constexpr uint32_t DEX_MATCH_COUNT_MAX      = 50;         // the max dex match count.
 
 constexpr int64_t MEMO_LEN_MAX              = 255;        // 0.001%, max memo length
 constexpr int64_t URL_LEN_MAX               = 255;        // 0.001%, max url length

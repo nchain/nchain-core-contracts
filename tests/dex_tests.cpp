@@ -251,7 +251,8 @@ BOOST_FIXTURE_TEST_CASE( dex_settle_test, dex_tester ) try {
         ("payee", N(dex.payee))
         ("bank", N(eosio.token))
         ("maker_ratio", int64_t(4))
-        ("taker_ratio", int64_t(8));
+        ("taker_ratio", int64_t(8))
+        ("max_match_count", uint32_t(100));
 
     EXECUTE_ACTION(setconfig( conf ));
     produce_blocks(1);

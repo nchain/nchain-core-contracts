@@ -253,7 +253,8 @@ dex::config dex_contract::get_default_config() {
         get_self(),             // name payee;
         BANK,                   // name bank;
         DEX_MAKER_FEE_RATIO,    // int64_t maker_ratio;
-        DEX_TAKER_FEE_RATIO     // int64_t taker_ratio;
+        DEX_TAKER_FEE_RATIO,    // int64_t taker_ratio;
+        DEX_MATCH_COUNT_MAX     // uint32_t max_match_count
     };
 }
 
