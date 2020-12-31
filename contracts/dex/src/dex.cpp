@@ -286,6 +286,7 @@ void dex_contract::match(uint32_t max_count, const vector<uint64_t> &sym_pairs) 
     require_auth( _config.settler );
     // TODO: validate sym_pairs??
     // get sym_pair_list
+    CHECK(max_count > 0, "The max_count must > 0")
     std::list<symbol_pair_t> sym_pair_list;
     auto sym_pair_tbl = dex::make_symbol_pair_table(get_self());
     if (!sym_pairs.empty()) {
