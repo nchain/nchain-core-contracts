@@ -112,6 +112,9 @@ void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
     vector<string_view> params = split(memo, ":");
     if (params.size() == 7 && params[0] == "order") {
       // order:<type>:<side>:<asset_quant>:<coin_quant>:<price>:<ext_id>
+        if (_config.check_order_auth) {
+            require_auth(_config.admin);
+        }
         order_t order;
         order.order_type = parse_order_type(params[1]);
         order.order_side = parse_order_side(params[2]);
@@ -256,7 +259,8 @@ dex::config dex_contract::get_default_config() {
         BANK,                   // name bank;
         DEX_MAKER_FEE_RATIO,    // int64_t maker_ratio;
         DEX_TAKER_FEE_RATIO,    // int64_t taker_ratio;
-        DEX_MATCH_COUNT_MAX     // uint32_t max_match_count
+        DEX_MATCH_COUNT_MAX,    // uint32_t max_match_count
+        false,                  // bool check_order_auth
     };
 }
 

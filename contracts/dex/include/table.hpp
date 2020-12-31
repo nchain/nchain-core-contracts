@@ -58,13 +58,14 @@ namespace dex {
     }
 
     struct DEX_TABLE config {
-        name admin;   // admin of this contract
+        name admin;   // admin of this contract, permisions: manage sym_pairs, authorize order
         name settler; // settler
         name payee;   // payee of this contract
         name bank;    // bank
         int64_t maker_ratio;
         int64_t taker_ratio;
         uint32_t max_match_count; // the max match count for creating new order,  if 0 will forbid match
+        bool     check_order_auth; // check the order must have the authorization by dex admin
     };
 
     typedef eosio::singleton< "config"_n, config > config_table;

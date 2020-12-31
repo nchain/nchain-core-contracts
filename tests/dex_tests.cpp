@@ -244,7 +244,8 @@ public:
             ("bank", N(eosio.token))
             ("maker_ratio", int64_t(4))
             ("taker_ratio", int64_t(8))
-            ("max_match_count", uint32_t(100));
+            ("max_match_count", uint32_t(100))
+            ("check_order_auth", false);
 
         EXECUTE_ACTION(setconfig( conf ));
         produce_blocks(1);
