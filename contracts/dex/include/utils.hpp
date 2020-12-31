@@ -15,12 +15,13 @@ using namespace std;
 #define PP0(prop) #prop ":", prop
 #define PRINT_PROPERTIES(...) eosio::print("{", __VA_ARGS__, "}")
 
-#define ASSERT(exp) check(exp, #exp)
+#define ASSERT(exp) eosio::check(exp, #exp)
+#define CHECK(exp, msg) { if (!(exp)) eosio::check(false, msg); }
 
 template<typename T>
 int128_t divide_decimal(int128_t a, int128_t b, int128_t precision) {
     int128_t tmp = 10 * a * precision  / b;
-    check(tmp >= std::numeric_limits<T>::min() && tmp <= std::numeric_limits<T>::max(),
+    CHECK(tmp >= std::numeric_limits<T>::min() && tmp <= std::numeric_limits<T>::max(),
           "overflow exception of divide_decimal");
     return (tmp + 5) / 10;
 }
@@ -28,7 +29,7 @@ int128_t divide_decimal(int128_t a, int128_t b, int128_t precision) {
 template<typename T>
 int128_t multiply_decimal(int128_t a, int128_t b, int128_t precision) {
     int128_t tmp = 10 * a * b / precision;
-    check(tmp >= std::numeric_limits<T>::min() && tmp <= std::numeric_limits<T>::max(),
+    CHECK(tmp >= std::numeric_limits<T>::min() && tmp <= std::numeric_limits<T>::max(),
           "overflow exception of multiply_decimal");
     return (tmp + 5) / 10;
 }
@@ -65,7 +66,7 @@ void to_int(string_view sv, T& res) {
     res = 0;
     T p = 1;
     for( auto itr = sv.rbegin(); itr != sv.rend(); ++itr ) {
-        check( *itr <= '9' && *itr >= '0', "invalid character");
+        CHECK( *itr <= '9' && *itr >= '0', "invalid character");
         res += p * T(*itr-'0');
         p   *= T(10);
     }
@@ -73,7 +74,7 @@ void to_int(string_view sv, T& res) {
 template <class T>
 void precision_from_decimals(int8_t decimals, T& p10)
 {
-    check(decimals <= 18, "precision should be <= 18");
+    CHECK(decimals <= 18, "precision should be <= 18");
     p10 = 1;
     T p = decimals;
     while( p > 0  ) {
@@ -87,14 +88,14 @@ asset asset_from_string(string_view from)
 
     // Find space in order to split amount and symbol
     auto space_pos = s.find(' ');
-    check(space_pos != string::npos, "Asset's amount and symbol should be separated with space");
+    CHECK(space_pos != string::npos, "Asset's amount and symbol should be separated with space");
     auto symbol_str = trim(s.substr(space_pos + 1));
     auto amount_str = s.substr(0, space_pos);
 
     // Ensure that if decimal point is used (.), decimal fraction is specified
     auto dot_pos = amount_str.find('.');
     if (dot_pos != string::npos) {
-        check(dot_pos != amount_str.size() - 1, "Missing decimal fraction after decimal point");
+        CHECK(dot_pos != amount_str.size() - 1, "Missing decimal fraction after decimal point");
     }
 
     // Parse symbol

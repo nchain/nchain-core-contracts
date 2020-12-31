@@ -32,7 +32,7 @@ namespace dex {
         inline uint8_t index(const order_type_t &value) {
                 if (value == NONE) return 0;
                 auto it = ENUM_MAP.find(value);
-                check(it != ENUM_MAP.end(), "Invalid order_type=" + value.to_string());
+                CHECK(it != ENUM_MAP.end(), "Invalid order_type=" + value.to_string());
                 return it->second;
         }
     }
@@ -52,7 +52,7 @@ namespace dex {
         inline uint8_t index(const order_side_t &value) {
                 if (value == NONE) return 0;
                 auto it = ENUM_MAP.find(value);
-                check(it != ENUM_MAP.end(), "Invalid order_type=" + value.to_string());
+                CHECK(it != ENUM_MAP.end(), "Invalid order_type=" + value.to_string());
                 return it->second;
         }
     }

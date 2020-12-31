@@ -18,7 +18,7 @@ namespace dex {
     }
 
     inline int64_t calc_precision(int64_t digit) {
-        check(digit <= 18, "precision digit " + std::to_string(digit) + " should be <= 18");
+        CHECK(digit <= 18, "precision digit " + std::to_string(digit) + " should be <= 18");
         return power10(digit);
     }
 
@@ -123,19 +123,19 @@ namespace dex {
             _matched_coins += new_matched_coins;
             const auto &order = *_it;
             if (order.order_side == order_side::BUY) {
-                check(_matched_coins <= order.coin_quant.amount,
+                CHECK(_matched_coins <= order.coin_quant.amount,
                         "The matched coins=" + std::to_string(_matched_coins) +
                         " is overflow for buy coins=" + std::to_string(order.coin_quant.amount));
                 if (order.order_type == order_type::MARKET) {
                     complete = _matched_coins == order.coin_quant.amount;
                 } else {
-                    check(_matched_assets <= order.asset_quant.amount,
+                    CHECK(_matched_assets <= order.asset_quant.amount,
                         "The matched assets=" + std::to_string(_matched_assets) +
                         " is overflow for limit buy assets=" + std::to_string(order.asset_quant.amount));
                     complete = _matched_assets == order.asset_quant.amount;
                 }
             } else {
-                check(_matched_assets <= order.asset_quant.amount,
+                CHECK(_matched_assets <= order.asset_quant.amount,
                     "The matched assets=" + std::to_string(_matched_assets) +
                     " is overflow for sell assets=" + std::to_string(order.asset_quant.amount));
                 complete = _matched_assets == order.asset_quant.amount;
@@ -197,7 +197,7 @@ namespace dex {
             }
 
             const auto &stored_order = *_it;
-            check(_key < stored_order.get_order_match_idx(), "the start key must < found order key");
+            CHECK(_key < stored_order.get_order_match_idx(), "the start key must < found order key");
             // print("start key=", key, ", found key=", stored_order.get_order_match_idx(), "\n");
 
             if (stored_order.sym_pair_id != _sym_pair_id || stored_order.is_complete ||
@@ -279,21 +279,21 @@ namespace dex {
             int64_t taker_free_assets = 0;
             if (_taker_it->order_side() == order_side::BUY && _taker_it->order_type() == order_type::MARKET) {
                 auto taker_free_coins = _taker_it->get_free_coins();
-                check(taker_free_coins > 0, "MUST: taker_free_coins > 0");
+                CHECK(taker_free_coins > 0, "MUST: taker_free_coins > 0");
                 taker_free_assets = calc_asset_amount(asset(taker_free_coins, _sym_pair.coin_symbol), matched_price, _sym_pair.asset_symbol);
                 if (taker_free_assets == 0) { // dust amount
-                    check(_maker_it->get_free_assets() > 0, "The maker order free_assets is 0");
+                    CHECK(_maker_it->get_free_assets() > 0, "The maker order free_assets is 0");
                     matched_assets = 1;
                     matched_coins = _taker_it->get_free_coins();
                     return;
                 }
             } else {
                 taker_free_assets = _taker_it->get_free_assets();
-                check(taker_free_assets > 0, "MUST: taker_free_assets > 0");
+                CHECK(taker_free_assets > 0, "MUST: taker_free_assets > 0");
             }
 
             int64_t maker_free_assets = _maker_it->get_free_assets();
-            check(maker_free_assets > 0, "MUST: maker_free_assets > 0");
+            CHECK(maker_free_assets > 0, "MUST: maker_free_assets > 0");
             matched_assets = std::min(taker_free_assets, maker_free_assets);
             matched_coins = calc_coin_amount(asset(matched_assets, _sym_pair.asset_symbol), matched_price, _sym_pair.coin_symbol);
         }
