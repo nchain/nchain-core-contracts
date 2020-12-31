@@ -180,6 +180,10 @@ void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
         order_tbl.emplace( get_self(), [&]( auto& o ) {
             o = order;
         });
+        if (_config.max_match_count > 0) {
+            uint32_t matched_count = 0;
+            match_sym_pair(*sym_pair_it, _config.max_match_count, matched_count);
+        }
     } else {
         CHECK(false, "Unsupport params of memo=" + memo);
     }
