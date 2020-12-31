@@ -129,6 +129,8 @@ void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
         auto sym_pair_it = index.find( make_symbols_idx(order.asset_quant.symbol, order.coin_quant.symbol) );
         check( sym_pair_it != index.end(),
             "The symbol pair '" + symbol_pair_to_string(order.asset_quant.symbol, order.coin_quant.symbol) + "' does not exist");
+
+        check(sym_pair_it->enabled, "The symbol pair '" + symbol_pair_to_string(order.asset_quant.symbol, order.coin_quant.symbol) + " is disabled");
         order.sym_pair_id = sym_pair_it->sym_pair_id;
         // check amount
 
@@ -282,13 +284,15 @@ void dex_contract::match(uint32_t max_count, const vector<uint64_t> &sym_pairs) 
         for (auto sym_pair_id : sym_pairs) {
             auto it = sym_pair_tbl.find(sym_pair_id);
             check(it != sym_pair_tbl.end(), "The symbol pair=" + std::to_string(sym_pair_id) + " does not exist");
+            check(it->enabled, "The indicated sym_pair=" + std::to_string(sym_pair_id) + " is disabled");
             sym_pair_list.push_back(*it);
         }
     } else {
         auto sym_pair_it = sym_pair_tbl.begin();
         for (; sym_pair_it != sym_pair_tbl.end(); sym_pair_it++) {
-            // TODO: check is enabled
-            sym_pair_list.push_back(*sym_pair_it);
+            if (sym_pair_it->enabled) {
+                sym_pair_list.push_back(*sym_pair_it);
+            }
         }
     }
 
