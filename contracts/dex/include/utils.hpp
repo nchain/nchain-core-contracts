@@ -10,6 +10,13 @@
 
 using namespace std;
 
+
+#define PP(prop) "," #prop ":", prop
+#define PP0(prop) #prop ":", prop
+#define PRINT_PROPERTIES(...) eosio::print("{", __VA_ARGS__, "}")
+
+#define ASSERT(exp) check(exp, #exp)
+
 template<typename T>
 int128_t divide_decimal(int128_t a, int128_t b, int128_t precision) {
     int128_t tmp = 10 * a * precision  / b;

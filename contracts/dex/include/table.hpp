@@ -6,11 +6,7 @@
 #include <eosio/asset.hpp>
 #include <eosio/singleton.hpp>
 #include "dex_const.hpp"
-
-
-#define PP(prop) "," #prop ":", prop
-#define PP0(prop) #prop ":", prop
-#define PRINT_PROPERTIES(...) eosio::print("{", __VA_ARGS__, "}")
+#include "utils.hpp"
 
 namespace dex {
 
