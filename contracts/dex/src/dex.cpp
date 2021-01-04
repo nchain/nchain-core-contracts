@@ -69,8 +69,8 @@ void dex_contract::setsympair(const symbol &asset_symbol, const symbol &coin_sym
     CHECK(asset_symbol.is_valid(), "Invalid asset symbol");
     CHECK(coin_symbol.is_valid(), "Invalid coin symbol");
     CHECK(asset_symbol.code() != coin_symbol.code(), "Error: asset_symbol.code() == coin_symbol.code()");
-    CHECK(asset_symbol == min_asset_quant.symbol, "Incorrect symbol of min_coin_quant");
-    CHECK(coin_symbol == min_coin_quant.symbol, "Incorrect symbol of min_asset_quant");
+    CHECK(asset_symbol == min_asset_quant.symbol, "Incorrect symbol of min_asset_quant");
+    CHECK(coin_symbol == min_coin_quant.symbol, "Incorrect symbol of min_coin_quant");
 
 
     auto index = sym_pair_tbl.get_index<static_cast<name::raw>(symbols_idx::index_name)>();

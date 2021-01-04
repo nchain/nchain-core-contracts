@@ -166,7 +166,7 @@ namespace dex {
                           uint64_t(order_type::index(type)) << 40;
         uint64_t price_factor = (side == order_side::BUY) ? std::numeric_limits<uint64_t>::max() - price : price;
         auto ret = order_match_idx_key::make_from_word_sequence<uint64_t>(sym_pair_id, option, price_factor, order_id);
-        print("make order match idx=", ret, "\n");
+        // print("make order match idx=", ret, "\n");
         return ret;
     }
 
