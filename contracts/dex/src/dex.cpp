@@ -174,6 +174,7 @@ void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
         // TODO: implement auto inc id by global table
         order.order_id = dex::new_order_id(*_global);
         order.owner = from;
+        order.create_time = current_block_time();
 
         CHECK(order_tbl.find(order.order_id) == order_tbl.end(), "The order is exist. order_id=" + std::to_string(order.order_id));
 

@@ -163,6 +163,10 @@ public:
 
     }
 
+    inline time_point get_head_block_time() {
+        return control->head_block_state()->block->timestamp.to_time_point();
+    }
+
     action_result push_action( const account_name& signer, const action_name &name, const variant_object &data ) {
         string action_type_name = abi_ser.get_action_type(name);
         BOOST_REQUIRE_NE(action_type_name, "");
@@ -269,14 +273,14 @@ public:
         );
     }
 
-    void init_buy_order() {
+    mvo init_buy_order() {
         // buy order
         //order  order:<type>:<side>:<asset_quant>:<coin_quant>:<price>:<ex_id>
         string buy_memo = "order:limit:buy:0.01000000 BTC:100.0000 USD:1000000000000:1";
         EXECUTE_ACTION(eosio_token.transfer(N(alice), N(dex), ASSET("100.0000 USD"), buy_memo));
         uint64_t order_id = 1;
         auto buy_order = get_order(order_id);
-        REQUIRE_MATCHING_OBJECT( buy_order, mvo()
+        auto expected_order = mvo()
             ("sym_pair_id", 1)
             ("order_id", order_id)
             ("owner", "alice")
@@ -286,10 +290,12 @@ public:
             ("coin_quant", "100.0000 USD")
             ("price", "1000000000000")
             ("external_id", 1)
+            ("create_time", get_head_block_time())
             ("matched_assets", "0")
             ("matched_coins", "0")
-            ("is_complete", "0")
-        );
+            ("is_complete", "0");
+        REQUIRE_MATCHING_OBJECT( buy_order, expected_order );
+        return expected_order;
     }
 
     abi_serializer abi_ser;
@@ -303,24 +309,13 @@ BOOST_FIXTURE_TEST_CASE( dex_cancel_test, dex_tester ) try {
 
     init_config();
     init_sym_pair();
-    init_buy_order();
+    auto buy_order = init_buy_order();
 
     EXECUTE_ACTION(cancel(N(alice), 1));
-    auto buy_order = get_order(1);
-    REQUIRE_MATCHING_OBJECT( buy_order, mvo()
-        ("sym_pair_id", 1)
-        ("order_id", 1)
-        ("owner", "alice")
-        ("order_type", "limit")
-        ("order_side", "buy")
-        ("asset_quant", "0.01000000 BTC")
-        ("coin_quant", "100.0000 USD")
-        ("price", "1000000000000")
-        ("external_id", 1)
-        ("matched_assets", "0")
-        ("matched_coins", "0")
-        ("is_complete", "1")
-    );
+    auto new_buy_order = get_order(1);
+    // update the buy_order;
+    buy_order("is_complete", "1");
+    REQUIRE_MATCHING_OBJECT( new_buy_order, buy_order );
 
 } FC_LOG_AND_RETHROW()
 
@@ -331,13 +326,13 @@ BOOST_FIXTURE_TEST_CASE( dex_match_test, dex_tester ) try {
 
     // buy order
     //order  order:<type>:<side>:<asset_quant>:<coin_quant>:<price>:<ex_id>
+
     string buy_memo = "order:limit:buy:0.01000000 BTC:100.0000 USD:1000000000000:1";
     EXECUTE_ACTION(eosio_token.transfer(N(alice), N(dex), ASSET("100.0000 USD"), buy_memo));
-    uint64_t order_id = 1;
-    auto buy_order = get_order(order_id);
-    REQUIRE_MATCHING_OBJECT( buy_order, mvo()
+    uint64_t buy_order_id = 1;
+    auto buy_order = mvo()
         ("sym_pair_id", 1)
-        ("order_id", order_id)
+        ("order_id", buy_order_id)
         ("owner", "alice")
         ("order_type", "limit")
         ("order_side", "buy")
@@ -345,20 +340,22 @@ BOOST_FIXTURE_TEST_CASE( dex_match_test, dex_tester ) try {
         ("coin_quant", "100.0000 USD")
         ("price", "1000000000000")
         ("external_id", 1)
+        ("create_time", get_head_block_time())
         ("matched_assets", "0")
         ("matched_coins", "0")
-        ("is_complete", "0")
-    );
+        ("is_complete", "0");
+
+    auto new_buy_order = get_order(buy_order_id);
+    REQUIRE_MATCHING_OBJECT( new_buy_order, buy_order );
 
     // sell order
     //order  order:<type>:<side>:<asset_quant>:<coin_quant>:<price>:<ex_id>
     string sell_memo = "order:limit:sell:0.01000000 BTC:0.0000 USD:1000000000000:2";
     EXECUTE_ACTION(eosio_token.transfer(N(bob), N(dex), ASSET("0.01000000 BTC"), sell_memo));
-    order_id++;
-    auto sell_order = get_order(order_id);
-    REQUIRE_MATCHING_OBJECT( sell_order, mvo()
+    uint64_t sell_order_id = 2;
+    auto sell_order = mvo()
         ("sym_pair_id", 1)
-        ("order_id", order_id)
+        ("order_id", sell_order_id)
         ("owner", "bob")
         ("order_type", "limit")
         ("order_side", "sell")
@@ -366,54 +363,31 @@ BOOST_FIXTURE_TEST_CASE( dex_match_test, dex_tester ) try {
         ("coin_quant", "0.0000 USD")
         ("price", "1000000000000")
         ("external_id", 2)
+        ("create_time", get_head_block_time())
         ("matched_assets", "0")
         ("matched_coins", "0")
-        ("is_complete", "0")
-    );
+        ("is_complete", "0");
 
-    // // settle
-    // EXECUTE_ACTION(settle(0, 1, ASSET("0.01000000 BTC"), ASSET("100.0000 USD"), 1000000000000, ""));
+    auto new_sell_order = get_order(sell_order_id);
+    REQUIRE_MATCHING_OBJECT( new_sell_order, sell_order);
 
     // match
     EXECUTE_ACTION(match(100, {})); // empty sym_pairs, match all sym_pairs
-    produce_blocks(1);
 
-    auto matched_buy_order = get_order(1);
-    // BOOST_CHECK( matched_buy_order.is_null());
-    // BOOST_CHECK( matched_sell_order.is_null());
-
+    buy_order
+        ("matched_assets", "1000000")
+        ("matched_coins", "1000000")
+        ("is_complete", 1);
+    auto matched_buy_order = get_order(buy_order_id);
     BOOST_CHECK(!matched_buy_order.is_null());
-    // auto deal_buy_order = get_order(0);
-    REQUIRE_MATCHING_OBJECT( matched_buy_order, mvo()
-        ("sym_pair_id", 1)
-        ("order_id", 1)
-        ("owner", "alice")
-        ("order_type", "limit")
-        ("order_side", "buy")
-        ("asset_quant", "0.01000000 BTC")
-        ("coin_quant", "100.0000 USD")
-        ("price", "1000000000000")
-        ("external_id", 1)
-        ("matched_assets", "1000000")
-        ("matched_coins", "1000000")
-        ("is_complete", 1)
-    );
+    REQUIRE_MATCHING_OBJECT( matched_buy_order, buy_order );
 
-    auto matched_sell_order = get_order(2);
-    REQUIRE_MATCHING_OBJECT( matched_sell_order, mvo()
-        ("sym_pair_id", 1)
-        ("order_id", 2)
-        ("owner", "bob")
-        ("order_type", "limit")
-        ("order_side", "sell")
-        ("asset_quant", "0.01000000 BTC")
-        ("coin_quant", "0.0000 USD")
-        ("price", "1000000000000")
-        ("external_id", 2)
-        ("matched_assets", "1000000")
-        ("matched_coins", "1000000")
-        ("is_complete", 1)
-    );
+    sell_order
+            ("matched_assets", "1000000")
+            ("matched_coins", "1000000")
+            ("is_complete", 1);
+    auto matched_sell_order = get_order(sell_order_id);
+    REQUIRE_MATCHING_OBJECT( matched_sell_order, sell_order );
 } FC_LOG_AND_RETHROW()
 
 BOOST_AUTO_TEST_SUITE_END()

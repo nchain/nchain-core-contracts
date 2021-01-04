@@ -180,6 +180,7 @@ namespace dex {
         asset coin_quant;
         int64_t price;
         uint64_t external_id; // external id
+        time_point create_time;
         int64_t matched_assets = 0;      //!< total matched asset amount
         int64_t matched_coins  = 0;      //!< total matched coin amount
         bool    is_complete = false;
@@ -193,6 +194,7 @@ namespace dex {
         }
 
         void print() const {
+            auto create_time = this->create_time.elapsed.count(); // print the ms value
             PRINT_PROPERTIES(
                 PP0(sym_pair_id),
                 PP(order_id),
@@ -202,6 +204,8 @@ namespace dex {
                 PP(asset_quant),
                 PP(coin_quant),
                 PP(price),
+                PP(external_id),
+                PP(create_time),
                 PP(matched_assets),
                 PP(matched_coins),
                 PP(is_complete)
