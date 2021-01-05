@@ -79,7 +79,7 @@ void dex_contract::setsympair(const symbol &asset_symbol, const symbol &coin_sym
     auto it = index.find( make_symbols_idx(asset_symbol, coin_symbol));
     if (it == index.end()) {
         // new sym pair
-        auto sym_pair_id = dex::new_sym_pair_id(*_global);
+        auto sym_pair_id = _global->new_sym_pair_id();
         CHECK( sym_pair_tbl.find(sym_pair_id) == sym_pair_tbl.end(), "The symbol pair id exist");
         sym_pair_tbl.emplace(get_self(), [&](auto &sym_pair) {
             sym_pair.sym_pair_id = sym_pair_id;
@@ -177,7 +177,7 @@ void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
 
         auto order_tbl = make_order_table(get_self());
         // TODO: implement auto inc id by global table
-        order.order_id = dex::new_order_id(*_global);
+        order.order_id = _global->new_order_id();
         order.owner = from;
         order.create_time = current_block_time();
 
@@ -322,6 +322,7 @@ void dex_contract::match(uint32_t max_count, const vector<uint64_t> &sym_pairs) 
 
 void dex_contract::match_sym_pair(const dex::symbol_pair_t &sym_pair, uint32_t max_count, uint32_t &matched_count) {
 
+    auto cur_block_time = current_block_time();
     auto order_tbl = make_order_table(get_self());
     auto match_index = order_tbl.get_index<static_cast<name::raw>(order_match_idx::index_name)>();
 
@@ -381,6 +382,20 @@ void dex_contract::match_sym_pair(const dex::symbol_pair_t &sym_pair, uint32_t m
                 transfer_out(get_self(), _config.bank, buy_order.owner, asset(refunds, coin_symbol), "refund_coins");
             }
         }
+
+        auto deal_tbl = dex::make_deal_table(get_self());
+        deal_tbl.emplace(_config.settler, [&]( auto& deal_item ) {
+            deal_item.id = _global->new_deal_item_id();
+            deal_item.buy_order_id = buy_order.order_id;
+            deal_item.sell_order_id = sell_order.order_id;
+            deal_item.deal_assets = asset(matched_assets, asset_symbol);
+            deal_item.deal_coins = asset(matched_coins, coin_symbol);
+            deal_item.deal_price = match_price;
+            deal_item.taker_side = taker_it.order_side();
+            deal_item.buy_fee = asset(asset_match_fee, asset_symbol);
+            deal_item.sell_fee = asset(coin_match_fee, coin_symbol);
+            deal_item.deal_time = cur_block_time;
+        });
 
         matched_count++;
         matching_pair_it.complete_and_next(order_tbl);

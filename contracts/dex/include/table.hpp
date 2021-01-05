@@ -72,7 +72,8 @@ namespace dex {
 
     struct DEX_TABLE global {
         uint64_t order_id    = 0; // the auto-increament id of order
-        uint64_t sym_pair_id = 0; // settler
+        uint64_t sym_pair_id = 0; // the auto-increament id of symbol pair
+        uint64_t deal_item_id = 0; // the auto-increament id of deal item
     };
 
     typedef eosio::singleton< "global"_n, global > global_table;
@@ -94,6 +95,28 @@ namespace dex {
             return ret;
         }
 
+        inline uint64_t new_auto_inc_id(uint64_t &id) {
+            if (id == 0 || id == std::numeric_limits<uint64_t>::max()) {
+                id = 1;
+            } else {
+                id++;
+            }
+            change();
+            return id;
+        }
+
+        inline uint64_t new_order_id() {
+            return new_auto_inc_id(order_id);
+        }
+
+        inline uint64_t new_sym_pair_id() {
+            return new_auto_inc_id(sym_pair_id);
+        }
+
+        inline uint64_t new_deal_item_id() {
+            return new_auto_inc_id(deal_item_id);
+        }
+
         inline void change() {
             changed = true;
         }
@@ -108,25 +131,6 @@ namespace dex {
     private:
         std::unique_ptr<global_table> _global_tbl;
     };
-
-    inline uint64_t new_auto_inc_id(uint64_t &id) {
-        if (id == 0 || id == std::numeric_limits<uint64_t>::max()) {
-            id = 1;
-        } else {
-            id++;
-        }
-        return id;
-    }
-
-    inline uint64_t new_order_id(global_state &g) {
-        g.change();
-        return new_auto_inc_id(g.order_id);
-    }
-
-    inline uint64_t new_sym_pair_id(global_state &g) {
-        g.change();
-        return new_auto_inc_id(g.sym_pair_id);
-    }
 
     static inline uint128_t make_symbols_idx(const symbol &asset_symbol, const symbol &coin_symbol) {
         return uint128_t(asset_symbol.raw()) << 64 | uint128_t(coin_symbol.raw());
@@ -225,6 +229,40 @@ namespace dex {
 
     inline static order_table make_order_table(const name &self) {
         return order_table(self, self.value/*scope*/);
+    }
+
+
+    struct DEX_TABLE deal_item_t {
+        uint64_t id;
+        uint64_t buy_order_id;
+        uint64_t sell_order_id;
+        asset deal_assets;
+        asset deal_coins;
+        uint64_t deal_price;
+        order_side_t taker_side;
+        asset buy_fee;
+        asset sell_fee;
+        time_point deal_time;
+
+        uint64_t primary_key() const { return id; }
+
+        uint64_t get_buy_id() const {
+            return buy_order_id;
+        }
+        uint64_t get_sell_id() const {
+            return sell_order_id;
+        }
+    };
+
+    using deal_buy_idx = indexed_by<"dealbuyidx"_n, const_mem_fun<deal_item_t, uint64_t,
+           &deal_item_t::get_buy_id>>;
+    using deal_sell_idx = indexed_by<"dealsellidx"_n, const_mem_fun<deal_item_t, uint64_t,
+           &deal_item_t::get_sell_id>>;
+
+    typedef eosio::multi_index<"deal"_n, deal_item_t, deal_buy_idx, deal_sell_idx> deal_table;
+
+    inline static deal_table make_deal_table(const name &self) {
+        return deal_table(self, self.value/*scope*/);
     }
 
 }// namespace dex
