@@ -180,6 +180,8 @@ namespace dex {
         asset coin_quant;
         int64_t price;
         uint64_t external_id; // external id
+        int64_t taker_ratio;
+        int64_t maker_ratio;
         time_point create_time;
         int64_t matched_assets = 0;      //!< total matched asset amount
         int64_t matched_coins  = 0;      //!< total matched coin amount

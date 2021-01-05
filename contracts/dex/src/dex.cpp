@@ -110,9 +110,11 @@ void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
     CHECK(bank == _config.bank, "The bank must be " + _config.bank.to_string());
 
     vector<string_view> params = split(memo, ":");
-    if (params.size() == 7 && params[0] == "order") {
-      // order:<type>:<side>:<asset_quant>:<coin_quant>:<price>:<ext_id>
-        if (_config.check_order_auth) {
+    if ((params.size() == 7 || params.size() == 9) && params[0] == "order") {
+      // order:<type>:<side>:<asset_quant>:<coin_quant>:<price>:<ext_id>[:<taker_ratio>:[maker_ratio]]
+      // sample1 'order:limit:buy:1.00000000 BTC:2.0000 USD:200000000:1'
+      // sample1 'order:limit:buy:1.00000000 BTC:2.0000 USD:200000000:1:8:4'
+        if (_config.check_order_auth || params.size() == 9) {
             require_auth(_config.admin);
         }
         order_t order;
@@ -122,6 +124,13 @@ void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
         order.coin_quant = asset_from_string(params[4]);
         order.price = parse_price(params[5]);
         order.external_id = parse_external_id(params[6]);
+        if (params.size() == 9) {
+            order.taker_ratio = parse_ratio(params[7]);
+            order.maker_ratio = parse_ratio(params[8]);
+        } else {
+            order.taker_ratio = _config.taker_ratio;
+            order.maker_ratio = _config.maker_ratio;
+        }
 
         auto sym_pair_tbl = make_symbol_pair_table(get_self());
         CHECK(order.asset_quant.symbol.is_valid(), "Invalid asset symbol");
@@ -135,16 +144,12 @@ void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
 
         CHECK(sym_pair_it->enabled, "The symbol pair '" + symbol_pair_to_string(order.asset_quant.symbol, order.coin_quant.symbol) + " is disabled");
         order.sym_pair_id = sym_pair_it->sym_pair_id;
-        // check amount
 
+        // check amount
         if (order.order_side == order_side::BUY) {
             // the frozen token is coins, save in order.coin_quant
             CHECK(order.coin_quant.amount == quantity.amount, "The input coin_quant must be equal to the transfer quantity for sell order");
             if (order.order_type == order_type::LIMIT) {
-                // CHECK(false, "assets=" + std::to_string(order.asset_quant.amount) +
-                //     ", price=" + std::to_string(order.price) +
-                //     ", input=" + std::to_string(order.coin_quant.amount) +
-                //     ", calc_coin_amount=" + std::to_string(calc_coin_amount(order.asset_quant, order.price, order.coin_quant.symbol)));
                 // the deal limit amount is assets, save in order.asset_quant
                 CHECK(order.asset_quant >= sym_pair_it->min_asset_quant,
                       "The input asset_quant is too smaller than " +
@@ -209,9 +214,9 @@ int64_t calc_match_fee(const dex::order_t &order, const dex::config &_config, co
 
     int64_t ratio = 0;
     if (order.order_side == taker_side) {
-        ratio = _config.taker_ratio;
+        ratio = order.taker_ratio;
     } else {
-        ratio = _config.maker_ratio;
+        ratio = order.maker_ratio;
     }
 
     int64_t fee = multiply_decimal64(amount, ratio, RATIO_PRECISION);

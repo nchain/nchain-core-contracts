@@ -222,18 +222,6 @@ public:
         );
     }
 
-    // action_result settle(const uint64_t &buy_id, const uint64_t &sell_id,
-    //                         const asset &asset_quant, const asset &coin_quant,
-    //                         const int64_t &price, const string &memo) {
-    //     return push_action( N(dex.settler), N(settle), mvo()
-    //         ( "buy_id", buy_id)
-    //         ( "sell_id", sell_id)
-    //         ( "asset_quant", asset_quant)
-    //         ( "coin_quant", coin_quant)
-    //         ( "price", price)
-    //         ( "memo", memo)
-    //     );
-    // }
     action_result cancel(const name &owner, const uint64_t &order_id) {
         return push_action( owner, N(cancel), mvo()
             ( "order_id", order_id)
@@ -246,8 +234,8 @@ public:
             ("settler", N(dex.settler))
             ("payee", N(dex.payee))
             ("bank", N(eosio.token))
-            ("maker_ratio", int64_t(4))
-            ("taker_ratio", int64_t(8))
+            ("taker_ratio", 8)
+            ("maker_ratio", 4)
             ("max_match_count", uint32_t(0))
             ("check_order_auth", false);
 
@@ -290,6 +278,8 @@ public:
             ("coin_quant", "100.0000 USD")
             ("price", "1000000000000")
             ("external_id", 1)
+            ("taker_ratio", 8)
+            ("maker_ratio", 4)
             ("create_time", get_head_block_time())
             ("matched_assets", "0")
             ("matched_coins", "0")
@@ -340,6 +330,8 @@ BOOST_FIXTURE_TEST_CASE( dex_match_test, dex_tester ) try {
         ("coin_quant", "100.0000 USD")
         ("price", "1000000000000")
         ("external_id", 1)
+        ("taker_ratio", 8)
+        ("maker_ratio", 4)
         ("create_time", get_head_block_time())
         ("matched_assets", "0")
         ("matched_coins", "0")
@@ -363,6 +355,8 @@ BOOST_FIXTURE_TEST_CASE( dex_match_test, dex_tester ) try {
         ("coin_quant", "0.0000 USD")
         ("price", "1000000000000")
         ("external_id", 2)
+        ("taker_ratio", 8)
+        ("maker_ratio", 4)
         ("create_time", get_head_block_time())
         ("matched_assets", "0")
         ("matched_coins", "0")
