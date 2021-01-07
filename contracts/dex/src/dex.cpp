@@ -212,13 +212,14 @@ order_type_t get_taker_side(const dex::order_t &buy_order, const dex::order_t &s
 
 asset calc_match_fee(const dex::order_t &order, const order_type_t &taker_side, const asset &quant) {
 
+    if (quant.amount == 0) return asset{0, quant.symbol};
+
     int64_t ratio = 0;
     if (order.order_side == taker_side) {
         ratio = order.taker_ratio;
     } else {
         ratio = order.maker_ratio;
     }
-    ASSERT(quant.amount > 0);
     int64_t fee = multiply_decimal64(quant.amount, ratio, RATIO_PRECISION);
     CHECK(fee < quant.amount, "the calc_fee is large than quantity=" + quant.to_string() + ", ratio=" + to_string(ratio));
     return asset{fee, quant.symbol};
@@ -334,6 +335,10 @@ void dex_contract::match_sym_pair(const dex::symbol_pair_t &sym_pair, uint32_t m
         asset matched_coins;
         asset matched_assets;
         matching_pair_it.calc_matched_amounts(matched_assets, matched_coins);
+        check(matched_assets.amount > 0 || matched_coins.amount > 0, "Invalid calc_matched_amounts!");
+        if (matched_assets.amount == 0 || matched_coins.amount == 0) {
+            print("Dust calc_matched_amounts! ", PP0(matched_assets), PP(matched_coins));
+        }
 
         auto &buy_it = (taker_it.order_side() == order_side::BUY) ? taker_it : maker_it;
         auto &sell_it = (taker_it.order_side() == order_side::SELL) ? maker_it : taker_it;
@@ -356,19 +361,21 @@ void dex_contract::match_sym_pair(const dex::symbol_pair_t &sym_pair, uint32_t m
             transfer_out(get_self(), _config.bank, _config.payee, asset_match_fee, "asset_match_fee");
         }
 
+        if (buyer_recv_assets.amount > 0) {
+            // transfer the assets to buyer
+            transfer_out(get_self(), _config.bank, buy_order.owner, buyer_recv_assets, "buyer_recv_assets");
+        }
+
         auto coin_match_fee = calc_match_fee(sell_order, taker_it.order_side(), seller_recv_coins);
         seller_recv_coins -= coin_match_fee;
         if (coin_match_fee.amount > 0) {
             // pay the coin_match_fee to payee
             transfer_out(get_self(), _config.bank, _config.payee, coin_match_fee, "coin_match_fee");
         }
-
-        // transfer the coins to seller
-        transfer_out(get_self(), _config.bank, sell_order.owner, seller_recv_coins, "seller_recv_coins");
-        // transfer the assets to buyer
-        transfer_out(get_self(), _config.bank, buy_order.owner, buyer_recv_assets, "buyer_recv_assets");
-
-        // TODO: save the matching order detail
+        if (seller_recv_coins.amount > 0) {
+            // transfer the coins to seller
+            transfer_out(get_self(), _config.bank, sell_order.owner, seller_recv_coins, "seller_recv_coins");
+        }
 
         // process refund
         if (buy_it.is_complete()) {

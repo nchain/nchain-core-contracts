@@ -274,19 +274,20 @@ namespace dex {
         }
 
         void calc_matched_amounts(asset &matched_assets, asset &matched_coins) {
-            ASSERT(_maker_it->order_type() == order_type::LIMIT && _maker_it->stored_order().price > 0);
             matched_assets.symbol = _sym_pair.asset_symbol;
             matched_coins.symbol = _sym_pair.coin_symbol;
+            ASSERT(_maker_it->order_type() == order_type::LIMIT && _maker_it->stored_order().price > 0);
             uint64_t matched_price = _maker_it->stored_order().price;
+            int64_t maker_free_assets = _maker_it->get_free_assets();
+            CHECK(maker_free_assets > 0, "MUST: maker_free_assets > 0");
             int64_t taker_free_assets = 0;
             if (_taker_it->order_side() == order_side::BUY && _taker_it->order_type() == order_type::MARKET) {
                 auto taker_free_coins = _taker_it->get_free_coins();
                 CHECK(taker_free_coins > 0, "MUST: taker_free_coins > 0");
                 taker_free_assets = calc_asset_amount(asset(taker_free_coins, _sym_pair.coin_symbol), matched_price, _sym_pair.asset_symbol);
-                if (taker_free_assets == 0) { // dust amount
-                    CHECK(_maker_it->get_free_assets() > 0, "The maker order free_assets is 0");
-                    matched_assets.amount = 1;
-                    matched_coins.amount = taker_free_coins;
+                if (taker_free_assets <= maker_free_assets) {
+                    matched_assets.amount = taker_free_assets;
+                    matched_coins.amount  = taker_free_coins;
                     return;
                 }
             } else {
@@ -294,8 +295,6 @@ namespace dex {
                 CHECK(taker_free_assets > 0, "MUST: taker_free_assets > 0");
             }
 
-            int64_t maker_free_assets = _maker_it->get_free_assets();
-            CHECK(maker_free_assets > 0, "MUST: maker_free_assets > 0");
             matched_assets.amount = std::min(taker_free_assets, maker_free_assets);
             matched_coins.amount = calc_coin_amount(matched_assets, matched_price, _sym_pair.coin_symbol);
         }
