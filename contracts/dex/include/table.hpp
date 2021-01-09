@@ -252,6 +252,24 @@ namespace dex {
         uint64_t get_sell_id() const {
             return sell_order_id;
         }
+
+        void print() const {
+            auto deal_time = this->deal_time.elapsed.count(); // print the ms value
+            PRINT_PROPERTIES(
+                PP0(id),
+                PP(buy_order_id),
+                PP(sell_order_id),
+                PP(deal_assets),
+                PP(deal_coins),
+                PP(deal_price),
+                PP(taker_side),
+                PP(buy_fee),
+                PP(sell_fee),
+                PP(deal_time)
+            );
+
+        }
+
     };
 
     using deal_buy_idx = indexed_by<"dealbuyidx"_n, const_mem_fun<deal_item_t, uint64_t,

@@ -397,6 +397,7 @@ void dex_contract::match_sym_pair(const dex::symbol_pair_t &sym_pair, uint32_t m
             deal_item.buy_fee = asset_match_fee;
             deal_item.sell_fee = coin_match_fee;
             deal_item.deal_time = cur_block_time;
+            print("The matched deal_item=", deal_item, "\n");
         });
 
         matched_count++;
