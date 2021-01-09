@@ -341,7 +341,7 @@ void dex_contract::match_sym_pair(const dex::symbol_pair_t &sym_pair, uint32_t m
         }
 
         auto &buy_it = (taker_it.order_side() == order_side::BUY) ? taker_it : maker_it;
-        auto &sell_it = (taker_it.order_side() == order_side::SELL) ? maker_it : taker_it;
+        auto &sell_it = (taker_it.order_side() == order_side::SELL) ? taker_it : maker_it;
 
         const auto &buy_order = buy_it.stored_order();
         const auto &sell_order = sell_it.stored_order();
