@@ -148,7 +148,7 @@ namespace dex {
         asset min_coin_quant;
         bool enabled;
 
-        uint128_t primary_key() const { return sym_pair_id; }
+        uint64_t primary_key() const { return sym_pair_id; }
         uint128_t get_symbols_idx() const { return make_symbols_idx(asset_symbol, coin_symbol); }
     };
 
