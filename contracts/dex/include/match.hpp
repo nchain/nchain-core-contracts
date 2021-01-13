@@ -329,7 +329,7 @@ namespace dex {
                     _taker_it = &market_sell_it;
                     _maker_it = &limit_buy_it;
                 } else if (limit_buy_it.is_valid() && limit_sell_it.is_valid() && limit_buy_it.stored_order().price >= limit_sell_it.stored_order().price) {
-                    if (limit_buy_it.stored_order().order_id < limit_sell_it.stored_order().order_id) {
+                    if (limit_buy_it.stored_order().order_id > limit_sell_it.stored_order().order_id) {
                         _taker_it = &limit_buy_it;
                         _maker_it = &limit_sell_it;
                     } else {
