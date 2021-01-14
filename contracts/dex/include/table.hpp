@@ -174,6 +174,7 @@ namespace dex {
         return ret;
     }
 
+    // TODO: pay match fee with coin for buyer (receive asset)
     struct DEX_TABLE order_t {
         uint64_t sym_pair_id; // id of symbol_pair_table
         uint64_t order_id; // auto-increment
