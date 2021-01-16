@@ -276,15 +276,23 @@ void dex_contract::cancel(const uint64_t &order_id) {
     // TODO: support the owner auth to cancel order?
     require_auth(order.owner);
     asset quantity;
+    auto sym_pair_tbl = make_symbol_pair_table(get_self());
+    auto sym_pair_it = sym_pair_tbl.find(order.sym_pair_id);
+    CHECK( sym_pair_it != sym_pair_tbl.end(),
+        "The symbol pair id '" + std::to_string(order.sym_pair_id) + "' does not exist");
+
+    const extended_symbol *frozen_symbol = nullptr;
     if (order.order_side == order_side::BUY) {
         CHECK(order.coin_quant.amount > order.matched_coins, "Invalid order coin amount");
         quantity = asset(order.coin_quant.amount - order.matched_coins, order.coin_quant.symbol);
+        frozen_symbol = &sym_pair_it->coin_symbol;
     } else {
         // order.order_side == order_side::SELL
         CHECK(order.asset_quant.amount > order.matched_assets, "Invalid order asset amount");
         quantity = asset(order.asset_quant.amount - order.matched_assets, order.asset_quant.symbol);
+        frozen_symbol = &sym_pair_it->asset_symbol;
     }
-    transfer_out(get_self(), _config.bank, order.owner, quantity, "cancel_order");
+    transfer_out(get_self(), frozen_symbol->get_contract(), order.owner, quantity, "cancel_order");
 
     order_tbl.modify(it, same_payer, [&]( auto& a ) {
         a.is_complete = true;
