@@ -154,7 +154,13 @@ void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
             "The symbol pair id '" + std::to_string(order.sym_pair_id) + "' does not exist");
         CHECK(sym_pair_it->enabled, "The symbol pair '" + std::to_string(order.sym_pair_id) + " is disabled");
 
-        CHECK(order.price > 0, "The price must > 0");
+        // check price
+        if (order.order_type == order_type::LIMIT) {
+            CHECK(order.price > 0, "The price must > 0 for limit order");
+        } else { // order.order_type == order_type::LIMIT
+            CHECK(order.price == 0, "The price must == 0 for market order");
+        }
+
         CHECK(limit_quantity.amount > 0, "The limit_quantity must > 0");
 
         const auto &asset_symbol = sym_pair_it->asset_symbol.get_symbol();
