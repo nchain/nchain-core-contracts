@@ -61,7 +61,6 @@ void dex_contract::setconfig(const dex::config &conf) {
     CHECK(is_account(conf.admin), "The admin account does not exist");
     CHECK(is_account(conf.settler), "The settler account does not exist");
     CHECK(is_account(conf.payee), "The payee account does not exist");
-    CHECK(is_account(conf.bank), "The bank account does not exist");
     validate_fee_ratio(conf.maker_ratio, "maker_ratio");
     validate_fee_ratio(conf.taker_ratio, "taker_ratio");
 
@@ -285,12 +284,10 @@ void dex_contract::cancel(const uint64_t &order_id) {
 }
 
 dex::config dex_contract::get_default_config() {
-    CHECK(is_account(BANK), "The default bank account does not exist");
     return {
         get_self(),             // name admin;
         get_self(),             // name settler;
         get_self(),             // name payee;
-        BANK,                   // name bank;
         DEX_MAKER_FEE_RATIO,    // int64_t maker_ratio;
         DEX_TAKER_FEE_RATIO,    // int64_t taker_ratio;
         DEX_MATCH_COUNT_MAX,    // uint32_t max_match_count
