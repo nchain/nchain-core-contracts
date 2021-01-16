@@ -230,21 +230,6 @@ void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
     }
 }
 
-order_type_t get_taker_side(const dex::order_t &buy_order, const dex::order_t &sell_order) {
-    order_type_t taker_side;
-    if (buy_order.order_type != sell_order.order_type) {
-        if (buy_order.order_type == order_type::MARKET) {
-            taker_side = order_side::BUY;
-        } else {
-            // assert(sell_order.order_type == order_type::MARKET);
-            taker_side = order_side::SELL;
-        }
-    } else { // buy_order.order_type == sell_order.order_type
-        taker_side = (buy_order.order_id < sell_order.order_id) ? order_side::SELL : order_side::BUY;
-    }
-    return taker_side;
-}
-
 asset calc_match_fee(const dex::order_t &order, const order_type_t &taker_side, const asset &quant) {
 
     if (quant.amount == 0) return asset{0, quant.symbol};
