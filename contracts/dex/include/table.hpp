@@ -132,27 +132,27 @@ namespace dex {
         std::unique_ptr<global_table> _global_tbl;
     };
 
-    static inline uint128_t make_symbols_idx(const symbol &asset_symbol, const symbol &coin_symbol) {
-        return uint128_t(asset_symbol.raw()) << 64 | uint128_t(coin_symbol.raw());
-    }
+    using uint256_t = fixed_bytes<32>;
 
-    static inline uint128_t revert_symbols_idx(const symbol &asset_symbol, const symbol &coin_symbol) {
-        return uint128_t(coin_symbol.raw()) << 64 | uint128_t(asset_symbol.raw());
+    static inline uint256_t make_symbols_idx(const extended_symbol &asset_symbol, const extended_symbol &coin_symbol) {
+
+        return uint256_t::make_from_word_sequence<uint64_t>(asset_symbol.get_contract().value, asset_symbol.get_symbol().code().raw(),
+            coin_symbol.get_contract().value, coin_symbol.get_symbol().code().raw());
     }
 
     struct DEX_TABLE symbol_pair_t {
         uint64_t sym_pair_id; // auto-increment
-        symbol asset_symbol;
-        symbol coin_symbol;
+        extended_symbol asset_symbol;
+        extended_symbol coin_symbol;
         asset min_asset_quant;
         asset min_coin_quant;
         bool enabled;
 
         uint64_t primary_key() const { return sym_pair_id; }
-        uint128_t get_symbols_idx() const { return make_symbols_idx(asset_symbol, coin_symbol); }
+        inline uint256_t get_symbols_idx() const { return make_symbols_idx(asset_symbol, coin_symbol); }
     };
 
-    using symbols_idx = indexed_by<"symbolsidx"_n, const_mem_fun<symbol_pair_t, uint128_t,
+    using symbols_idx = indexed_by<"symbolsidx"_n, const_mem_fun<symbol_pair_t, uint256_t,
            &symbol_pair_t::get_symbols_idx>>;
 
     typedef eosio::multi_index<"sympair"_n, symbol_pair_t, symbols_idx> symbol_pair_table;

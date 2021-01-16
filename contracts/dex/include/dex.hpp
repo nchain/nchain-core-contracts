@@ -25,7 +25,7 @@ public:
 
     [[eosio::action]] void setconfig(const dex::config &conf);
 
-    [[eosio::action]] void setsympair(const symbol &asset_symbol, const symbol &coin_symbol,
+    [[eosio::action]] void setsympair(const extended_symbol &asset_symbol, const extended_symbol &coin_symbol,
                                       const asset &min_asset_quant, const asset &min_coin_quant,
                                       bool enabled);
 

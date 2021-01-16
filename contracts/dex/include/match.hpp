@@ -274,8 +274,10 @@ namespace dex {
         }
 
         void calc_matched_amounts(asset &matched_assets, asset &matched_coins) {
-            matched_assets.symbol = _sym_pair.asset_symbol;
-            matched_coins.symbol = _sym_pair.coin_symbol;
+            const auto &asset_symbol = _sym_pair.asset_symbol.get_symbol();
+            const auto &coin_symbol = _sym_pair.asset_symbol.get_symbol();
+            matched_assets.symbol = asset_symbol;
+            matched_coins.symbol = coin_symbol;
             ASSERT(_maker_it->order_type() == order_type::LIMIT && _maker_it->stored_order().price > 0);
             uint64_t matched_price = _maker_it->stored_order().price;
             int64_t maker_free_assets = _maker_it->get_free_assets();
@@ -284,7 +286,7 @@ namespace dex {
             if (_taker_it->order_side() == order_side::BUY && _taker_it->order_type() == order_type::MARKET) {
                 auto taker_free_coins = _taker_it->get_free_coins();
                 CHECK(taker_free_coins > 0, "MUST: taker_free_coins > 0");
-                taker_free_assets = calc_asset_amount(asset(taker_free_coins, _sym_pair.coin_symbol), matched_price, _sym_pair.asset_symbol);
+                taker_free_assets = calc_asset_amount(asset(taker_free_coins, coin_symbol), matched_price, asset_symbol);
                 if (taker_free_assets <= maker_free_assets) {
                     matched_assets.amount = taker_free_assets;
                     matched_coins.amount  = taker_free_coins;
@@ -296,7 +298,7 @@ namespace dex {
             }
 
             matched_assets.amount = std::min(taker_free_assets, maker_free_assets);
-            matched_coins.amount = calc_coin_amount(matched_assets, matched_price, _sym_pair.coin_symbol);
+            matched_coins.amount = calc_coin_amount(matched_assets, matched_price, coin_symbol);
         }
 
     private:

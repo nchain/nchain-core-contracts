@@ -5,6 +5,12 @@ using namespace eosio;
 using namespace std;
 using namespace dex;
 
+inline static uint64_t parse_uint64(string_view str) {
+   safe<uint64_t> ret;
+   to_int(str, ret);
+   return ret.value;
+}
+
 int64_t parse_price(string_view str) {
    safe<int64_t> ret;
    to_int(str, ret);
@@ -62,19 +68,22 @@ void dex_contract::setconfig(const dex::config &conf) {
     _conf_tbl.set(conf, get_self());
 }
 
-void dex_contract::setsympair(const symbol &asset_symbol, const symbol &coin_symbol,
+void dex_contract::setsympair(const extended_symbol &asset_symbol, const extended_symbol &coin_symbol,
                      const asset &min_asset_quant, const asset &min_coin_quant, bool enabled) {
     require_auth( _config.admin );
+    const auto &asset_sym = asset_symbol.get_symbol();
+    const auto &coin_sym = coin_symbol.get_symbol();
     auto sym_pair_tbl = make_symbol_pair_table(get_self());
-    CHECK(asset_symbol.is_valid(), "Invalid asset symbol");
-    CHECK(coin_symbol.is_valid(), "Invalid coin symbol");
-    CHECK(asset_symbol.code() != coin_symbol.code(), "Error: asset_symbol.code() == coin_symbol.code()");
-    CHECK(asset_symbol == min_asset_quant.symbol, "Incorrect symbol of min_asset_quant");
-    CHECK(coin_symbol == min_coin_quant.symbol, "Incorrect symbol of min_coin_quant");
-
+    CHECK(is_account(asset_symbol.get_contract()), "The bank account of asset does not exist");
+    CHECK(asset_sym.is_valid(), "Invalid asset symbol");
+    CHECK(is_account(coin_symbol.get_contract()), "The bank account of coin does not exist");
+    CHECK(coin_sym.is_valid(), "Invalid coin symbol");
+    CHECK(asset_sym.code() != coin_sym.code(), "Error: asset_symbol.code() == coin_symbol.code()");
+    CHECK(asset_sym == min_asset_quant.symbol, "Incorrect symbol of min_asset_quant");
+    CHECK(coin_sym == min_coin_quant.symbol, "Incorrect symbol of min_coin_quant");
 
     auto index = sym_pair_tbl.get_index<static_cast<name::raw>(symbols_idx::index_name)>();
-    CHECK( index.find( revert_symbols_idx(asset_symbol, coin_symbol) ) == index.end(), "The reverted symbol pair exist");
+    CHECK( index.find( make_symbols_idx(coin_symbol, asset_symbol) ) == index.end(), "The reverted symbol pair exist");
 
     auto it = index.find( make_symbols_idx(asset_symbol, coin_symbol));
     if (it == index.end()) {
@@ -106,22 +115,30 @@ void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
     }
     CHECK(to == get_self(), "Must transfer to this contract");
     CHECK(quantity.amount > 0, "The quantity must be positive");
-    auto bank = get_first_receiver();
-    CHECK(bank == _config.bank, "The bank must be " + _config.bank.to_string());
+    auto transfer_bank = get_first_receiver();
 
     vector<string_view> params = split(memo, ":");
     if ((params.size() == 7 || params.size() == 9) && params[0] == "order") {
-      // order:<type>:<side>:<asset_quant>:<coin_quant>:<price>:<ext_id>[:<taker_ratio>:[maker_ratio]]
-      // sample1 'order:limit:buy:1.00000000 BTC:2.0000 USD:200000000:1'
-      // sample1 'order:limit:buy:1.00000000 BTC:2.0000 USD:200000000:1:8:4'
+      // order:<type>:<side>:<sym_pair_id>:<limit_quantity>:<price>:<external_id>[:<taker_ratio>:[maker_ratio]]
+      // sample1 limit buy order
+      //    'order:1:limit:buy:1.00000000 BTC:200000000:1'
+      // sample2 limit sell order
+      //    'order:1:limit:sell:1.00000000 BTC:200000000:1'
+      // sample3 market buy order
+      //    'order:1:market:buy:2.0000 USD:200000000:1'
+      // sample4 market sell order
+      //    'order:1:market:sell:1.00000000 BTC:200000000:1'
+      // sample5 dex authenticate order
+      //    'order:limit:buy:1.00000000 BTC@bank:2.0000 USD@bank:200000000:1:8:4'
+
         if (_config.check_order_auth || params.size() == 9) {
             require_auth(_config.admin);
         }
         order_t order;
-        order.order_type = parse_order_type(params[1]);
-        order.order_side = parse_order_side(params[2]);
-        order.asset_quant = asset_from_string(params[3]);
-        order.coin_quant = asset_from_string(params[4]);
+        order.sym_pair_id = parse_uint64(params[1]);
+        order.order_type = parse_order_type(params[2]);
+        order.order_side = parse_order_side(params[3]);
+        const auto &limit_quantity = asset_from_string(params[3]);
         order.price = parse_price(params[5]);
         order.external_id = parse_external_id(params[6]);
         if (params.size() == 9) {
@@ -133,50 +150,68 @@ void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
         }
 
         auto sym_pair_tbl = make_symbol_pair_table(get_self());
-        CHECK(order.asset_quant.symbol.is_valid(), "Invalid asset symbol");
-        CHECK(order.coin_quant.symbol.is_valid(), "Invalid coin symbol");
+        auto sym_pair_it = sym_pair_tbl.find(order.sym_pair_id);
+        CHECK( sym_pair_it != sym_pair_tbl.end(),
+            "The symbol pair id '" + std::to_string(order.sym_pair_id) + "' does not exist");
+        CHECK(sym_pair_it->enabled, "The symbol pair '" + std::to_string(order.sym_pair_id) + " is disabled");
 
-        // auto index = sym_pair_tbl.get_index<symbols_idx::index_name>();
-        auto index = sym_pair_tbl.get_index<"symbolsidx"_n>();
-        auto sym_pair_it = index.find( make_symbols_idx(order.asset_quant.symbol, order.coin_quant.symbol) );
-        CHECK( sym_pair_it != index.end(),
-            "The symbol pair '" + symbol_pair_to_string(order.asset_quant.symbol, order.coin_quant.symbol) + "' does not exist");
+        CHECK(order.price > 0, "The price must > 0");
+        CHECK(limit_quantity.amount > 0, "The limit_quantity must > 0");
 
-        CHECK(sym_pair_it->enabled, "The symbol pair '" + symbol_pair_to_string(order.asset_quant.symbol, order.coin_quant.symbol) + " is disabled");
-        order.sym_pair_id = sym_pair_it->sym_pair_id;
+        const auto &asset_symbol = sym_pair_it->asset_symbol.get_symbol();
+        const auto &coin_symbol = sym_pair_it->coin_symbol.get_symbol();
 
-        // check amount
         if (order.order_side == order_side::BUY) {
-            // the frozen token is coins, save in order.coin_quant
-            CHECK(order.coin_quant.amount == quantity.amount, "The input coin_quant must be equal to the transfer quantity for sell order");
+            const auto &expected_bank = sym_pair_it->coin_symbol.get_contract();
+            CHECK(transfer_bank == expected_bank, "The transfer bank=" + transfer_bank.to_string() +
+                                                      " mismatch with " +
+                                                      expected_bank.to_string() + " for buy order");
+            CHECK(quantity.symbol == coin_symbol,
+                  "The transfer quantity symbol=" + symbol_to_string(quantity.symbol) +
+                      " mismatch with coin_symbol=" + symbol_to_string(coin_symbol) + " for buy order");
+            order.coin_quant = quantity;
+
             if (order.order_type == order_type::LIMIT) {
-                // the deal limit amount is assets, save in order.asset_quant
-                CHECK(order.asset_quant >= sym_pair_it->min_asset_quant,
-                      "The input asset_quant is too smaller than " +
-                          sym_pair_it->min_asset_quant.to_string());
-                CHECK(order.coin_quant == dex::calc_coin_quant(order.asset_quant, order.price, order.coin_quant.symbol),
-                    "The input coin_quant must be equal to the calc_coin_quant for limit buy order");
-            } else { //(order.order_type == order_type::MARKET)
-                // the deal limit amount is coins, save in order.coin_quant
-                CHECK(order.asset_quant.amount == 0, "The input asset amount must be 0 for market buy order");
-                CHECK(order.coin_quant >= sym_pair_it->min_coin_quant,
-                      "The input coin_quant is smaller than " +
-                          sym_pair_it->min_coin_quant.to_string());
+                // limit_quantity is coin
+                CHECK(limit_quantity.symbol == asset_symbol,
+                      "The limit_quantity symbol=" + symbol_to_string(limit_quantity.symbol) +
+                          " mismatch with asset_symbol=" + symbol_to_string(asset_symbol) +
+                          " for limit buy order");
+                order.asset_quant = limit_quantity;
+
+                const auto &calc_coins = dex::calc_coin_quant(order.asset_quant, order.price, coin_symbol);
+                CHECK(order.coin_quant.amount < calc_coins.amount,
+                      "The transfer quantity=" + quantity.to_string() + " < calc_coins=" +
+                          calc_coins.to_string() + " for limit buy order");
+            } else {// order.order_type == order_type::MARKET
+                CHECK(limit_quantity.symbol == coin_symbol,
+                      "The limit_quantity symbol=" + symbol_to_string(limit_quantity.symbol) +
+                          " mismatch with coin_symbol=" + symbol_to_string(coin_symbol) +
+                          " for market buy order");
+                CHECK(quantity.amount < limit_quantity.amount,
+                      "The transfer quantity=" + quantity.to_string() + " < limit_quantity=" +
+                          limit_quantity.to_string() + " for market buy order");
+                // order.asset_quant == 0
             }
-        } else { // (order.order_side == order_side::SELL)
-            // the frozen token is assets, save in order.asset_quant
-            // the deal limit amount is assets, save in order.asset_quant
-            CHECK(order.coin_quant.amount == 0, "The input coin amount must be 0 for sell order");
-            CHECK(order.asset_quant == quantity, "The input asset_quant must be equal to the transfer quantity for sell order");
-            CHECK(order.asset_quant >= sym_pair_it->min_asset_quant,
-                  "The input asset_quant is too smaller than " +
-                      sym_pair_it->min_asset_quant.to_string());
+        } else { // order.order_side == order_side::SELL
+            const auto &expected_bank = sym_pair_it->asset_symbol.get_contract();
+            CHECK(transfer_bank == expected_bank, "The transfer bank=" + transfer_bank.to_string() +
+                                                      " mismatch with " +
+                                                      expected_bank.to_string() + " for sell order");
+            CHECK(quantity.symbol == asset_symbol,
+                  "The transfer quantity symbol=" + symbol_to_string(quantity.symbol) +
+                      " mismatch with " + symbol_to_string(asset_symbol) + " for sell order");
+            CHECK(quantity == limit_quantity, "The transfer quantity=" + quantity.to_string() +
+                                                  " mismatch with limit_quantity=" +
+                                                  limit_quantity.to_string() + " for sell order");
+            order.asset_quant = quantity;
+            // order.coin_quant == 0
         }
 
         // TODO: need to add the total order coin/asset amount?
 
         auto order_tbl = make_order_table(get_self());
-        // TODO: implement auto inc id by global table
+
         order.order_id = _global->new_order_id();
         order.owner = from;
         order.create_time = current_block_time();
@@ -347,8 +382,10 @@ void dex_contract::match_sym_pair(const dex::symbol_pair_t &sym_pair, uint32_t m
         const auto &sell_order = sell_it.stored_order();
         asset seller_recv_coins = matched_coins;
         asset buyer_recv_assets = matched_assets;
-        const symbol &asset_symbol = sym_pair.asset_symbol;
-        const symbol &coin_symbol = sym_pair.coin_symbol;
+        const auto &asset_symbol = sym_pair.asset_symbol.get_symbol();
+        const auto &coin_symbol = sym_pair.coin_symbol.get_symbol();
+        const auto &asset_bank = sym_pair.asset_symbol.get_contract();
+        const auto &coin_bank = sym_pair.asset_symbol.get_contract();
 
         taker_it.match(matched_assets, matched_coins);
         maker_it.match(matched_assets, matched_coins);
@@ -358,30 +395,30 @@ void dex_contract::match_sym_pair(const dex::symbol_pair_t &sym_pair, uint32_t m
         buyer_recv_assets -= asset_match_fee;
         if (asset_match_fee.amount > 0) {
             // pay the asset_match_fee to payee
-            transfer_out(get_self(), _config.bank, _config.payee, asset_match_fee, "asset_match_fee");
+            transfer_out(get_self(), asset_bank, _config.payee, asset_match_fee, "asset_match_fee");
         }
 
         if (buyer_recv_assets.amount > 0) {
             // transfer the assets to buyer
-            transfer_out(get_self(), _config.bank, buy_order.owner, buyer_recv_assets, "buyer_recv_assets");
+            transfer_out(get_self(), asset_bank, buy_order.owner, buyer_recv_assets, "buyer_recv_assets");
         }
 
         auto coin_match_fee = calc_match_fee(sell_order, taker_it.order_side(), seller_recv_coins);
         seller_recv_coins -= coin_match_fee;
         if (coin_match_fee.amount > 0) {
             // pay the coin_match_fee to payee
-            transfer_out(get_self(), _config.bank, _config.payee, coin_match_fee, "coin_match_fee");
+            transfer_out(get_self(), coin_bank, _config.payee, coin_match_fee, "coin_match_fee");
         }
         if (seller_recv_coins.amount > 0) {
             // transfer the coins to seller
-            transfer_out(get_self(), _config.bank, sell_order.owner, seller_recv_coins, "seller_recv_coins");
+            transfer_out(get_self(), coin_bank, sell_order.owner, seller_recv_coins, "seller_recv_coins");
         }
 
         // process refund
         if (buy_it.is_complete()) {
             auto refunds = buy_it.get_refund_coins();
             if (refunds > 0) {
-                transfer_out(get_self(), _config.bank, buy_order.owner, asset(refunds, coin_symbol), "refund_coins");
+                transfer_out(get_self(), coin_bank, buy_order.owner, asset(refunds, coin_symbol), "refund_coins");
             }
         }
 
