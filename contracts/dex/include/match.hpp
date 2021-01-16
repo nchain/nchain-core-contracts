@@ -125,19 +125,19 @@ namespace dex {
             if (order.order_side == order_side::BUY) {
                 CHECK(_matched_coins <= order.coin_quant.amount,
                         "The matched coins=" + std::to_string(_matched_coins) +
-                        " is overflow for buy coins=" + std::to_string(order.coin_quant.amount));
+                        " is overflow with buy coins=" + std::to_string(order.coin_quant.amount));
                 if (order.order_type == order_type::MARKET) {
                     complete = _matched_coins == order.coin_quant.amount;
                 } else {
                     CHECK(_matched_assets <= order.asset_quant.amount,
                         "The matched assets=" + std::to_string(_matched_assets) +
-                        " is overflow for limit buy assets=" + std::to_string(order.asset_quant.amount));
+                        " is overflow with limit buy assets=" + std::to_string(order.asset_quant.amount));
                     complete = _matched_assets == order.asset_quant.amount;
                 }
             } else {
                 CHECK(_matched_assets <= order.asset_quant.amount,
                     "The matched assets=" + std::to_string(_matched_assets) +
-                    " is overflow for sell assets=" + std::to_string(order.asset_quant.amount));
+                    " is overflow with sell assets=" + std::to_string(order.asset_quant.amount));
                 complete = _matched_assets == order.asset_quant.amount;
             }
 
@@ -275,7 +275,7 @@ namespace dex {
 
         void calc_matched_amounts(asset &matched_assets, asset &matched_coins) {
             const auto &asset_symbol = _sym_pair.asset_symbol.get_symbol();
-            const auto &coin_symbol = _sym_pair.asset_symbol.get_symbol();
+            const auto &coin_symbol = _sym_pair.coin_symbol.get_symbol();
             matched_assets.symbol = asset_symbol;
             matched_coins.symbol = coin_symbol;
             ASSERT(_maker_it->order_type() == order_type::LIMIT && _maker_it->stored_order().price > 0);

@@ -26,6 +26,19 @@ static const extended_symbol USD_SYMBOL = extended_symbol{symbol(4, "USD"), BANK
 
 #define EXECUTE_ACTION(action_expr) BOOST_REQUIRE_EQUAL(action_expr, "")
 
+
+#define REQUIRE_MATCH_OBJ(obj, statements)                                                         \
+    {                                                                                              \
+        auto __o = fc::variant(obj);                                                               \
+        BOOST_REQUIRE_EQUAL(true, __o.is_object());                                                \
+        const auto &o = __o.get_object();                                                          \
+        statements                                                                                 \
+    }
+
+#define MATCH_FIELD(field, value) BOOST_REQUIRE_EQUAL(o[field], fc::variant(value));
+
+#define MATCH_FIELD_OBJ(field, value) REQUIRE_MATCHING_OBJECT(o[field], fc::variant(value));
+
 class eosio_token_helper {
 public:
     using action_result = tester::action_result;
@@ -253,13 +266,14 @@ public:
         produce_blocks(1);
         uint64_t sym_pair_id = 1;
         auto sym_pair = get_symbol_pair(sym_pair_id);
-        REQUIRE_MATCHING_OBJECT( sym_pair, mvo()
-            ("sym_pair_id", sym_pair_id)
-            ("asset_symbol", BTC_SYMBOL)
-            ("coin_symbol", USD_SYMBOL)
-            ("min_asset_quant", "0.00001000 BTC")
-            ("min_coin_quant", "0.1000 USD")
-            ("enabled", "1")
+
+        REQUIRE_MATCH_OBJ( sym_pair,
+            MATCH_FIELD("sym_pair_id", sym_pair_id)
+            MATCH_FIELD_OBJ("asset_symbol", BTC_SYMBOL)
+            MATCH_FIELD_OBJ("coin_symbol", USD_SYMBOL)
+            MATCH_FIELD("min_asset_quant", "0.00001000 BTC")
+            MATCH_FIELD("min_coin_quant", "0.1000 USD")
+            MATCH_FIELD("enabled", "1")
         );
     }
 
@@ -267,7 +281,7 @@ public:
         // buy order
         // order:<type>:<side>:<sym_pair_id>:<limit_quantity>:<price>:<external_id>[:<taker_ratio>:[maker_ratio]]
 
-        string buy_memo = fc::format_string("order:limit:buy:${sym_pair_id}:0.01000000 BTC:1000000000000:1",
+        string buy_memo = fc::format_string("order:${sym_pair_id}:limit:buy:0.01000000 BTC:1000000000000:1",
                                       mvo()
                                       ("sym_pair_id", sym_pair_id));
         EXECUTE_ACTION(eosio_token.transfer(N(alice), N(dex), ASSET("100.0000 USD"), buy_memo));
@@ -322,7 +336,7 @@ BOOST_FIXTURE_TEST_CASE( dex_match_test, dex_tester ) try {
     // buy order
         // order:<type>:<side>:<sym_pair_id>:<limit_quantity>:<price>:<external_id>[:<taker_ratio>:[maker_ratio]]
 
-    string buy_memo = "order:limit:buy:1:0.01000000 BTC:1000000000000:1";
+    string buy_memo = "order:1:limit:buy:0.01000000 BTC:1000000000000:1";
     EXECUTE_ACTION(eosio_token.transfer(N(alice), N(dex), ASSET("100.0000 USD"), buy_memo));
     uint64_t buy_order_id = 1;
     auto buy_order = mvo()
@@ -347,7 +361,7 @@ BOOST_FIXTURE_TEST_CASE( dex_match_test, dex_tester ) try {
 
     // sell order
     //order  order:<type>:<side>:<asset_quant>:<coin_quant>:<price>:<ex_id>
-    string sell_memo = "order:limit:sell:1:0.01000000 BTC:1000000000000:2";
+    string sell_memo = "order:1:limit:sell:0.01000000 BTC:1000000000000:2";
     EXECUTE_ACTION(eosio_token.transfer(N(bob), N(dex), ASSET("0.01000000 BTC"), sell_memo));
     uint64_t sell_order_id = 2;
     auto sell_order = mvo()

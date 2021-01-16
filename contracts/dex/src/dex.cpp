@@ -118,7 +118,7 @@ void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
 
     vector<string_view> params = split(memo, ":");
     if ((params.size() == 7 || params.size() == 9) && params[0] == "order") {
-      // order:<type>:<side>:<sym_pair_id>:<limit_quantity>:<price>:<external_id>[:<taker_ratio>:[maker_ratio]]
+      // order:<sym_pair_id>:<type>:<side>:<limit_quantity>:<price>:<external_id>[:<taker_ratio>:[maker_ratio]]
       // sample1 limit buy order
       //    'order:1:limit:buy:1.00000000 BTC:200000000:1'
       // sample2 limit sell order
@@ -128,7 +128,7 @@ void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
       // sample4 market sell order
       //    'order:1:market:sell:1.00000000 BTC:200000000:1'
       // sample5 dex authenticate order
-      //    'order:limit:buy:1.00000000 BTC@bank:2.0000 USD@bank:200000000:1:8:4'
+      //    'order:1:limit:buy:1.00000000 BTC:200000000:1:8:4'
 
         if (_config.check_order_auth || params.size() == 9) {
             require_auth(_config.admin);
@@ -137,7 +137,7 @@ void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
         order.sym_pair_id = parse_uint64(params[1]);
         order.order_type = parse_order_type(params[2]);
         order.order_side = parse_order_side(params[3]);
-        const auto &limit_quantity = asset_from_string(params[3]);
+        const auto &limit_quantity = asset_from_string(params[4]);
         order.price = parse_price(params[5]);
         order.external_id = parse_external_id(params[6]);
         if (params.size() == 9) {
@@ -179,7 +179,7 @@ void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
                 order.asset_quant = limit_quantity;
 
                 const auto &calc_coins = dex::calc_coin_quant(order.asset_quant, order.price, coin_symbol);
-                CHECK(order.coin_quant.amount < calc_coins.amount,
+                CHECK(order.coin_quant.amount >= calc_coins.amount,
                       "The transfer quantity=" + quantity.to_string() + " < calc_coins=" +
                           calc_coins.to_string() + " for limit buy order");
             } else {// order.order_type == order_type::MARKET
@@ -187,10 +187,11 @@ void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
                       "The limit_quantity symbol=" + symbol_to_string(limit_quantity.symbol) +
                           " mismatch with coin_symbol=" + symbol_to_string(coin_symbol) +
                           " for market buy order");
-                CHECK(quantity.amount < limit_quantity.amount,
+                CHECK(quantity.amount >= limit_quantity.amount,
                       "The transfer quantity=" + quantity.to_string() + " < limit_quantity=" +
                           limit_quantity.to_string() + " for market buy order");
-                // order.asset_quant == 0
+
+                order.asset_quant = asset(0, asset_symbol);
             }
         } else { // order.order_side == order_side::SELL
             const auto &expected_bank = sym_pair_it->asset_symbol.get_contract();
@@ -204,7 +205,7 @@ void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
                                                   " mismatch with limit_quantity=" +
                                                   limit_quantity.to_string() + " for sell order");
             order.asset_quant = quantity;
-            // order.coin_quant == 0
+            order.coin_quant = asset(0, coin_symbol);
         }
 
         // TODO: need to add the total order coin/asset amount?
