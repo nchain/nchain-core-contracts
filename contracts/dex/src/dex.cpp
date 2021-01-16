@@ -313,20 +313,6 @@ dex::config dex_contract::get_default_config() {
     };
 }
 
-void dex_contract::process_refund(dex::order_t &buy_order) {
-    ASSERT(buy_order.order_side == order_side::BUY);
-    if (buy_order.order_type == order_type::LIMIT) {
-        CHECK(buy_order.matched_coins <= buy_order.coin_quant.amount,
-              "The match coins is overflow for buy limit order " +
-                  std::to_string(buy_order.order_id));
-        if (buy_order.coin_quant.amount > buy_order.matched_coins) {
-            int64_t refunds = buy_order.coin_quant.amount - buy_order.matched_coins;
-            transfer_out(get_self(), _config.bank, buy_order.owner, asset(refunds, buy_order.coin_quant.symbol), "refund_coins");
-            buy_order.matched_coins = buy_order.coin_quant.amount;
-        }
-    }
-}
-
 void dex_contract::match(uint32_t max_count, const vector<uint64_t> &sym_pairs) {
     require_auth( _config.settler );
     // TODO: validate sym_pairs??
