@@ -17,9 +17,10 @@ using namespace std;
 
 using mvo = fc::mutable_variant_object;
 
+static const name BANK = N(eosio.token);
 
-static const symbol BTC_SYMBOL = symbol(8, "BTC");
-static const symbol USD_SYMBOL = symbol(4, "USD");
+static const extended_symbol BTC_SYMBOL = extended_symbol{symbol(8, "BTC"), BANK};
+static const extended_symbol USD_SYMBOL = extended_symbol{symbol(4, "USD"), BANK};
 
 #define ASSET(s) asset::from_string(s)
 
@@ -203,7 +204,9 @@ public:
         );
     }
 
-    action_result setsympair( const symbol &asset_symbol, const symbol &coin_symbol, const asset &min_asset_quant, const asset &min_coin_quant, bool enabled ) {
+    action_result setsympair(const extended_symbol &asset_symbol,
+                             const extended_symbol &coin_symbol, const asset &min_asset_quant,
+                             const asset &min_coin_quant, bool enabled) {
         auto ret = push_action( N(dex.admin), N(setsympair), mvo()
             ( "asset_symbol", asset_symbol)
             ( "coin_symbol", coin_symbol)
@@ -233,7 +236,6 @@ public:
             ("admin", N(dex.admin))
             ("settler", N(dex.settler))
             ("payee", N(dex.payee))
-            ("bank", N(eosio.token))
             ("taker_ratio", 8)
             ("maker_ratio", 4)
             ("max_match_count", uint32_t(0))
@@ -261,10 +263,13 @@ public:
         );
     }
 
-    mvo init_buy_order() {
+    mvo init_buy_order(uint64_t sym_pair_id) {
         // buy order
-        //order  order:<type>:<side>:<asset_quant>:<coin_quant>:<price>:<ex_id>
-        string buy_memo = "order:limit:buy:0.01000000 BTC:100.0000 USD:1000000000000:1";
+        // order:<type>:<side>:<sym_pair_id>:<limit_quantity>:<price>:<external_id>[:<taker_ratio>:[maker_ratio]]
+
+        string buy_memo = fc::format_string("order:limit:buy:${sym_pair_id}:0.01000000 BTC:1000000000000:1",
+                                      mvo()
+                                      ("sym_pair_id", sym_pair_id));
         EXECUTE_ACTION(eosio_token.transfer(N(alice), N(dex), ASSET("100.0000 USD"), buy_memo));
         uint64_t order_id = 1;
         auto buy_order = get_order(order_id);
@@ -299,7 +304,7 @@ BOOST_FIXTURE_TEST_CASE( dex_cancel_test, dex_tester ) try {
 
     init_config();
     init_sym_pair();
-    auto buy_order = init_buy_order();
+    auto buy_order = init_buy_order(1);
 
     EXECUTE_ACTION(cancel(N(alice), 1));
     auto new_buy_order = get_order(1);
@@ -315,9 +320,9 @@ BOOST_FIXTURE_TEST_CASE( dex_match_test, dex_tester ) try {
     init_sym_pair();
 
     // buy order
-    //order  order:<type>:<side>:<asset_quant>:<coin_quant>:<price>:<ex_id>
+        // order:<type>:<side>:<sym_pair_id>:<limit_quantity>:<price>:<external_id>[:<taker_ratio>:[maker_ratio]]
 
-    string buy_memo = "order:limit:buy:0.01000000 BTC:100.0000 USD:1000000000000:1";
+    string buy_memo = "order:limit:buy:1:0.01000000 BTC:1000000000000:1";
     EXECUTE_ACTION(eosio_token.transfer(N(alice), N(dex), ASSET("100.0000 USD"), buy_memo));
     uint64_t buy_order_id = 1;
     auto buy_order = mvo()
@@ -342,7 +347,7 @@ BOOST_FIXTURE_TEST_CASE( dex_match_test, dex_tester ) try {
 
     // sell order
     //order  order:<type>:<side>:<asset_quant>:<coin_quant>:<price>:<ex_id>
-    string sell_memo = "order:limit:sell:0.01000000 BTC:0.0000 USD:1000000000000:2";
+    string sell_memo = "order:limit:sell:1:0.01000000 BTC:1000000000000:2";
     EXECUTE_ACTION(eosio_token.transfer(N(bob), N(dex), ASSET("0.01000000 BTC"), sell_memo));
     uint64_t sell_order_id = 2;
     auto sell_order = mvo()
