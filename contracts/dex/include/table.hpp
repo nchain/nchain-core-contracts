@@ -180,9 +180,9 @@ namespace dex {
         uint64_t sym_pair_id; // id of symbol_pair_table
         order_type_t order_type;
         order_side_t order_side;
+        int64_t price;
         asset asset_quant;
         asset coin_quant;
-        int64_t price;
         int64_t taker_ratio;
         int64_t maker_ratio;
         time_point create_time;
