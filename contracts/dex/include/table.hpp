@@ -159,7 +159,7 @@ namespace dex {
         return symbol_pair_table(self, self.value/*scope*/);
     }
 
-    using order_match_idx_key = fixed_bytes<32>;
+    using order_match_idx_key = uint256_t;
     inline static order_match_idx_key make_order_match_idx(uint64_t sym_pair_id, bool is_complete,
                                                            const order_side_t &side,
                                                            const order_type_t &type, uint64_t price,
