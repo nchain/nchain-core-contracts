@@ -300,8 +300,8 @@ public:
             ("taker_ratio", 8)
             ("maker_ratio", 4)
             ("create_time", get_head_block_time())
-            ("matched_assets", "0")
-            ("matched_coins", "0")
+            ("matched_assets", "0.00000000 BTC")
+            ("matched_coins", "0.0000 USD")
             ("is_complete", "0");
         REQUIRE_MATCHING_OBJECT( buy_order, expected_order );
         return expected_order;
@@ -352,8 +352,8 @@ BOOST_FIXTURE_TEST_CASE( dex_match_test, dex_tester ) try {
         ("taker_ratio", 8)
         ("maker_ratio", 4)
         ("create_time", get_head_block_time())
-        ("matched_assets", "0")
-        ("matched_coins", "0")
+        ("matched_assets", "0.00000000 BTC")
+        ("matched_coins", "0.0000 USD")
         ("is_complete", "0");
 
     auto new_buy_order = get_order(buy_order_id);
@@ -377,8 +377,8 @@ BOOST_FIXTURE_TEST_CASE( dex_match_test, dex_tester ) try {
         ("taker_ratio", 8)
         ("maker_ratio", 4)
         ("create_time", get_head_block_time())
-        ("matched_assets", "0")
-        ("matched_coins", "0")
+        ("matched_assets", "0.00000000 BTC")
+        ("matched_coins", "0.0000 USD")
         ("is_complete", "0");
 
     auto new_sell_order = get_order(sell_order_id);
@@ -388,17 +388,17 @@ BOOST_FIXTURE_TEST_CASE( dex_match_test, dex_tester ) try {
     EXECUTE_ACTION(match(100, {})); // empty sym_pairs, match all sym_pairs
 
     buy_order
-        ("matched_assets", "1000000")
-        ("matched_coins", "1000000")
+        ("matched_assets", "0.01000000 BTC")
+        ("matched_coins", "100.0000 USD")
         ("is_complete", 1);
     auto matched_buy_order = get_order(buy_order_id);
     BOOST_CHECK(!matched_buy_order.is_null());
     REQUIRE_MATCHING_OBJECT( matched_buy_order, buy_order );
 
     sell_order
-            ("matched_assets", "1000000")
-            ("matched_coins", "1000000")
-            ("is_complete", 1);
+        ("matched_assets", "0.01000000 BTC")
+        ("matched_coins", "100.0000 USD")
+        ("is_complete", 1);
     auto matched_sell_order = get_order(sell_order_id);
     REQUIRE_MATCHING_OBJECT( matched_sell_order, sell_order );
 } FC_LOG_AND_RETHROW()
