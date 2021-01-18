@@ -152,7 +152,7 @@ public:
     dex_tester(): eosio_token(*this) {
         produce_blocks( 2 );
 
-        create_accounts( { N(dex.admin), N(dex.settler), N(dex.payee),
+        create_accounts( { N(dex.admin), N(dex.matcher), N(dex.payee),
             N(alice), N(bob), N(carol), N(dex) } );
         produce_blocks( 2 );
 
@@ -232,7 +232,8 @@ public:
     }
 
     action_result match(uint32_t max_count, const std::vector<uint64_t> &sym_pairs) {
-        return push_action( N(dex.settler), N(match), mvo()
+        return push_action( N(dex.matcher), N(match), mvo()
+            ("matcher", N(dex.matcher))
             ("max_count", max_count)
             ("sym_pairs", sym_pairs)
         );
@@ -247,7 +248,6 @@ public:
     void init_config() {
         auto conf = mvo()
             ("admin", N(dex.admin))
-            ("settler", N(dex.settler))
             ("payee", N(dex.payee))
             ("taker_ratio", 8)
             ("maker_ratio", 4)
