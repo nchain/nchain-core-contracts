@@ -186,8 +186,8 @@ namespace dex {
         int64_t taker_ratio;
         int64_t maker_ratio;
         time_point create_time;
-        int64_t matched_assets = 0;      //!< total matched asset amount
-        int64_t matched_coins  = 0;      //!< total matched coin amount
+        asset matched_assets;      //!< total matched asset quantity
+        asset matched_coins;       //!< total matched coin quantity
         bool    is_complete = false;
         uint64_t primary_key() const { return order_id; }
         order_match_idx_key get_order_match_idx() const {

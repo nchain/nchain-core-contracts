@@ -219,6 +219,8 @@ void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
 
         order.order_id = _global->new_order_id();
         order.owner = from;
+        order.matched_assets = asset(0, asset_symbol);
+        order.matched_coins = asset(0, coin_symbol);
         order.create_time = current_block_time();
 
         CHECK(order_tbl.find(order.order_id) == order_tbl.end(), "The order is exist. order_id=" + std::to_string(order.order_id));
@@ -273,13 +275,13 @@ void dex_contract::cancel(const uint64_t &order_id) {
 
     const extended_symbol *frozen_symbol = nullptr;
     if (order.order_side == order_side::BUY) {
-        CHECK(order.coin_quant.amount > order.matched_coins, "Invalid order coin amount");
-        quantity = asset(order.coin_quant.amount - order.matched_coins, order.coin_quant.symbol);
+        CHECK(order.coin_quant > order.matched_coins, "Invalid order matched coin amount");
+        quantity = order.coin_quant - order.matched_coins;
         frozen_symbol = &sym_pair_it->coin_symbol;
     } else {
         // order.order_side == order_side::SELL
-        CHECK(order.asset_quant.amount > order.matched_assets, "Invalid order asset amount");
-        quantity = asset(order.asset_quant.amount - order.matched_assets, order.asset_quant.symbol);
+        CHECK(order.asset_quant > order.matched_assets, "Invalid order matched asset amount");
+        quantity = order.asset_quant - order.matched_assets;
         frozen_symbol = &sym_pair_it->asset_symbol;
     }
     transfer_out(get_self(), frozen_symbol->get_contract(), order.owner, quantity, "cancel_order");
@@ -398,8 +400,8 @@ void dex_contract::match_sym_pair(const name &matcher, const dex::symbol_pair_t 
         // process refund
         if (buy_it.is_complete()) {
             auto refunds = buy_it.get_refund_coins();
-            if (refunds > 0) {
-                transfer_out(get_self(), coin_bank, buy_order.owner, asset(refunds, coin_symbol), "refund_coins");
+            if (refunds.amount > 0) {
+                transfer_out(get_self(), coin_bank, buy_order.owner, refunds, "refund_coins");
             }
         }
 

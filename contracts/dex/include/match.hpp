@@ -54,6 +54,10 @@ namespace dex {
         return coin_amount;
     }
 
+    asset calc_asset_quant(const asset &coin_quant, const int64_t price, const symbol &asset_symbol) {
+        return asset(calc_asset_amount(coin_quant, price, asset_symbol), asset_symbol);
+    }
+
     asset calc_coin_quant(const asset &asset_quant, const int64_t price, const symbol &coin_symbol) {
         return asset(calc_coin_amount(asset_quant, price, coin_symbol), coin_symbol);
     }
@@ -119,34 +123,34 @@ namespace dex {
             }
             bool complete = false;
 
-            _matched_assets += new_matched_assets.amount;
-            _matched_coins += new_matched_coins.amount;
+            _matched_assets += new_matched_assets;
+            _matched_coins += new_matched_coins;
             const auto &order = *_it;
             if (order.order_side == order_side::BUY) {
-                CHECK(_matched_coins <= order.coin_quant.amount,
-                        "The matched coins=" + std::to_string(_matched_coins) +
-                        " is overflow with buy coins=" + std::to_string(order.coin_quant.amount));
+                CHECK(_matched_coins <= order.coin_quant,
+                        "The matched coins=" + _matched_coins.to_string() +
+                        " is overflow with buy coins=" + order.coin_quant.to_string());
                 if (order.order_type == order_type::MARKET) {
-                    complete = _matched_coins == order.coin_quant.amount;
+                    complete = _matched_coins == order.coin_quant;
                 } else {
-                    CHECK(_matched_assets <= order.asset_quant.amount,
-                        "The matched assets=" + std::to_string(_matched_assets) +
-                        " is overflow with limit buy assets=" + std::to_string(order.asset_quant.amount));
-                    complete = _matched_assets == order.asset_quant.amount;
+                    CHECK(_matched_assets <= order.asset_quant,
+                        "The matched assets=" + _matched_assets.to_string() +
+                        " is overflow with limit buy assets=" + order.asset_quant.to_string());
+                    complete = _matched_assets == order.asset_quant;
                 }
             } else {
-                CHECK(_matched_assets <= order.asset_quant.amount,
-                    "The matched assets=" + std::to_string(_matched_assets) +
-                    " is overflow with sell assets=" + std::to_string(order.asset_quant.amount));
-                complete = _matched_assets == order.asset_quant.amount;
+                CHECK(_matched_assets <= order.asset_quant,
+                    "The matched assets=" + _matched_assets.to_string() +
+                    " is overflow with sell assets=" + order.asset_quant.to_string());
+                complete = _matched_assets == order.asset_quant;
             }
 
             if (complete) {
                 _status = COMPLETE;
                 if (order.order_side == order_side::BUY && order.order_type == order_type::LIMIT) {
-                    assert(order.coin_quant.amount >= _matched_coins);
-                    if (order.coin_quant.amount > _matched_coins) {
-                        _refund_coins = order.coin_quant.amount - _matched_coins;
+                    assert(order.coin_quant >= _matched_coins);
+                    if (order.coin_quant > _matched_coins) {
+                        _refund_coins = order.coin_quant - _matched_coins;
                     }
                 }
             }
@@ -164,17 +168,17 @@ namespace dex {
             return _status == MATCHING;
         }
 
-        inline int64_t get_free_assets() const {
-            ASSERT(is_valid() && _it->asset_quant.amount >= _matched_assets);
-            return _it->asset_quant.amount - _matched_assets;
+        inline asset get_free_assets() const {
+            ASSERT(is_valid() && _it->asset_quant >= _matched_assets);
+            return _it->asset_quant - _matched_assets;
         }
 
-        inline int64_t get_free_coins() const {
-            ASSERT(is_valid() && _it->coin_quant.amount >= _matched_coins);
-            return _it->coin_quant.amount - _matched_coins;
+        inline asset get_free_coins() const {
+            ASSERT(is_valid() && _it->coin_quant >= _matched_coins);
+            return _it->coin_quant - _matched_coins;
         }
 
-        inline int64_t get_refund_coins() const {
+        inline asset get_refund_coins() const {
             ASSERT(is_complete());
             return _refund_coins;
         }
@@ -190,7 +194,6 @@ namespace dex {
     private:
         void process_data() {
             _status = CLOSED;
-            _refund_coins = 0;
             if (_it == _match_index.end()) {
                 print("matching order itr end! sym_pair_id=", _sym_pair_id, ", side=", _order_side, ", type=", _order_type, "\n");
                 return;
@@ -207,6 +210,7 @@ namespace dex {
             print("found order! order=", stored_order, "\n");
             _matched_assets = stored_order.matched_assets;
             _matched_coins  = stored_order.matched_coins;
+            _refund_coins = asset(0, _matched_coins.symbol);
             _status = OPENED;
         }
 
@@ -218,9 +222,9 @@ namespace dex {
         order_side_t _order_side;
         status_t _status = CLOSED;
 
-        int64_t _matched_assets = 0;      //!< total matched asset amount
-        int64_t _matched_coins  = 0;      //!< total matched coin amount
-        uint64_t _refund_coins = 0;
+        asset _matched_assets;      //!< total matched asset amount
+        asset _matched_coins;       //!< total matched coin amount
+        asset _refund_coins;
 
     };
 
@@ -276,29 +280,27 @@ namespace dex {
         void calc_matched_amounts(asset &matched_assets, asset &matched_coins) {
             const auto &asset_symbol = _sym_pair.asset_symbol.get_symbol();
             const auto &coin_symbol = _sym_pair.coin_symbol.get_symbol();
-            matched_assets.symbol = asset_symbol;
-            matched_coins.symbol = coin_symbol;
             ASSERT(_maker_it->order_type() == order_type::LIMIT && _maker_it->stored_order().price > 0);
             uint64_t matched_price = _maker_it->stored_order().price;
-            int64_t maker_free_assets = _maker_it->get_free_assets();
-            CHECK(maker_free_assets > 0, "MUST: maker_free_assets > 0");
-            int64_t taker_free_assets = 0;
+            auto maker_free_assets = _maker_it->get_free_assets();
+            CHECK(maker_free_assets.amount > 0, "MUST: maker_free_assets > 0");
+            asset taker_free_assets;
             if (_taker_it->order_side() == order_side::BUY && _taker_it->order_type() == order_type::MARKET) {
                 auto taker_free_coins = _taker_it->get_free_coins();
-                CHECK(taker_free_coins > 0, "MUST: taker_free_coins > 0");
-                taker_free_assets = calc_asset_amount(asset(taker_free_coins, coin_symbol), matched_price, asset_symbol);
+                CHECK(taker_free_coins.amount > 0, "MUST: taker_free_coins > 0");
+                taker_free_assets = calc_asset_quant(taker_free_coins, matched_price, asset_symbol);
                 if (taker_free_assets <= maker_free_assets) {
-                    matched_assets.amount = taker_free_assets;
-                    matched_coins.amount  = taker_free_coins;
+                    matched_assets = taker_free_assets;
+                    matched_coins  = taker_free_coins;
                     return;
                 }
             } else {
                 taker_free_assets = _taker_it->get_free_assets();
-                CHECK(taker_free_assets > 0, "MUST: taker_free_assets > 0");
+                CHECK(taker_free_assets.amount > 0, "MUST: taker_free_assets > 0");
             }
 
-            matched_assets.amount = std::min(taker_free_assets, maker_free_assets);
-            matched_coins.amount = calc_coin_amount(matched_assets, matched_price, coin_symbol);
+            matched_assets = (taker_free_assets < maker_free_assets) ? taker_free_assets : maker_free_assets;
+            matched_coins = calc_coin_quant(matched_assets, matched_price, coin_symbol);
         }
 
     private:
