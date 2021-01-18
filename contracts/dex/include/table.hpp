@@ -59,7 +59,6 @@ namespace dex {
 
     struct DEX_TABLE config {
         name admin;   // admin of this contract, permisions: manage sym_pairs, authorize order
-        name settler; // settler
         name payee;   // payee of this contract
         int64_t maker_ratio;
         int64_t taker_ratio;

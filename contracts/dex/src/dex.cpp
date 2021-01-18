@@ -59,7 +59,6 @@ inline string symbol_pair_to_string(const symbol &asset_symbol, const symbol &co
 void dex_contract::setconfig(const dex::config &conf) {
     require_auth( get_self() );
     CHECK(is_account(conf.admin), "The admin account does not exist");
-    CHECK(is_account(conf.settler), "The settler account does not exist");
     CHECK(is_account(conf.payee), "The payee account does not exist");
     validate_fee_ratio(conf.maker_ratio, "maker_ratio");
     validate_fee_ratio(conf.taker_ratio, "taker_ratio");
@@ -229,7 +228,7 @@ void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
         });
         if (_config.max_match_count > 0) {
             uint32_t matched_count = 0;
-            match_sym_pair(*sym_pair_it, _config.max_match_count, matched_count);
+            match_sym_pair(from, *sym_pair_it, _config.max_match_count, matched_count);
         }
     } else {
         CHECK(false, "Unsupport params of memo=" + memo);
@@ -293,7 +292,6 @@ void dex_contract::cancel(const uint64_t &order_id) {
 dex::config dex_contract::get_default_config() {
     return {
         get_self(),             // name admin;
-        get_self(),             // name settler;
         get_self(),             // name payee;
         DEX_MAKER_FEE_RATIO,    // int64_t maker_ratio;
         DEX_TAKER_FEE_RATIO,    // int64_t taker_ratio;
@@ -302,10 +300,9 @@ dex::config dex_contract::get_default_config() {
     };
 }
 
-void dex_contract::match(uint32_t max_count, const vector<uint64_t> &sym_pairs) {
-    require_auth( _config.settler );
-    // TODO: validate sym_pairs??
-    // get sym_pair_list
+void dex_contract::match(const name &matcher, uint32_t max_count, const vector<uint64_t> &sym_pairs) {
+
+    CHECK(is_account(matcher), "The matcher account does not exist");
     CHECK(max_count > 0, "The max_count must > 0")
     std::list<symbol_pair_t> sym_pair_list;
     auto sym_pair_tbl = dex::make_symbol_pair_table(get_self());
@@ -329,12 +326,13 @@ void dex_contract::match(uint32_t max_count, const vector<uint64_t> &sym_pairs) 
     for (const auto &sym_pair : sym_pair_list) {
         if (matched_count >= DEX_MATCH_COUNT_MAX) break;
 
-        match_sym_pair(sym_pair, max_count, matched_count);
+        match_sym_pair(matcher, sym_pair, max_count, matched_count);
     }
     CHECK(matched_count > 0, "The matched count == 0");
 }
 
-void dex_contract::match_sym_pair(const dex::symbol_pair_t &sym_pair, uint32_t max_count, uint32_t &matched_count) {
+void dex_contract::match_sym_pair(const name &matcher, const dex::symbol_pair_t &sym_pair,
+                                  uint32_t max_count, uint32_t &matched_count) {
 
     auto cur_block_time = current_block_time();
     auto order_tbl = make_order_table(get_self());
@@ -406,7 +404,7 @@ void dex_contract::match_sym_pair(const dex::symbol_pair_t &sym_pair, uint32_t m
         }
 
         auto deal_tbl = dex::make_deal_table(get_self());
-        deal_tbl.emplace(_config.settler, [&]( auto& deal_item ) {
+        deal_tbl.emplace(matcher, [&]( auto& deal_item ) {
             deal_item.id = _global->new_deal_item_id();
             deal_item.buy_order_id = buy_order.order_id;
             deal_item.sell_order_id = sell_order.order_id;
@@ -425,5 +423,4 @@ void dex_contract::match_sym_pair(const dex::symbol_pair_t &sym_pair, uint32_t m
     }
 
     matching_pair_it.save_matching_order(order_tbl);
-
 }
