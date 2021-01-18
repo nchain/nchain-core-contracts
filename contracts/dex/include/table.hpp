@@ -174,15 +174,15 @@ namespace dex {
 
     // TODO: pay match fee with coin for buyer (receive asset)
     struct DEX_TABLE order_t {
-        uint64_t sym_pair_id; // id of symbol_pair_table
         uint64_t order_id; // auto-increment
+        uint64_t external_id; // external id
         name owner;
+        uint64_t sym_pair_id; // id of symbol_pair_table
         order_type_t order_type;
         order_side_t order_side;
         asset asset_quant;
         asset coin_quant;
         int64_t price;
-        uint64_t external_id; // external id
         int64_t taker_ratio;
         int64_t maker_ratio;
         time_point create_time;
@@ -201,15 +201,15 @@ namespace dex {
         void print() const {
             auto create_time = this->create_time.elapsed.count(); // print the ms value
             PRINT_PROPERTIES(
-                PP0(sym_pair_id),
                 PP(order_id),
+                PP(external_id),
                 PP(owner),
+                PP0(sym_pair_id),
                 PP(order_type),
                 PP(order_side),
                 PP(asset_quant),
                 PP(coin_quant),
                 PP(price),
-                PP(external_id),
                 PP(create_time),
                 PP(matched_assets),
                 PP(matched_coins),
