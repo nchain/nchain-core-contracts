@@ -305,7 +305,7 @@ namespace dex {
                 }
             } else {
                 taker_free_assets = _taker_it->get_free_limit_quant();
-                ASSERT(maker_free_assets.symbol == asset_symbol);
+                ASSERT(taker_free_assets.symbol == asset_symbol);
                 CHECK(taker_free_assets.amount > 0, "MUST: taker_free_assets > 0");
             }
 
