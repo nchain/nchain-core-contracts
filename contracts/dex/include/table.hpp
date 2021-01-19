@@ -144,6 +144,7 @@ namespace dex {
         extended_symbol coin_symbol;
         asset min_asset_quant;
         asset min_coin_quant;
+        bool only_accept_coin_fee;
         bool enabled;
 
         uint64_t primary_key() const { return sym_pair_id; }

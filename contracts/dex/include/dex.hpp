@@ -25,9 +25,10 @@ public:
 
     [[eosio::action]] void setconfig(const dex::config &conf);
 
-    [[eosio::action]] void setsympair(const extended_symbol &asset_symbol, const extended_symbol &coin_symbol,
+    [[eosio::action]] void setsympair(const extended_symbol &asset_symbol,
+                                      const extended_symbol &coin_symbol,
                                       const asset &min_asset_quant, const asset &min_coin_quant,
-                                      bool enabled);
+                                      bool only_accept_coin_fee, bool enabled);
 
     [[eosio::on_notify("*::transfer")]] void ontransfer(name from, name to, asset quantity,
                                                         string memo);

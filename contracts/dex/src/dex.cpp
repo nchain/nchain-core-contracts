@@ -66,8 +66,10 @@ void dex_contract::setconfig(const dex::config &conf) {
     _conf_tbl.set(conf, get_self());
 }
 
-void dex_contract::setsympair(const extended_symbol &asset_symbol, const extended_symbol &coin_symbol,
-                     const asset &min_asset_quant, const asset &min_coin_quant, bool enabled) {
+void dex_contract::setsympair(const extended_symbol &asset_symbol,
+                              const extended_symbol &coin_symbol, const asset &min_asset_quant,
+                              const asset &min_coin_quant, bool only_accept_coin_fee,
+                              bool enabled) {
     require_auth( _config.admin );
     const auto &asset_sym = asset_symbol.get_symbol();
     const auto &coin_sym = coin_symbol.get_symbol();
@@ -89,20 +91,22 @@ void dex_contract::setsympair(const extended_symbol &asset_symbol, const extende
         auto sym_pair_id = _global->new_sym_pair_id();
         CHECK( sym_pair_tbl.find(sym_pair_id) == sym_pair_tbl.end(), "The symbol pair id exist");
         sym_pair_tbl.emplace(get_self(), [&](auto &sym_pair) {
-            sym_pair.sym_pair_id = sym_pair_id;
-            sym_pair.asset_symbol = asset_symbol;
-            sym_pair.coin_symbol = coin_symbol;
-            sym_pair.min_asset_quant = min_asset_quant;
-            sym_pair.min_coin_quant = min_coin_quant;
-            sym_pair.enabled = enabled;
+            sym_pair.sym_pair_id          = sym_pair_id;
+            sym_pair.asset_symbol         = asset_symbol;
+            sym_pair.coin_symbol          = coin_symbol;
+            sym_pair.min_asset_quant      = min_asset_quant;
+            sym_pair.min_coin_quant       = min_coin_quant;
+            sym_pair.only_accept_coin_fee = only_accept_coin_fee;
+            sym_pair.enabled              = enabled;
         });
     } else {
-        sym_pair_tbl.modify(*it, same_payer, [&]( auto& sym_pair ) {
-            sym_pair.asset_symbol = asset_symbol;
-            sym_pair.coin_symbol = coin_symbol;
-            sym_pair.min_asset_quant = min_asset_quant;
-            sym_pair.min_coin_quant = min_coin_quant;
-            sym_pair.enabled = enabled;
+        CHECK(it->asset_symbol == asset_symbol, "The asset_symbol mismatch with the existed one");
+        CHECK(it->coin_symbol == coin_symbol, "The asset_symbol mismatch with the existed one");
+        sym_pair_tbl.modify(*it, same_payer, [&](auto &sym_pair) {
+            sym_pair.min_asset_quant      = min_asset_quant;
+            sym_pair.min_coin_quant       = min_coin_quant;
+            sym_pair.only_accept_coin_fee = only_accept_coin_fee;
+            sym_pair.enabled              = enabled;
         });
     }
 }
