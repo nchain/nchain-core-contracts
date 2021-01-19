@@ -181,8 +181,8 @@ namespace dex {
         order_type_t order_type;
         order_side_t order_side;
         int64_t price;
-        asset asset_quant;
-        asset coin_quant;
+        asset limit_quant;
+        asset frozen_quant;
         int64_t taker_ratio;
         int64_t maker_ratio;
         time_point create_time;
@@ -207,9 +207,9 @@ namespace dex {
                 PP0(sym_pair_id),
                 PP(order_type),
                 PP(order_side),
-                PP(asset_quant),
-                PP(coin_quant),
                 PP(price),
+                PP(limit_quant),
+                PP(frozen_quant),
                 PP(create_time),
                 PP(matched_assets),
                 PP(matched_coins),

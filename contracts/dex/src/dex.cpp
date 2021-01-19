@@ -136,7 +136,7 @@ void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
         order.sym_pair_id = parse_uint64(params[1]);
         order.order_type = parse_order_type(params[2]);
         order.order_side = parse_order_side(params[3]);
-        const auto &limit_quantity = asset_from_string(params[4]);
+        order.limit_quant = asset_from_string(params[4]);
         order.price = parse_price(params[5]);
         order.external_id = parse_external_id(params[6]);
         if (params.size() == 9) {
@@ -160,7 +160,7 @@ void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
             CHECK(order.price == 0, "The price must == 0 for market order");
         }
 
-        CHECK(limit_quantity.amount > 0, "The limit_quantity must > 0");
+        CHECK(quantity.amount > 0, "The transfer quantity must > 0");
 
         const auto &asset_symbol = sym_pair_it->asset_symbol.get_symbol();
         const auto &coin_symbol = sym_pair_it->coin_symbol.get_symbol();
@@ -173,30 +173,25 @@ void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
             CHECK(quantity.symbol == coin_symbol,
                   "The transfer quantity symbol=" + symbol_to_string(quantity.symbol) +
                       " mismatch with coin_symbol=" + symbol_to_string(coin_symbol) + " for buy order");
-            order.coin_quant = quantity;
 
             if (order.order_type == order_type::LIMIT) {
-                // limit_quantity is coin
-                CHECK(limit_quantity.symbol == asset_symbol,
-                      "The limit_quantity symbol=" + symbol_to_string(limit_quantity.symbol) +
+                CHECK(order.limit_quant.symbol == asset_symbol,
+                      "The limit_quant symbol=" + symbol_to_string(order.limit_quant.symbol) +
                           " mismatch with asset_symbol=" + symbol_to_string(asset_symbol) +
                           " for limit buy order");
-                order.asset_quant = limit_quantity;
 
-                const auto &calc_coins = dex::calc_coin_quant(order.asset_quant, order.price, coin_symbol);
-                CHECK(order.coin_quant.amount >= calc_coins.amount,
+                const auto &calc_coins = dex::calc_coin_quant(order.limit_quant, order.price, coin_symbol);
+                CHECK(quantity >= calc_coins,
                       "The transfer quantity=" + quantity.to_string() + " < calc_coins=" +
                           calc_coins.to_string() + " for limit buy order");
             } else {// order.order_type == order_type::MARKET
-                CHECK(limit_quantity.symbol == coin_symbol,
-                      "The limit_quantity symbol=" + symbol_to_string(limit_quantity.symbol) +
+                CHECK(order.limit_quant.symbol == coin_symbol,
+                      "The limit_quant symbol=" + symbol_to_string(order.limit_quant.symbol) +
                           " mismatch with coin_symbol=" + symbol_to_string(coin_symbol) +
                           " for market buy order");
-                CHECK(quantity.amount >= limit_quantity.amount,
-                      "The transfer quantity=" + quantity.to_string() + " < limit_quantity=" +
-                          limit_quantity.to_string() + " for market buy order");
-
-                order.asset_quant = asset(0, asset_symbol);
+                CHECK(quantity >= order.limit_quant,
+                      "The transfer quantity=" + quantity.to_string() + " < limit_quant=" +
+                          order.limit_quant.to_string() + " for market buy order");
             }
         } else { // order.order_side == order_side::SELL
             const auto &expected_bank = sym_pair_it->asset_symbol.get_contract();
@@ -206,11 +201,9 @@ void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
             CHECK(quantity.symbol == asset_symbol,
                   "The transfer quantity symbol=" + symbol_to_string(quantity.symbol) +
                       " mismatch with " + symbol_to_string(asset_symbol) + " for sell order");
-            CHECK(quantity == limit_quantity, "The transfer quantity=" + quantity.to_string() +
-                                                  " mismatch with limit_quantity=" +
-                                                  limit_quantity.to_string() + " for sell order");
-            order.asset_quant = quantity;
-            order.coin_quant = asset(0, coin_symbol);
+            CHECK(quantity == order.limit_quant, "The transfer quantity=" + quantity.to_string() +
+                                                  " mismatch with limit_quant=" +
+                                                  order.limit_quant.to_string() + " for sell order");
         }
 
         // TODO: need to add the total order coin/asset amount?
@@ -219,6 +212,7 @@ void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
 
         order.order_id = _global->new_order_id();
         order.owner = from;
+        order.frozen_quant = quantity;
         order.matched_assets = asset(0, asset_symbol);
         order.matched_coins = asset(0, coin_symbol);
         order.create_time = current_block_time();
@@ -273,18 +267,16 @@ void dex_contract::cancel(const uint64_t &order_id) {
     CHECK( sym_pair_it != sym_pair_tbl.end(),
         "The symbol pair id '" + std::to_string(order.sym_pair_id) + "' does not exist");
 
-    const extended_symbol *frozen_symbol = nullptr;
+    name bank;
     if (order.order_side == order_side::BUY) {
-        CHECK(order.coin_quant > order.matched_coins, "Invalid order matched coin amount");
-        quantity = order.coin_quant - order.matched_coins;
-        frozen_symbol = &sym_pair_it->coin_symbol;
-    } else {
-        // order.order_side == order_side::SELL
-        CHECK(order.asset_quant > order.matched_assets, "Invalid order matched asset amount");
-        quantity = order.asset_quant - order.matched_assets;
-        frozen_symbol = &sym_pair_it->asset_symbol;
+        quantity = order.frozen_quant - order.matched_coins;
+        bank = sym_pair_it->coin_symbol.get_contract();
+    } else { // order.order_side == order_side::SELL
+        quantity = order.frozen_quant - order.matched_assets;
+        bank = sym_pair_it->asset_symbol.get_contract();
     }
-    transfer_out(get_self(), frozen_symbol->get_contract(), order.owner, quantity, "cancel_order");
+    CHECK(quantity.amount > 0, "Can not unfreeze the invalid quantity=" + quantity.to_string());
+    transfer_out(get_self(), bank, order.owner, quantity, "cancel_order");
 
     order_tbl.modify(it, same_payer, [&]( auto& a ) {
         a.is_complete = true;

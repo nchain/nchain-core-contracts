@@ -126,33 +126,34 @@ namespace dex {
             _matched_assets += new_matched_assets;
             _matched_coins += new_matched_coins;
             const auto &order = *_it;
-            if (order.order_side == order_side::BUY) {
-                CHECK(_matched_coins <= order.coin_quant,
+            if (order.order_side == order_side::BUY && order.order_type == order_type::MARKET) {
+                    CHECK(_matched_coins <= order.limit_quant,
                         "The matched coins=" + _matched_coins.to_string() +
-                        " is overflow with buy coins=" + order.coin_quant.to_string());
-                if (order.order_type == order_type::MARKET) {
-                    complete = _matched_coins == order.coin_quant;
-                } else {
-                    CHECK(_matched_assets <= order.asset_quant,
-                        "The matched assets=" + _matched_assets.to_string() +
-                        " is overflow with limit buy assets=" + order.asset_quant.to_string());
-                    complete = _matched_assets == order.asset_quant;
-                }
+                        " is overflow with limit_quant=" + order.limit_quant.to_string() + " for market buy order");
+                    complete = _matched_coins == order.limit_quant;
             } else {
-                CHECK(_matched_assets <= order.asset_quant,
+                CHECK(_matched_assets <= order.limit_quant,
                     "The matched assets=" + _matched_assets.to_string() +
-                    " is overflow with sell assets=" + order.asset_quant.to_string());
-                complete = _matched_assets == order.asset_quant;
+                    " is overflow with limit_quant=" + order.limit_quant.to_string());
+                complete = _matched_assets == order.limit_quant;
+            }
+
+            if (order.order_side == order_side::BUY) {
+                CHECK(_matched_coins <= order.frozen_quant,
+                        "The matched coins=" + _matched_coins.to_string() +
+                        " is overflow with frozen_quant=" + order.frozen_quant.to_string() + " for buy order");
+                if (complete) {
+                    _status = COMPLETE;
+                    if (order.order_type == order_type::LIMIT) {
+                        if (order.frozen_quant > _matched_coins) {
+                            _refund_coins = order.frozen_quant - _matched_coins;
+                        }
+                    }
+                }
             }
 
             if (complete) {
                 _status = COMPLETE;
-                if (order.order_side == order_side::BUY && order.order_type == order_type::LIMIT) {
-                    assert(order.coin_quant >= _matched_coins);
-                    if (order.coin_quant > _matched_coins) {
-                        _refund_coins = order.coin_quant - _matched_coins;
-                    }
-                }
             }
         }
 
@@ -168,14 +169,16 @@ namespace dex {
             return _status == MATCHING;
         }
 
-        inline asset get_free_assets() const {
-            ASSERT(is_valid() && _it->asset_quant >= _matched_assets);
-            return _it->asset_quant - _matched_assets;
-        }
-
-        inline asset get_free_coins() const {
-            ASSERT(is_valid() && _it->coin_quant >= _matched_coins);
-            return _it->coin_quant - _matched_coins;
+        inline asset get_free_limit_quant() const {
+            ASSERT(is_valid());
+            asset ret;
+            if (_it->order_side == order_side::BUY && _it->order_type == order_type::MARKET) {
+                ret = _it->limit_quant - _matched_coins;
+            } else {
+                ret = _it->limit_quant - _matched_assets;
+            }
+            ASSERT(ret.amount >= 0);
+            return ret;
         }
 
         inline asset get_refund_coins() const {
@@ -281,13 +284,19 @@ namespace dex {
             const auto &asset_symbol = _sym_pair.asset_symbol.get_symbol();
             const auto &coin_symbol = _sym_pair.coin_symbol.get_symbol();
             ASSERT(_maker_it->order_type() == order_type::LIMIT && _maker_it->stored_order().price > 0);
+
             uint64_t matched_price = _maker_it->stored_order().price;
-            auto maker_free_assets = _maker_it->get_free_assets();
+
+            auto maker_free_assets = _maker_it->get_free_limit_quant();
+            ASSERT(maker_free_assets.symbol == asset_symbol);
             CHECK(maker_free_assets.amount > 0, "MUST: maker_free_assets > 0");
+
             asset taker_free_assets;
             if (_taker_it->order_side() == order_side::BUY && _taker_it->order_type() == order_type::MARKET) {
-                auto taker_free_coins = _taker_it->get_free_coins();
+                auto taker_free_coins = _taker_it->get_free_limit_quant();
+                ASSERT(taker_free_coins.symbol == coin_symbol);
                 CHECK(taker_free_coins.amount > 0, "MUST: taker_free_coins > 0");
+
                 taker_free_assets = calc_asset_quant(taker_free_coins, matched_price, asset_symbol);
                 if (taker_free_assets <= maker_free_assets) {
                     matched_assets = taker_free_assets;
@@ -295,7 +304,8 @@ namespace dex {
                     return;
                 }
             } else {
-                taker_free_assets = _taker_it->get_free_assets();
+                taker_free_assets = _taker_it->get_free_limit_quant();
+                ASSERT(maker_free_assets.symbol == asset_symbol);
                 CHECK(taker_free_assets.amount > 0, "MUST: taker_free_assets > 0");
             }
 
