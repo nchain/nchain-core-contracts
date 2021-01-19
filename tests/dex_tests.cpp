@@ -279,7 +279,7 @@ public:
 
     mvo init_buy_order(uint64_t sym_pair_id) {
         // buy order
-        // order:<type>:<side>:<sym_pair_id>:<limit_quantity>:<price>:<external_id>[:<taker_ratio>:[maker_ratio]]
+        // order:<sym_pair_id>:<type>:<side>:<limit_quantity>:<price>:<external_id>[:<taker_ratio>:[maker_ratio]]
 
         string buy_memo = fc::format_string("order:${sym_pair_id}:limit:buy:0.01000000 BTC:1000000000000:1",
                                       mvo()
@@ -294,8 +294,8 @@ public:
             ("order_type", "limit")
             ("order_side", "buy")
             ("price", "1000000000000")
-            ("asset_quant", "0.01000000 BTC")
-            ("coin_quant", "100.0000 USD")
+            ("limit_quant", "0.01000000 BTC")
+            ("frozen_quant", "100.0000 USD")
             ("external_id", 1)
             ("taker_ratio", 8)
             ("maker_ratio", 4)
@@ -334,7 +334,7 @@ BOOST_FIXTURE_TEST_CASE( dex_match_test, dex_tester ) try {
     init_sym_pair();
 
     // buy order
-        // order:<type>:<side>:<sym_pair_id>:<limit_quantity>:<price>:<external_id>[:<taker_ratio>:[maker_ratio]]
+    // order:<sym_pair_id>:<type>:<side>:<limit_quantity>:<price>:<external_id>[:<taker_ratio>:[maker_ratio]]
 
     string buy_memo = "order:1:limit:buy:0.01000000 BTC:1000000000000:1";
     EXECUTE_ACTION(eosio_token.transfer(N(alice), N(dex), ASSET("100.0000 USD"), buy_memo));
@@ -346,8 +346,8 @@ BOOST_FIXTURE_TEST_CASE( dex_match_test, dex_tester ) try {
         ("order_type", "limit")
         ("order_side", "buy")
         ("price", "1000000000000")
-        ("asset_quant", "0.01000000 BTC")
-        ("coin_quant", "100.0000 USD")
+        ("limit_quant", "0.01000000 BTC")
+        ("frozen_quant", "100.0000 USD")
         ("external_id", 1)
         ("taker_ratio", 8)
         ("maker_ratio", 4)
@@ -360,7 +360,7 @@ BOOST_FIXTURE_TEST_CASE( dex_match_test, dex_tester ) try {
     REQUIRE_MATCHING_OBJECT( new_buy_order, buy_order );
 
     // sell order
-    //order  order:<type>:<side>:<asset_quant>:<coin_quant>:<price>:<ex_id>
+    // order:<sym_pair_id>:<type>:<side>:<limit_quantity>:<price>:<external_id>[:<taker_ratio>:[maker_ratio]]
     string sell_memo = "order:1:limit:sell:0.01000000 BTC:1000000000000:2";
     EXECUTE_ACTION(eosio_token.transfer(N(bob), N(dex), ASSET("0.01000000 BTC"), sell_memo));
     uint64_t sell_order_id = 2;
@@ -371,8 +371,8 @@ BOOST_FIXTURE_TEST_CASE( dex_match_test, dex_tester ) try {
         ("order_type", "limit")
         ("order_side", "sell")
         ("price", "1000000000000")
-        ("asset_quant", "0.01000000 BTC")
-        ("coin_quant", "0.0000 USD")
+        ("limit_quant", "0.01000000 BTC")
+        ("frozen_quant", "0.01000000 BTC")
         ("external_id", 2)
         ("taker_ratio", 8)
         ("maker_ratio", 4)
