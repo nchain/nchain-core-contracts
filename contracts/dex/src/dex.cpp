@@ -157,8 +157,6 @@ void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
             "The symbol pair id '" + std::to_string(order.sym_pair_id) + "' does not exist");
         CHECK(sym_pair_it->enabled, "The symbol pair '" + std::to_string(order.sym_pair_id) + " is disabled");
 
-        order.only_accept_coin_fee = sym_pair_it->only_accept_coin_fee;
-
         // check price
         if (order.order_type == order_type::LIMIT) {
             CHECK(order.price > 0, "The price must > 0 for limit order");
@@ -359,7 +357,7 @@ void dex_contract::match_sym_pair(const name &matcher, const dex::symbol_pair_t 
 
 
         asset buy_fee;
-        if (buy_order.only_accept_coin_fee) {
+        if (matched_coins.symbol == buy_order.matched_fee.symbol) {
             buy_fee = calc_match_fee(buy_order, taker_it.order_side(), matched_coins);
         } else {
             buy_fee = calc_match_fee(buy_order, taker_it.order_side(), buyer_recv_assets);
