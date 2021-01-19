@@ -219,12 +219,13 @@ public:
 
     action_result setsympair(const extended_symbol &asset_symbol,
                              const extended_symbol &coin_symbol, const asset &min_asset_quant,
-                             const asset &min_coin_quant, bool enabled) {
+                             const asset &min_coin_quant, bool only_accept_coin_fee, bool enabled) {
         auto ret = push_action( N(dex.admin), N(setsympair), mvo()
             ( "asset_symbol", asset_symbol)
             ( "coin_symbol", coin_symbol)
             ( "min_asset_quant", min_asset_quant)
             ( "min_coin_quant", min_coin_quant)
+            ( "only_accept_coin_fee", only_accept_coin_fee)
             ( "enabled", enabled)
         );
         // sym_pair_id().next();
@@ -262,7 +263,7 @@ public:
 
     void init_sym_pair() {
         // add symbol pair for trading
-        EXECUTE_ACTION(setsympair(BTC_SYMBOL, USD_SYMBOL, ASSET("0.00001000 BTC"), ASSET("0.1000 USD"), true));
+        EXECUTE_ACTION(setsympair(BTC_SYMBOL, USD_SYMBOL, ASSET("0.00001000 BTC"), ASSET("0.1000 USD"), false, true));
         produce_blocks(1);
         uint64_t sym_pair_id = 1;
         auto sym_pair = get_symbol_pair(sym_pair_id);
@@ -273,6 +274,7 @@ public:
             MATCH_FIELD_OBJ("coin_symbol", USD_SYMBOL)
             MATCH_FIELD("min_asset_quant", "0.00001000 BTC")
             MATCH_FIELD("min_coin_quant", "0.1000 USD")
+            MATCH_FIELD("only_accept_coin_fee", "0")
             MATCH_FIELD("enabled", "1")
         );
     }
