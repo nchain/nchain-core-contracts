@@ -91,10 +91,10 @@ namespace dex {
 
             print("creating matching order itr! sym_pair_id=", _sym_pair_id, ", side=", _order_side, ", type=", _order_type, "\n");
             if (_order_side == order_side::BUY) {
-                _key = make_order_match_idx(_sym_pair_id, false, _order_side, _order_type,
+                _key = make_order_match_idx(_sym_pair_id, order_status::MATCHABLE, _order_side, _order_type,
                                            std::numeric_limits<uint64_t>::max(), 0);
             } else { // _order_side == order_side::SELL
-                _key = make_order_match_idx(_sym_pair_id, false, _order_side, _order_type, 0, 0);
+                _key = make_order_match_idx(_sym_pair_id, order_status::MATCHABLE, _order_side, _order_type, 0, 0);
             }
             _it       = _match_index.upper_bound(_key);
             process_data();
@@ -109,7 +109,7 @@ namespace dex {
                 a.matched_assets = _matched_assets;
                 a.matched_coins = _matched_coins;
                 a.matched_fee = _matched_fee;
-                a.is_complete = true;
+                a.status = order_status::COMPLETE;
             });
             process_data();
         }
@@ -222,7 +222,7 @@ namespace dex {
             CHECK(_key < stored_order.get_order_match_idx(), "the start key must < found order key");
             // print("start key=", key, ", found key=", stored_order.get_order_match_idx(), "\n");
 
-            if (stored_order.sym_pair_id != _sym_pair_id || stored_order.is_complete ||
+            if (stored_order.sym_pair_id != _sym_pair_id || stored_order.status != order_status::MATCHABLE ||
                 stored_order.order_side != _order_side || stored_order.order_type != _order_type) {
                 return;
             }

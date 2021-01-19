@@ -224,6 +224,7 @@ void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
         order.matched_fee = (order.order_side == order_side::BUY && !sym_pair_it->only_accept_coin_fee) ?
             order.matched_fee = asset(0, asset_symbol) : asset(0, coin_symbol);
         order.create_time = current_block_time();
+        order.status = order_status::MATCHABLE;
 
         CHECK(order_tbl.find(order.order_id) == order_tbl.end(), "The order is exist. order_id=" + std::to_string(order.order_id));
 
@@ -272,7 +273,7 @@ void dex_contract::cancel(const uint64_t &order_id) {
     transfer_out(get_self(), bank, order.owner, quantity, "cancel_order");
 
     order_tbl.modify(it, same_payer, [&]( auto& a ) {
-        a.is_complete = true;
+        a.status = order_status::CANCELED;
     });
 }
 

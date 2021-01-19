@@ -14,6 +14,7 @@ namespace dex {
 
     typedef name order_type_t;
     typedef name order_side_t;
+    typedef name order_status_t;
 
     namespace order_type {
         static const order_type_t NONE = order_type_t();
@@ -53,6 +54,26 @@ namespace dex {
                 if (value == NONE) return 0;
                 auto it = ENUM_MAP.find(value);
                 CHECK(it != ENUM_MAP.end(), "Invalid order_type=" + value.to_string());
+                return it->second;
+        }
+    }
+
+    namespace order_status {
+        static const order_status_t NONE = order_status_t();
+        static const order_status_t MATCHABLE = "matchable"_n;
+        static const order_status_t COMPLETE = "complete"_n;
+        static const order_status_t CANCELED = "canceled"_n;
+        // name -> index
+        static const std::map<order_status_t, uint8_t> ENUM_MAP = {
+            {MATCHABLE,     1},
+            {COMPLETE,      2},
+            {CANCELED,      3}
+        };
+
+        inline uint8_t index(const order_status_t &value) {
+                if (value == NONE) return 0;
+                auto it = ENUM_MAP.find(value);
+                CHECK(it != ENUM_MAP.end(), "Invalid order_status=" + value.to_string());
                 return it->second;
         }
     }
@@ -161,11 +182,11 @@ namespace dex {
     }
 
     using order_match_idx_key = uint256_t;
-    inline static order_match_idx_key make_order_match_idx(uint64_t sym_pair_id, bool is_complete,
+    inline static order_match_idx_key make_order_match_idx(uint64_t sym_pair_id, const order_status_t &status,
                                                            const order_side_t &side,
                                                            const order_type_t &type, uint64_t price,
                                                            uint64_t order_id) {
-        uint64_t option = uint64_t(is_complete) << 56 | uint64_t(order_side::index(side)) << 48 |
+        uint64_t option = uint64_t(order_status::index(status)) << 56 | uint64_t(order_side::index(side)) << 48 |
                           uint64_t(order_type::index(type)) << 40;
         uint64_t price_factor = (side == order_side::BUY) ? std::numeric_limits<uint64_t>::max() - price : price;
         auto ret = order_match_idx_key::make_from_word_sequence<uint64_t>(sym_pair_id, option, price_factor, order_id);
@@ -190,10 +211,10 @@ namespace dex {
         asset matched_assets;      //!< total matched asset quantity
         asset matched_coins;       //!< total matched coin quantity
         asset matched_fee;        //!< total matched fees
-        bool    is_complete = false;
+        order_status_t  status;
         uint64_t primary_key() const { return order_id; }
         order_match_idx_key get_order_match_idx() const {
-            return make_order_match_idx(sym_pair_id, is_complete, order_side, order_type, price, order_id);
+            return make_order_match_idx(sym_pair_id, status, order_side, order_type, price, order_id);
         }
 
         uint64_t get_external_idx() const {
@@ -218,7 +239,7 @@ namespace dex {
                 PP(matched_assets),
                 PP(matched_coins),
                 PP(matched_fee),
-                PP(is_complete)
+                PP(status)
             );
 
         }
