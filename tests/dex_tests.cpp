@@ -304,6 +304,7 @@ public:
             ("create_time", get_head_block_time())
             ("matched_assets", "0.00000000 BTC")
             ("matched_coins", "0.0000 USD")
+            ("matched_fee", "0.00000000 BTC")
             ("is_complete", "0");
         REQUIRE_MATCHING_OBJECT( buy_order, expected_order );
         return expected_order;
@@ -356,6 +357,7 @@ BOOST_FIXTURE_TEST_CASE( dex_match_test, dex_tester ) try {
         ("create_time", get_head_block_time())
         ("matched_assets", "0.00000000 BTC")
         ("matched_coins", "0.0000 USD")
+        ("matched_fee", "0.00000000 BTC")
         ("is_complete", "0");
 
     auto new_buy_order = get_order(buy_order_id);
@@ -381,6 +383,7 @@ BOOST_FIXTURE_TEST_CASE( dex_match_test, dex_tester ) try {
         ("create_time", get_head_block_time())
         ("matched_assets", "0.00000000 BTC")
         ("matched_coins", "0.0000 USD")
+        ("matched_fee", "0.0000 USD")
         ("is_complete", "0");
 
     auto new_sell_order = get_order(sell_order_id);
@@ -392,6 +395,7 @@ BOOST_FIXTURE_TEST_CASE( dex_match_test, dex_tester ) try {
     buy_order
         ("matched_assets", "0.01000000 BTC")
         ("matched_coins", "100.0000 USD")
+        ("matched_fee", "0.00000100 BTC")
         ("is_complete", 1);
     auto matched_buy_order = get_order(buy_order_id);
     BOOST_CHECK(!matched_buy_order.is_null());
@@ -400,6 +404,7 @@ BOOST_FIXTURE_TEST_CASE( dex_match_test, dex_tester ) try {
     sell_order
         ("matched_assets", "0.01000000 BTC")
         ("matched_coins", "100.0000 USD")
+        ("matched_fee", "0.0100 USD")
         ("is_complete", 1);
     auto matched_sell_order = get_order(sell_order_id);
     REQUIRE_MATCHING_OBJECT( matched_sell_order, sell_order );
