@@ -186,9 +186,11 @@ namespace dex {
         asset frozen_quant;
         int64_t taker_ratio;
         int64_t maker_ratio;
+        bool only_accept_coin_fee;
         time_point create_time;
         asset matched_assets;      //!< total matched asset quantity
         asset matched_coins;       //!< total matched coin quantity
+        asset matched_fee;        //!< total matched fees
         bool    is_complete = false;
         uint64_t primary_key() const { return order_id; }
         order_match_idx_key get_order_match_idx() const {
@@ -211,9 +213,13 @@ namespace dex {
                 PP(price),
                 PP(limit_quant),
                 PP(frozen_quant),
+                PP(taker_ratio),
+                PP(maker_ratio),
+                PP(only_accept_coin_fee),
                 PP(create_time),
                 PP(matched_assets),
                 PP(matched_coins),
+                PP(matched_fee),
                 PP(is_complete)
             );
 

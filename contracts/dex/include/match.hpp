@@ -62,6 +62,18 @@ namespace dex {
         return asset(calc_coin_amount(asset_quant, price, coin_symbol), coin_symbol);
     }
 
+    inline asset calc_match_fee(int64_t ratio, const asset &quant) {
+        if (quant.amount == 0) return asset{0, quant.symbol};
+        int64_t fee = multiply_decimal64(quant.amount, ratio, RATIO_PRECISION);
+        CHECK(fee < quant.amount, "the calc_fee is large than quantity=" + quant.to_string() + ", ratio=" + to_string(ratio));
+        return asset{fee, quant.symbol};
+    }
+
+    inline asset calc_match_fee(const dex::order_t &order, const order_type_t &taker_side, const asset &quant) {
+        int64_t ratio = (order.order_side == taker_side) ? order.taker_ratio : order.maker_ratio;
+        return calc_match_fee(ratio, quant);
+    }
+
     template<typename match_index_t>
     class matching_order_iterator {
     public:
@@ -96,6 +108,7 @@ namespace dex {
             table.modify(store_order, same_payer, [&]( auto& a ) {
                 a.matched_assets = _matched_assets;
                 a.matched_coins = _matched_coins;
+                a.matched_fee = _matched_fee;
                 a.is_complete = true;
             });
             process_data();
@@ -107,6 +120,7 @@ namespace dex {
                 table.modify(*_it, same_payer, [&]( auto& a ) {
                     a.matched_assets = _matched_assets;
                     a.matched_coins = _matched_coins;
+                    a.matched_fee = _matched_fee;
                 });
             }
         }
@@ -116,7 +130,7 @@ namespace dex {
             return *_it;
         }
 
-        inline void match(const asset &new_matched_assets, const asset &new_matched_coins) {
+        inline void match(const asset &new_matched_assets, const asset &new_matched_coins, const asset &matched_fee) {
             ASSERT(_status == OPENED || _status == MATCHING);
             if (_status == OPENED) {
                 _status = MATCHING;
@@ -125,6 +139,7 @@ namespace dex {
 
             _matched_assets += new_matched_assets;
             _matched_coins += new_matched_coins;
+            _matched_fee += matched_fee;
             const auto &order = *_it;
             if (order.order_side == order_side::BUY && order.order_type == order_type::MARKET) {
                     CHECK(_matched_coins <= order.limit_quant,
@@ -139,8 +154,12 @@ namespace dex {
             }
 
             if (order.order_side == order_side::BUY) {
-                CHECK(_matched_coins <= order.frozen_quant,
-                        "The matched coins=" + _matched_coins.to_string() +
+                auto total_matched_coins = _matched_coins;
+                if (order.only_accept_coin_fee) {
+                    total_matched_coins += matched_fee;
+                }
+                CHECK(total_matched_coins <= order.frozen_quant,
+                        "The total_matched_coins=" + _matched_coins.to_string() +
                         " is overflow with frozen_quant=" + order.frozen_quant.to_string() + " for buy order");
                 if (complete) {
                     _status = COMPLETE;
@@ -213,6 +232,7 @@ namespace dex {
             print("found order! order=", stored_order, "\n");
             _matched_assets = stored_order.matched_assets;
             _matched_coins  = stored_order.matched_coins;
+            _matched_fee  = stored_order.matched_fee;
             _refund_coins = asset(0, _matched_coins.symbol);
             _status = OPENED;
         }
@@ -227,6 +247,7 @@ namespace dex {
 
         asset _matched_assets;      //!< total matched asset amount
         asset _matched_coins;       //!< total matched coin amount
+        asset _matched_fee;        //!< total matched fees
         asset _refund_coins;
 
     };

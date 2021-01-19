@@ -157,6 +157,8 @@ void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
             "The symbol pair id '" + std::to_string(order.sym_pair_id) + "' does not exist");
         CHECK(sym_pair_it->enabled, "The symbol pair '" + std::to_string(order.sym_pair_id) + " is disabled");
 
+        order.only_accept_coin_fee = sym_pair_it->only_accept_coin_fee;
+
         // check price
         if (order.order_type == order_type::LIMIT) {
             CHECK(order.price > 0, "The price must > 0 for limit order");
@@ -178,25 +180,27 @@ void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
                   "The transfer quantity symbol=" + symbol_to_string(quantity.symbol) +
                       " mismatch with coin_symbol=" + symbol_to_string(coin_symbol) + " for buy order");
 
+            asset expected_transfer_coins;
             if (order.order_type == order_type::LIMIT) {
                 CHECK(order.limit_quant.symbol == asset_symbol,
                       "The limit_quant symbol=" + symbol_to_string(order.limit_quant.symbol) +
                           " mismatch with asset_symbol=" + symbol_to_string(asset_symbol) +
                           " for limit buy order");
 
-                const auto &calc_coins = dex::calc_coin_quant(order.limit_quant, order.price, coin_symbol);
-                CHECK(quantity == calc_coins,
-                      "The transfer quantity=" + quantity.to_string() + " != calc_coins=" +
-                          calc_coins.to_string() + " for limit buy order");
+                expected_transfer_coins = dex::calc_coin_quant(order.limit_quant, order.price, coin_symbol);
             } else {// order.order_type == order_type::MARKET
                 CHECK(order.limit_quant.symbol == coin_symbol,
                       "The limit_quant symbol=" + symbol_to_string(order.limit_quant.symbol) +
                           " mismatch with coin_symbol=" + symbol_to_string(coin_symbol) +
                           " for market buy order");
-                CHECK(quantity == order.limit_quant,
-                      "The transfer quantity=" + quantity.to_string() + " != limit_quant=" +
-                          order.limit_quant.to_string() + " for market buy order");
+                expected_transfer_coins = order.limit_quant;
             }
+            if (sym_pair_it->only_accept_coin_fee) {
+                expected_transfer_coins += dex::calc_match_fee(order.taker_ratio, expected_transfer_coins);
+            }
+            CHECK(quantity == expected_transfer_coins,
+                    "The transfer quantity=" + quantity.to_string() + " != expected_transfer_coins=" +
+                        expected_transfer_coins.to_string() + " for buy order");
         } else { // order.order_side == order_side::SELL
             const auto &expected_bank = sym_pair_it->asset_symbol.get_contract();
             CHECK(transfer_bank == expected_bank, "The transfer bank=" + transfer_bank.to_string() +
@@ -219,6 +223,8 @@ void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
         order.frozen_quant = quantity;
         order.matched_assets = asset(0, asset_symbol);
         order.matched_coins = asset(0, coin_symbol);
+        order.matched_fee = (order.order_side == order_side::BUY && !sym_pair_it->only_accept_coin_fee) ?
+            order.matched_fee = asset(0, asset_symbol) : asset(0, coin_symbol);
         order.create_time = current_block_time();
 
         CHECK(order_tbl.find(order.order_id) == order_tbl.end(), "The order is exist. order_id=" + std::to_string(order.order_id));
@@ -233,21 +239,6 @@ void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
     } else {
         CHECK(false, "Unsupport params of memo=" + memo);
     }
-}
-
-asset calc_match_fee(const dex::order_t &order, const order_type_t &taker_side, const asset &quant) {
-
-    if (quant.amount == 0) return asset{0, quant.symbol};
-
-    int64_t ratio = 0;
-    if (order.order_side == taker_side) {
-        ratio = order.taker_ratio;
-    } else {
-        ratio = order.maker_ratio;
-    }
-    int64_t fee = multiply_decimal64(quant.amount, ratio, RATIO_PRECISION);
-    CHECK(fee < quant.amount, "the calc_fee is large than quantity=" + quant.to_string() + ", ratio=" + to_string(ratio));
-    return asset{fee, quant.symbol};
 }
 
 void transfer_out(const name &contract, const name &bank, const name &to, const asset &quantity,
@@ -366,15 +357,17 @@ void dex_contract::match_sym_pair(const name &matcher, const dex::symbol_pair_t 
         const auto &asset_bank = sym_pair.asset_symbol.get_contract();
         const auto &coin_bank = sym_pair.asset_symbol.get_contract();
 
-        taker_it.match(matched_assets, matched_coins);
-        maker_it.match(matched_assets, matched_coins);
-        CHECK(taker_it.is_complete() || maker_it.is_complete(), "Neither taker nor maker is complete");
 
-        auto asset_match_fee = calc_match_fee(buy_order, taker_it.order_side(), buyer_recv_assets);
-        buyer_recv_assets -= asset_match_fee;
-        if (asset_match_fee.amount > 0) {
-            // pay the asset_match_fee to payee
-            transfer_out(get_self(), asset_bank, _config.payee, asset_match_fee, "asset_match_fee");
+        asset buy_fee;
+        if (buy_order.only_accept_coin_fee) {
+            buy_fee = calc_match_fee(buy_order, taker_it.order_side(), matched_coins);
+        } else {
+            buy_fee = calc_match_fee(buy_order, taker_it.order_side(), buyer_recv_assets);
+            buyer_recv_assets -= buy_fee;
+        }
+        if (buy_fee.amount > 0) {
+            // pay the buy_fee to payee
+            transfer_out(get_self(), asset_bank, _config.payee, buy_fee, "buy_fee");
         }
 
         if (buyer_recv_assets.amount > 0) {
@@ -382,16 +375,21 @@ void dex_contract::match_sym_pair(const name &matcher, const dex::symbol_pair_t 
             transfer_out(get_self(), asset_bank, buy_order.owner, buyer_recv_assets, "buyer_recv_assets");
         }
 
-        auto coin_match_fee = calc_match_fee(sell_order, taker_it.order_side(), seller_recv_coins);
-        seller_recv_coins -= coin_match_fee;
-        if (coin_match_fee.amount > 0) {
-            // pay the coin_match_fee to payee
-            transfer_out(get_self(), coin_bank, _config.payee, coin_match_fee, "coin_match_fee");
+        auto sell_fee = calc_match_fee(sell_order, taker_it.order_side(), seller_recv_coins);
+        seller_recv_coins -= sell_fee;
+        if (sell_fee.amount > 0) {
+            // pay the sell_fee to payee
+            transfer_out(get_self(), coin_bank, _config.payee, sell_fee, "sell_fee");
         }
         if (seller_recv_coins.amount > 0) {
             // transfer the coins to seller
             transfer_out(get_self(), coin_bank, sell_order.owner, seller_recv_coins, "seller_recv_coins");
         }
+
+        buy_it.match(matched_assets, matched_coins, buy_fee);
+        sell_it.match(matched_assets, matched_coins, sell_fee);
+
+        CHECK(buy_it.is_complete() || sell_it.is_complete(), "Neither buy_order nor sell_order is complete");
 
         // process refund
         if (buy_it.is_complete()) {
@@ -410,8 +408,8 @@ void dex_contract::match_sym_pair(const name &matcher, const dex::symbol_pair_t 
             deal_item.deal_coins = matched_coins;
             deal_item.deal_price = match_price;
             deal_item.taker_side = taker_it.order_side();
-            deal_item.buy_fee = asset_match_fee;
-            deal_item.sell_fee = coin_match_fee;
+            deal_item.buy_fee = buy_fee;
+            deal_item.sell_fee = sell_fee;
             deal_item.deal_time = cur_block_time;
             print("The matched deal_item=", deal_item, "\n");
         });
