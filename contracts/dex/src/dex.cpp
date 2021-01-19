@@ -181,16 +181,16 @@ void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
                           " for limit buy order");
 
                 const auto &calc_coins = dex::calc_coin_quant(order.limit_quant, order.price, coin_symbol);
-                CHECK(quantity >= calc_coins,
-                      "The transfer quantity=" + quantity.to_string() + " < calc_coins=" +
+                CHECK(quantity == calc_coins,
+                      "The transfer quantity=" + quantity.to_string() + " != calc_coins=" +
                           calc_coins.to_string() + " for limit buy order");
             } else {// order.order_type == order_type::MARKET
                 CHECK(order.limit_quant.symbol == coin_symbol,
                       "The limit_quant symbol=" + symbol_to_string(order.limit_quant.symbol) +
                           " mismatch with coin_symbol=" + symbol_to_string(coin_symbol) +
                           " for market buy order");
-                CHECK(quantity >= order.limit_quant,
-                      "The transfer quantity=" + quantity.to_string() + " < limit_quant=" +
+                CHECK(quantity == order.limit_quant,
+                      "The transfer quantity=" + quantity.to_string() + " != limit_quant=" +
                           order.limit_quant.to_string() + " for market buy order");
             }
         } else { // order.order_side == order_side::SELL
