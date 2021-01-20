@@ -430,6 +430,7 @@ void dex_contract::match_sym_pair(const name &matcher, const dex::symbol_pair_t 
         auto deal_tbl = dex::make_deal_table(get_self());
         deal_tbl.emplace(matcher, [&]( auto& deal_item ) {
             deal_item.id = _global->new_deal_item_id();
+            deal_item.sym_pair_id = sym_pair.sym_pair_id;
             deal_item.buy_order_id = buy_order.order_id;
             deal_item.sell_order_id = sell_order.order_id;
             deal_item.deal_assets = matched_assets;

@@ -259,6 +259,7 @@ namespace dex {
 
     struct DEX_TABLE deal_item_t {
         uint64_t id;
+        uint64_t sym_pair_id;
         uint64_t buy_order_id;
         uint64_t sell_order_id;
         asset deal_assets;
@@ -282,6 +283,7 @@ namespace dex {
             auto deal_time = this->deal_time.elapsed.count(); // print the ms value
             PRINT_PROPERTIES(
                 PP0(id),
+                PP(sym_pair_id),
                 PP(buy_order_id),
                 PP(sell_order_id),
                 PP(deal_assets),
