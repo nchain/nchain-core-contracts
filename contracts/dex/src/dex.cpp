@@ -136,7 +136,7 @@ void dex_contract::setsympair(const extended_symbol &asset_symbol,
  *       'mos:1:1.00000000 BTC:0:1'
  *
  *   Ex-5: dex operator signed order
- *       'lob:1:1.00000000 BTC:200000000:1:8:4'
+ *       'lob:1:1.00000000 BTC:2.0000 USD:1:8:4'
  */
 void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
     if (from == get_self()) { return; }
