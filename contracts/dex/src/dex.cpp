@@ -117,9 +117,9 @@ void dex_contract::setsympair(const extended_symbol &asset_symbol,
  *  @quantity: order initiator to transfer in quantity of either Token A or B to contract
  *  @memo: order transfer memo format:
  *    "<order_type>:<sym_pair_id>:<target_quantity>:<price>:<external_id>[:<taker_ratio>:[maker_ratio]]"
- *     - order_tyee:
- *          - lob: limit order buy
- *          - los: limit order sell
+ *     - order_type:
+ *          - lob: limit  order buy
+ *          - los: limit  order sell
  *          - mob: market order buy
  *          - mos: market order sell
  *
