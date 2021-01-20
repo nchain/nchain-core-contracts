@@ -266,12 +266,15 @@ void dex_contract::cancel(const uint64_t &order_id) {
     auto order = *it;
     // TODO: support the owner auth to cancel order?
     require_auth(order.owner);
-    asset quantity;
+
+    CHECK(order.status == order_status::MATCHABLE, "The order can not be canceled");
+
     auto sym_pair_tbl = make_symbol_pair_table(get_self());
     auto sym_pair_it = sym_pair_tbl.find(order.sym_pair_id);
     CHECK( sym_pair_it != sym_pair_tbl.end(),
         "The symbol pair id '" + std::to_string(order.sym_pair_id) + "' does not exist");
 
+    asset quantity;
     name bank;
     if (order.order_side == order_side::BUY) {
         quantity = order.frozen_quant - order.matched_coins;
