@@ -15,7 +15,14 @@ using namespace std;
 #define PP0(prop) #prop ":", prop
 #define PRINT_PROPERTIES(...) eosio::print("{", __VA_ARGS__, "}")
 
-#define ASSERT(exp) eosio::check(exp, #exp)
+#ifndef ASSERT
+    #define ASSERT(exp) eosio::check(exp, #exp)
+#endif
+
+#ifndef TRACE
+    #define TRACE print
+#endif
+
 #define CHECK(exp, msg) { if (!(exp)) eosio::check(false, msg); }
 
 template<typename T>

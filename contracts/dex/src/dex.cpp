@@ -268,7 +268,7 @@ void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
 
 void transfer_out(const name &contract, const name &bank, const name &to, const asset &quantity,
                   const string &memo) {
-    print("transfer_out (", PP0(contract), PP(bank), PP(to), PP(quantity), PP(memo), ")\n");
+    TRACE("transfer_out (", PP0(contract), PP(bank), PP(to), PP(quantity), PP(memo), ")\n");
     action(permission_level{contract, "active"_n}, bank, "transfer"_n,
            std::make_tuple(contract, to, quantity, memo))
         .send();
@@ -360,8 +360,8 @@ void dex_contract::match_sym_pair(const name &matcher, const dex::symbol_pair_t 
         auto &maker_it = matching_pair_it.maker_it();
         auto &taker_it = matching_pair_it.taker_it();
 
-        print("matching taker_order=", maker_it.stored_order(), "\n");
-        print("matching maker_order=", taker_it.stored_order(), "\n");
+        TRACE("matching taker_order=", maker_it.stored_order(), "\n");
+        TRACE("matching maker_order=", taker_it.stored_order(), "\n");
 
         const auto &matched_price = maker_it.stored_order().price;
 
@@ -370,7 +370,7 @@ void dex_contract::match_sym_pair(const name &matcher, const dex::symbol_pair_t 
         matching_pair_it.calc_matched_amounts(matched_assets, matched_coins);
         check(matched_assets.amount > 0 || matched_coins.amount > 0, "Invalid calc_matched_amounts!");
         if (matched_assets.amount == 0 || matched_coins.amount == 0) {
-            print("Dust calc_matched_amounts! ", PP0(matched_assets), PP(matched_coins));
+            TRACE("Dust calc_matched_amounts! ", PP0(matched_assets), PP(matched_coins));
         }
 
         auto &buy_it = (taker_it.order_side() == order_side::BUY) ? taker_it : maker_it;
@@ -440,7 +440,7 @@ void dex_contract::match_sym_pair(const name &matcher, const dex::symbol_pair_t 
             deal_item.buy_fee = buy_fee;
             deal_item.sell_fee = sell_fee;
             deal_item.deal_time = cur_block_time;
-            print("The matched deal_item=", deal_item, "\n");
+            TRACE("The matched deal_item=", deal_item, "\n");
         });
 
         matched_count++;
