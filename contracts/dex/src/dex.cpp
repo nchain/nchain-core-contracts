@@ -5,6 +5,28 @@ using namespace eosio;
 using namespace std;
 using namespace dex;
 
+inline std::string str_to_upper(string_view str) {
+    std::string ret(str.size(), 0);
+    for (size_t i = 0; i < str.size(); i++) {
+        ret[i] = std::toupper(str[i]);
+    }
+    return ret;
+}
+
+static const std::map<string, pair<order_type_t, order_side_t>> INPUT_ORDER_TYPE_MAP = {
+    {"LBO", {order_type::LIMIT, order_side::BUY}},
+    {"LSO", {order_type::LIMIT, order_side::SELL}},
+    {"MBO", {order_type::MARKET, order_side::BUY}},
+    {"MSO", {order_type::MARKET, order_side::SELL}}
+};
+
+inline void parse_order_types(string_view str, order_type_t &type, order_side_t &side) {
+    auto it = INPUT_ORDER_TYPE_MAP.find(str_to_upper(str));
+    CHECK(it != INPUT_ORDER_TYPE_MAP.end(), "Invalid order type=" + string(str))
+    type = it->second.first;
+    type = it->second.second;
+}
+
 inline static uint64_t parse_uint64(string_view str) {
    safe<uint64_t> ret;
    to_int(str, ret);
@@ -117,19 +139,19 @@ void dex_contract::setsympair(const extended_symbol &asset_symbol,
  *          - MSO: Market Sell  Order
  *
  *   Ex-1: limit buy order
- *       'LBO:1:1.00000000 BTC:2.0000 USD:1'
+ *       "LBO:1:1.00000000 BTC:2.0000 USD:1"
  *
  *   Ex-2: limit sell order
- *       'LSO:1:1.00000000 BTC:2.0000 USD:1'
+ *       "LSO:1:1.00000000 BTC:2.0000 USD:1"
  *
  *   Ex-3: market buy order
- *       'MBO:1:2.0000 USD:0.0000 USD:1'
+ *       "MBO:1:2.0000 USD:0.0000 USD:1"
  *
  *   Ex-4: market sell order
- *       'MSO:1:1.00000000 BTC:0.0000 USD:1'
+ *       "MSO:1:1.00000000 BTC:0.0000 USD:1"
  *
  *   Ex-5: dex operator signed order
- *       'LBO:1:1.00000000 BTC:2.0000 USD:1:8:4'
+ *       "LBO:1:1.00000000 BTC:2.0000 USD:1:8:4"
  */
 void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
     if (from == get_self()) { return; }
@@ -138,19 +160,18 @@ void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
 
     vector<string_view> params = split(memo, ":");
     CHECK( params.size() > 0 && params[0] == "order", "none-order transfer not supported" )
-    CHECK( params.size() == 7 || params.size() == 9, "memo param size must be 7 or 9, instead of " + to_string(params.size()) )
-    if (_config.check_order_auth || params.size() == 9) { require_auth(_config.admin); }
+    CHECK( params.size() == 5 || params.size() == 7, "memo param size must be 7 or 9, instead of " + to_string(params.size()) )
+    if (_config.check_order_auth || params.size() == 7) { require_auth(_config.admin); }
 
     order_t order;
+    parse_order_types(params[0], order.order_type, order.order_side);
     order.sym_pair_id = parse_uint64(params[1]);
-    order.order_type = parse_order_type(params[2]);
-    order.order_side = parse_order_side(params[3]);
-    order.limit_quant = asset_from_string(params[4]);
-    order.price = asset_from_string(params[5]);
-    order.external_id = parse_external_id(params[6]);
-    if (params.size() == 9) {
-        order.taker_ratio = parse_ratio(params[7]);
-        order.maker_ratio = parse_ratio(params[8]);
+    order.limit_quant = asset_from_string(params[2]);
+    order.price = asset_from_string(params[3]);
+    order.external_id = parse_external_id(params[4]);
+    if (params.size() == 7) {
+        order.taker_ratio = parse_ratio(params[5]);
+        order.maker_ratio = parse_ratio(params[6]);
     } else {
         order.taker_ratio = _config.taker_ratio;
         order.maker_ratio = _config.maker_ratio;

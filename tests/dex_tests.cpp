@@ -281,9 +281,9 @@ public:
 
     mvo init_buy_order(uint64_t sym_pair_id) {
         // buy order
-        // order:<sym_pair_id>:<type>:<side>:<limit_quantity>:<price>:<external_id>[:<taker_ratio>:[maker_ratio]]
+        // "<order_type>:<sym_pair_id>:<target_quantity>:<price>:<external_id>[:<taker_ratio>:[maker_ratio]]"
 
-        string buy_memo = fc::format_string("order:${sym_pair_id}:limit:buy:0.01000000 BTC:1000000000000:1",
+        string buy_memo = fc::format_string("LBO:${sym_pair_id}:0.01000000 BTC:1000000000000:1",
                                       mvo()
                                       ("sym_pair_id", sym_pair_id));
         EXECUTE_ACTION(eosio_token.transfer(N(alice), N(dex), ASSET("100.0000 USD"), buy_memo));
@@ -337,9 +337,9 @@ BOOST_FIXTURE_TEST_CASE( dex_match_test, dex_tester ) try {
     init_sym_pair();
 
     // buy order
-    // order:<sym_pair_id>:<type>:<side>:<limit_quantity>:<price>:<external_id>[:<taker_ratio>:[maker_ratio]]
+    // "<order_type>:<sym_pair_id>:<target_quantity>:<price>:<external_id>[:<taker_ratio>:[maker_ratio]]"
 
-    string buy_memo = "order:1:limit:buy:0.01000000 BTC:1000000000000:1";
+    string buy_memo = "LBO:1:0.01000000 BTC:1000000000000:1";
     EXECUTE_ACTION(eosio_token.transfer(N(alice), N(dex), ASSET("100.0000 USD"), buy_memo));
     uint64_t buy_order_id = 1;
     auto buy_order = mvo()
@@ -364,8 +364,8 @@ BOOST_FIXTURE_TEST_CASE( dex_match_test, dex_tester ) try {
     REQUIRE_MATCHING_OBJECT( new_buy_order, buy_order );
 
     // sell order
-    // order:<sym_pair_id>:<type>:<side>:<limit_quantity>:<price>:<external_id>[:<taker_ratio>:[maker_ratio]]
-    string sell_memo = "order:1:limit:sell:0.01000000 BTC:1000000000000:2";
+    // "<order_type>:<sym_pair_id>:<target_quantity>:<price>:<external_id>[:<taker_ratio>:[maker_ratio]]"
+    string sell_memo = "LSO:1:0.01000000 BTC:1000000000000:2";
     EXECUTE_ACTION(eosio_token.transfer(N(bob), N(dex), ASSET("0.01000000 BTC"), sell_memo));
     uint64_t sell_order_id = 2;
     auto sell_order = mvo()
