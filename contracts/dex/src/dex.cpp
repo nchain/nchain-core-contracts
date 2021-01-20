@@ -159,7 +159,7 @@ void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
     CHECK( quantity.amount > 0, "The quantity must be positive")
 
     vector<string_view> params = split(memo, ":");
-    CHECK( params.size() > 0 && params[0] == "order", "none-order transfer not supported" )
+
     CHECK( params.size() == 5 || params.size() == 7, "memo param size must be 7 or 9, instead of " + to_string(params.size()) )
     if (_config.check_order_auth || params.size() == 7) { require_auth(_config.admin); }
 
