@@ -115,8 +115,9 @@ void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
     if (from == get_self()) {
         return; // transfer out from this contract
     }
-    CHECK(to == get_self(), "Must transfer to this contract");
-    CHECK(quantity.amount > 0, "The quantity must be positive");
+    CHECK( to == get_self(), "Must transfer to this contract")
+    CHECK( quantity.amount > 0, "The quantity must be positive")
+
     auto transfer_bank = get_first_receiver();
 
     vector<string_view> params = split(memo, ":");
@@ -223,10 +224,11 @@ void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
         order.matched_coins = asset(0, coin_symbol);
         order.matched_fee = (order.order_side == order_side::BUY && !sym_pair_it->only_accept_coin_fee) ?
             order.matched_fee = asset(0, asset_symbol) : asset(0, coin_symbol);
+
         order.create_time = current_block_time();
         order.status = order_status::MATCHABLE;
 
-        CHECK(order_tbl.find(order.order_id) == order_tbl.end(), "The order is exist. order_id=" + std::to_string(order.order_id));
+        CHECK( order_tbl.find(order.order_id) == order_tbl.end(), "The order exists: order_id=" + std::to_string(order.order_id));
 
         order_tbl.emplace( get_self(), [&]( auto& o ) {
             o = order;
