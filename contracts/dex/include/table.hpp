@@ -268,6 +268,7 @@ namespace dex {
         order_side_t taker_side;
         asset buy_fee;
         asset sell_fee;
+        string memo;
         time_point deal_time;
 
         uint64_t primary_key() const { return id; }
@@ -292,6 +293,7 @@ namespace dex {
                 PP(taker_side),
                 PP(buy_fee),
                 PP(sell_fee),
+                PP(memo),
                 PP(deal_time)
             );
 

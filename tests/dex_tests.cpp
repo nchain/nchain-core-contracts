@@ -232,11 +232,12 @@ public:
         return ret;
     }
 
-    action_result match(uint32_t max_count, const std::vector<uint64_t> &sym_pairs) {
+    action_result match(uint32_t max_count, const std::vector<uint64_t> &sym_pairs, const string &memo) {
         return push_action( N(dex.matcher), N(match), mvo()
             ("matcher", N(dex.matcher))
             ("max_count", max_count)
             ("sym_pairs", sym_pairs)
+            ("memo", memo)
         );
     }
 
@@ -390,7 +391,7 @@ BOOST_FIXTURE_TEST_CASE( dex_match_test, dex_tester ) try {
     REQUIRE_MATCHING_OBJECT( new_sell_order, sell_order);
 
     // match
-    EXECUTE_ACTION(match(100, {})); // empty sym_pairs, match all sym_pairs
+    EXECUTE_ACTION(match(100, {}, "test")); // empty sym_pairs, match all sym_pairs
 
     buy_order
         ("matched_assets", "0.01000000 BTC")

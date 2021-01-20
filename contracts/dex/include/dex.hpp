@@ -37,7 +37,7 @@ public:
      *  @param max_count the max count of match item
      *  @param sym_pairs the symol pairs to match. is empty, match all
      */
-    [[eosio::action]] void match(const name &matcher, uint32_t max_count, const vector<uint64_t> &sym_pairs);
+    [[eosio::action]] void match(const name &matcher, uint32_t max_count, const vector<uint64_t> &sym_pairs, const string &memo);
 
     [[eosio::action]] void cancel(const uint64_t &order_id);
 
@@ -50,7 +50,7 @@ private:
     dex::config get_default_config();
     void process_refund(dex::order_t &buy_order);
     void match_sym_pair(const name &matcher, const dex::symbol_pair_t &sym_pair, uint32_t max_count,
-                        uint32_t &matched_count);
+                        uint32_t &matched_count, const string &memo);
 
     dex::config_table _conf_tbl;
     dex::config _config;

@@ -261,7 +261,7 @@ void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
 
     if (_config.max_match_count > 0) {
         uint32_t matched_count = 0;
-        match_sym_pair(from, *sym_pair_it, _config.max_match_count, matched_count);
+        match_sym_pair(from, *sym_pair_it, _config.max_match_count, matched_count, "oid:" + std::to_string(order.order_id));
     }
 
 }
@@ -317,7 +317,8 @@ dex::config dex_contract::get_default_config() {
     };
 }
 
-void dex_contract::match(const name &matcher, uint32_t max_count, const vector<uint64_t> &sym_pairs) {
+void dex_contract::match(const name &matcher, uint32_t max_count, const vector<uint64_t> &sym_pairs,
+                         const string &memo) {
 
     CHECK(is_account(matcher), "The matcher account does not exist");
     CHECK(max_count > 0, "The max_count must > 0")
@@ -343,13 +344,13 @@ void dex_contract::match(const name &matcher, uint32_t max_count, const vector<u
     for (const auto &sym_pair : sym_pair_list) {
         if (matched_count >= DEX_MATCH_COUNT_MAX) break;
 
-        match_sym_pair(matcher, sym_pair, max_count, matched_count);
+        match_sym_pair(matcher, sym_pair, max_count, matched_count, memo);
     }
     CHECK(matched_count > 0, "The matched count == 0");
 }
 
 void dex_contract::match_sym_pair(const name &matcher, const dex::symbol_pair_t &sym_pair,
-                                  uint32_t max_count, uint32_t &matched_count) {
+                                  uint32_t max_count, uint32_t &matched_count, const string &memo) {
 
     auto cur_block_time = current_block_time();
     auto order_tbl = make_order_table(get_self());
@@ -439,6 +440,7 @@ void dex_contract::match_sym_pair(const name &matcher, const dex::symbol_pair_t 
             deal_item.taker_side = taker_it.order_side();
             deal_item.buy_fee = buy_fee;
             deal_item.sell_fee = sell_fee;
+            deal_item.memo = memo;
             deal_item.deal_time = cur_block_time;
             TRACE("The matched deal_item=", deal_item, "\n");
         });
