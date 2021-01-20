@@ -61,12 +61,12 @@ namespace dex {
     namespace order_status {
         static const order_status_t NONE = order_status_t();
         static const order_status_t MATCHABLE = "matchable"_n;
-        static const order_status_t COMPLETE = "complete"_n;
+        static const order_status_t COMPLETED = "completed"_n;
         static const order_status_t CANCELED = "canceled"_n;
         // name -> index
         static const std::map<order_status_t, uint8_t> ENUM_MAP = {
             {MATCHABLE,     1},
-            {COMPLETE,      2},
+            {COMPLETED,      2},
             {CANCELED,      3}
         };
 

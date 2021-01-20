@@ -81,7 +81,7 @@ namespace dex {
             CLOSED,
             OPENED,
             MATCHING,
-            COMPLETE
+            COMPLETED
         };
     public:
         matching_order_iterator(match_index_t &match_index, uint64_t sym_pair_id, order_side_t side,
@@ -109,7 +109,7 @@ namespace dex {
                 a.matched_assets = _matched_assets;
                 a.matched_coins = _matched_coins;
                 a.matched_fee = _matched_fee;
-                a.status = order_status::COMPLETE;
+                a.status = order_status::COMPLETED;
             });
             process_data();
         }
@@ -135,7 +135,7 @@ namespace dex {
             if (_status == OPENED) {
                 _status = MATCHING;
             }
-            bool complete = false;
+            bool completed = false;
 
             _matched_assets += new_matched_assets;
             _matched_coins += new_matched_coins;
@@ -145,12 +145,12 @@ namespace dex {
                     CHECK(_matched_coins <= order.limit_quant,
                         "The matched coins=" + _matched_coins.to_string() +
                         " is overflow with limit_quant=" + order.limit_quant.to_string() + " for market buy order");
-                    complete = _matched_coins == order.limit_quant;
+                    completed = _matched_coins == order.limit_quant;
             } else {
                 CHECK(_matched_assets <= order.limit_quant,
                     "The matched assets=" + _matched_assets.to_string() +
                     " is overflow with limit_quant=" + order.limit_quant.to_string());
-                complete = _matched_assets == order.limit_quant;
+                completed = _matched_assets == order.limit_quant;
             }
 
             if (order.order_side == order_side::BUY) {
@@ -158,8 +158,8 @@ namespace dex {
                 CHECK(total_matched_coins <= order.frozen_quant,
                         "The total_matched_coins=" + _matched_coins.to_string() +
                         " is overflow with frozen_quant=" + order.frozen_quant.to_string() + " for buy order");
-                if (complete) {
-                    _status = COMPLETE;
+                if (completed) {
+                    _status = COMPLETED;
                     if (order.order_type == order_type::LIMIT) {
                         if (order.frozen_quant > _matched_coins) {
                             _refund_coins = order.frozen_quant - _matched_coins;
@@ -168,8 +168,8 @@ namespace dex {
                 }
             }
 
-            if (complete) {
-                _status = COMPLETE;
+            if (completed) {
+                _status = COMPLETED;
             }
         }
 
@@ -178,7 +178,7 @@ namespace dex {
         }
 
         inline bool is_complete() const {
-            return _status == COMPLETE;
+            return _status == COMPLETED;
         }
 
         inline bool is_matching() const {

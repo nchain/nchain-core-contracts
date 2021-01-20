@@ -396,7 +396,7 @@ BOOST_FIXTURE_TEST_CASE( dex_match_test, dex_tester ) try {
         ("matched_assets", "0.01000000 BTC")
         ("matched_coins", "100.0000 USD")
         ("matched_fee", "0.00000400 BTC")
-        ("status", "complete");
+        ("status", "completed");
     auto matched_buy_order = get_order(buy_order_id);
     BOOST_CHECK(!matched_buy_order.is_null());
     REQUIRE_MATCHING_OBJECT( matched_buy_order, buy_order );
@@ -405,7 +405,7 @@ BOOST_FIXTURE_TEST_CASE( dex_match_test, dex_tester ) try {
         ("matched_assets", "0.01000000 BTC")
         ("matched_coins", "100.0000 USD")
         ("matched_fee", "0.0800 USD")
-        ("status", "complete");
+        ("status", "completed");
     auto matched_sell_order = get_order(sell_order_id);
     REQUIRE_MATCHING_OBJECT( matched_sell_order, sell_order );
 } FC_LOG_AND_RETHROW()
