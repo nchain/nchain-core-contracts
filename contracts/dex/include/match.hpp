@@ -18,35 +18,35 @@ namespace dex {
     }
 
     inline int64_t calc_precision(int64_t digit) {
-        CHECK(digit <= 18, "precision digit " + std::to_string(digit) + " should be <= 18");
+        CHECK(digit >= 0 && digit <= 18, "precision digit " + std::to_string(digit) + " should be in range[0,18]");
         return power10(digit);
     }
 
-    int64_t calc_asset_amount(const asset &coin_quant, const int64_t price, const symbol &asset_symbol) {
+    int64_t calc_asset_amount(const asset &coin_quant, const asset &price, const symbol &asset_symbol) {
         // should use the max precision to calc
         int64_t digit_diff = asset_symbol.precision() - coin_quant.symbol.precision();
-        int64_t coin_amount = coin_quant.amount;
+        int128_t coin_amount = coin_quant.amount;
         if (digit_diff > 0) {
             coin_amount = multiply_decimal64(coin_amount, calc_precision(digit_diff), 1);
         }
 
-        int64_t asset_amount = divide_decimal64(coin_amount, price, PRICE_PRECISION);
+        int128_t asset_amount = divide_decimal64(coin_amount, price.amount, calc_precision(price.symbol.precision()));
         if (digit_diff < 0) {
-            asset_amount = multiply_decimal64(asset_amount, 1, calc_precision(0 - digit_diff));
+            asset_amount = multiply_decimal64(asset_amount, 1, calc_precision(-digit_diff));
         }
 
         return asset_amount;
     }
 
-    int64_t calc_coin_amount(const asset &asset_quant, const int64_t price, const symbol &coin_symbol) {
+    int64_t calc_coin_amount(const asset &asset_quant, const asset &price, const symbol &coin_symbol) {
         // should use the max precision to calc
         int64_t digit_diff = coin_symbol.precision() - asset_quant.symbol.precision();
-        int64_t asset_amount = asset_quant.amount;
+        int128_t asset_amount = asset_quant.amount;
         if (digit_diff > 0) {
             asset_amount = multiply_decimal64(asset_amount, calc_precision(digit_diff), 1);
         }
 
-        int64_t coin_amount = multiply_decimal64(asset_amount, price, PRICE_PRECISION);
+        int128_t coin_amount = multiply_decimal64(asset_amount, price.amount, calc_precision(price.symbol.precision()));
         if (digit_diff < 0) {
             coin_amount = multiply_decimal64(coin_amount, 1, calc_precision(0 - digit_diff));
         }
@@ -54,11 +54,11 @@ namespace dex {
         return coin_amount;
     }
 
-    asset calc_asset_quant(const asset &coin_quant, const int64_t price, const symbol &asset_symbol) {
+    asset calc_asset_quant(const asset &coin_quant, const asset &price, const symbol &asset_symbol) {
         return asset(calc_asset_amount(coin_quant, price, asset_symbol), asset_symbol);
     }
 
-    asset calc_coin_quant(const asset &asset_quant, const int64_t price, const symbol &coin_symbol) {
+    asset calc_coin_quant(const asset &asset_quant, const asset &price, const symbol &coin_symbol) {
         return asset(calc_coin_amount(asset_quant, price, coin_symbol), coin_symbol);
     }
 
@@ -301,9 +301,9 @@ namespace dex {
         void calc_matched_amounts(asset &matched_assets, asset &matched_coins) {
             const auto &asset_symbol = _sym_pair.asset_symbol.get_symbol();
             const auto &coin_symbol = _sym_pair.coin_symbol.get_symbol();
-            ASSERT(_maker_it->order_type() == order_type::LIMIT && _maker_it->stored_order().price > 0);
+            ASSERT(_maker_it->order_type() == order_type::LIMIT && _maker_it->stored_order().price.amount > 0);
 
-            uint64_t matched_price = _maker_it->stored_order().price;
+            const auto &matched_price = _maker_it->stored_order().price;
 
             auto maker_free_assets = _maker_it->get_free_limit_quant();
             ASSERT(maker_free_assets.symbol == asset_symbol);

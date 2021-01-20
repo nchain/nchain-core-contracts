@@ -11,13 +11,6 @@ inline static uint64_t parse_uint64(string_view str) {
    return ret.value;
 }
 
-int64_t parse_price(string_view str) {
-   safe<int64_t> ret;
-   to_int(str, ret);
-   // TODO: check range of price
-   return ret.value;
-}
-
 uint64_t parse_external_id(string_view str) {
    safe<uint64_t> ret;
    to_int(str, ret);
@@ -130,10 +123,10 @@ void dex_contract::setsympair(const extended_symbol &asset_symbol,
  *       'LSO:1:1.00000000 BTC:2.0000 USD:1'
  *
  *   Ex-3: market buy order
- *       'MBO:1:2.0000 USD:0:1'
+ *       'MBO:1:2.0000 USD:0.0000 USD:1'
  *
  *   Ex-4: market sell order
- *       'MSO:1:1.00000000 BTC:0:1'
+ *       'MSO:1:1.00000000 BTC:0.0000 USD:1'
  *
  *   Ex-5: dex operator signed order
  *       'LBO:1:1.00000000 BTC:2.0000 USD:1:8:4'
@@ -153,7 +146,7 @@ void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
     order.order_type = parse_order_type(params[2]);
     order.order_side = parse_order_side(params[3]);
     order.limit_quant = asset_from_string(params[4]);
-    order.price = parse_price(params[5]);
+    order.price = asset_from_string(params[5]);
     order.external_id = parse_external_id(params[6]);
     if (params.size() == 9) {
         order.taker_ratio = parse_ratio(params[7]);
@@ -165,18 +158,19 @@ void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
 
     auto sym_pair_tbl = make_symbol_pair_table(get_self());
     auto sym_pair_it = sym_pair_tbl.find(order.sym_pair_id);
-    CHECK( sym_pair_it != sym_pair_tbl.end(), "The symbol pair id '" + std::to_string(order.sym_pair_id) + "' does not exist");
-    CHECK( sym_pair_it->enabled, "The symbol pair '" + std::to_string(order.sym_pair_id) + " is disabled");
-
-    // check price
-    if (order.order_type == order_type::LIMIT) {
-        CHECK( order.price > 0, "The price must > 0 for limit order")
-    } else { // order.order_type == order_type::LIMIT
-        CHECK( order.price == 0, "The price must == 0 for market order")
-    }
+    CHECK( sym_pair_it != sym_pair_tbl.end(), "The symbol pair id '" + std::to_string(order.sym_pair_id) + "' does not exist")
+    CHECK( sym_pair_it->enabled, "The symbol pair '" + std::to_string(order.sym_pair_id) + " is disabled")
 
     const auto &asset_symbol = sym_pair_it->asset_symbol.get_symbol();
     const auto &coin_symbol = sym_pair_it->coin_symbol.get_symbol();
+    // check price
+    CHECK(order.price.symbol == coin_symbol, "The price symbol mismatch with coin_symbol")
+    if (order.order_type == order_type::LIMIT) {
+        CHECK( order.price.amount > 0, "The price must > 0 for limit order")
+    } else { // order.order_type == order_type::LIMIT
+        CHECK( order.price.amount == 0, "The price must == 0 for market order")
+    }
+
     auto transfer_bank = get_first_receiver();
 
     if (order.order_side == order_side::BUY) {
@@ -348,7 +342,7 @@ void dex_contract::match_sym_pair(const name &matcher, const dex::symbol_pair_t 
         print("matching taker_order=", maker_it.stored_order(), "\n");
         print("matching maker_order=", taker_it.stored_order(), "\n");
 
-        int64_t match_price = maker_it.stored_order().price;
+        const auto &matched_price = maker_it.stored_order().price;
 
         asset matched_coins;
         asset matched_assets;
@@ -419,7 +413,7 @@ void dex_contract::match_sym_pair(const name &matcher, const dex::symbol_pair_t 
             deal_item.sell_order_id = sell_order.order_id;
             deal_item.deal_assets = matched_assets;
             deal_item.deal_coins = matched_coins;
-            deal_item.deal_price = match_price;
+            deal_item.deal_price = matched_price;
             deal_item.taker_side = taker_it.order_side();
             deal_item.buy_fee = buy_fee;
             deal_item.sell_fee = sell_fee;

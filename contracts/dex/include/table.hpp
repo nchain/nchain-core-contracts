@@ -202,7 +202,7 @@ namespace dex {
         uint64_t sym_pair_id; // id of symbol_pair_table
         order_type_t order_type;
         order_side_t order_side;
-        int64_t price;
+        asset price;
         asset limit_quant;
         asset frozen_quant;
         int64_t taker_ratio;
@@ -214,7 +214,7 @@ namespace dex {
         order_status_t  status;
         uint64_t primary_key() const { return order_id; }
         order_match_idx_key get_order_match_idx() const {
-            return make_order_match_idx(sym_pair_id, status, order_side, order_type, price, order_id);
+            return make_order_match_idx(sym_pair_id, status, order_side, order_type, price.amount, order_id);
         }
 
         uint64_t get_external_idx() const {
@@ -263,7 +263,7 @@ namespace dex {
         uint64_t sell_order_id;
         asset deal_assets;
         asset deal_coins;
-        uint64_t deal_price;
+        asset deal_price;
         order_side_t taker_side;
         asset buy_fee;
         asset sell_fee;
