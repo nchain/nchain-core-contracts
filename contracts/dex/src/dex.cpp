@@ -118,25 +118,25 @@ void dex_contract::setsympair(const extended_symbol &asset_symbol,
  *  @memo: order transfer memo format:
  *    "<order_type>:<sym_pair_id>:<target_quantity>:<price>:<external_id>[:<taker_ratio>:[maker_ratio]]"
  *     - order_type:
- *          - lob: limit  order buy
- *          - los: limit  order sell
- *          - mob: market order buy
- *          - mos: market order sell
+ *          - LBO: Limit  Buy   Order
+ *          - LSO: Limit  Sell  Order
+ *          - MBO: Market Buy   Order
+ *          - MSO: Market Sell  Order
  *
  *   Ex-1: limit buy order
- *       'lob:1:1.00000000 BTC:2.0000 USD:1'
+ *       'LBO:1:1.00000000 BTC:2.0000 USD:1'
  *
  *   Ex-2: limit sell order
- *       'los:1:1.00000000 BTC:2.0000 USD:1'
+ *       'LSO:1:1.00000000 BTC:2.0000 USD:1'
  *
  *   Ex-3: market buy order
- *       'mob:1:2.0000 USD:0:1'
+ *       'MBO:1:2.0000 USD:0:1'
  *
  *   Ex-4: market sell order
- *       'mos:1:1.00000000 BTC:0:1'
+ *       'MSO:1:1.00000000 BTC:0:1'
  *
  *   Ex-5: dex operator signed order
- *       'lob:1:1.00000000 BTC:2.0000 USD:1:8:4'
+ *       'LBO:1:1.00000000 BTC:2.0000 USD:1:8:4'
  */
 void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
     if (from == get_self()) { return; }
