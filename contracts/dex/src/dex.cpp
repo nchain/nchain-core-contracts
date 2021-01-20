@@ -417,10 +417,10 @@ void dex_contract::match_sym_pair(const name &matcher, const dex::symbol_pair_t 
         buy_it.match(matched_assets, matched_coins, buy_fee);
         sell_it.match(matched_assets, matched_coins, sell_fee);
 
-        CHECK(buy_it.is_complete() || sell_it.is_complete(), "Neither buy_order nor sell_order is completed");
+        CHECK(buy_it.is_completed() || sell_it.is_completed(), "Neither buy_order nor sell_order is completed");
 
         // process refund
-        if (buy_it.is_complete()) {
+        if (buy_it.is_completed()) {
             auto refunds = buy_it.get_refund_coins();
             if (refunds.amount > 0) {
                 transfer_out(get_self(), coin_bank, buy_order.owner, refunds, "refund_coins");

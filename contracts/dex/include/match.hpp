@@ -102,7 +102,7 @@ namespace dex {
 
         template<typename table_t>
         void complete_and_next(table_t &table) {
-            ASSERT(is_complete());
+            ASSERT(is_completed());
             const auto &store_order = *_it;
             _it++;
             table.modify(store_order, same_payer, [&]( auto& a ) {
@@ -177,7 +177,7 @@ namespace dex {
             return _status != CLOSED;
         }
 
-        inline bool is_complete() const {
+        inline bool is_completed() const {
             return _status == COMPLETED;
         }
 
@@ -198,7 +198,7 @@ namespace dex {
         }
 
         inline asset get_refund_coins() const {
-            ASSERT(is_complete());
+            ASSERT(is_completed());
             return _refund_coins;
         }
 
@@ -268,10 +268,10 @@ namespace dex {
 
         template<typename table_t>
         void complete_and_next(table_t &table) {
-            if (_taker_it->is_complete()) {
+            if (_taker_it->is_completed()) {
                 _taker_it->complete_and_next(table);
             }
-            if (_maker_it->is_complete()) {
+            if (_maker_it->is_completed()) {
                 _maker_it->complete_and_next(table);
             }
             process_data();
