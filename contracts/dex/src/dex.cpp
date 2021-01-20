@@ -24,7 +24,7 @@ inline void parse_order_types(string_view str, order_type_t &type, order_side_t 
     auto it = INPUT_ORDER_TYPE_MAP.find(str_to_upper(str));
     CHECK(it != INPUT_ORDER_TYPE_MAP.end(), "Invalid order type=" + string(str))
     type = it->second.first;
-    type = it->second.second;
+    side = it->second.second;
 }
 
 inline static uint64_t parse_uint64(string_view str) {

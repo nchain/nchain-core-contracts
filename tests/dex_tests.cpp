@@ -283,7 +283,7 @@ public:
         // buy order
         // "<order_type>:<sym_pair_id>:<target_quantity>:<price>:<external_id>[:<taker_ratio>:[maker_ratio]]"
 
-        string buy_memo = fc::format_string("LBO:${sym_pair_id}:0.01000000 BTC:1000000000000:1",
+        string buy_memo = fc::format_string("LBO:${sym_pair_id}:0.01000000 BTC:10000.0000 USD:1",
                                       mvo()
                                       ("sym_pair_id", sym_pair_id));
         EXECUTE_ACTION(eosio_token.transfer(N(alice), N(dex), ASSET("100.0000 USD"), buy_memo));
@@ -295,7 +295,7 @@ public:
             ("owner", "alice")
             ("order_type", "limit")
             ("order_side", "buy")
-            ("price", "1000000000000")
+            ("price", "10000.0000 USD")
             ("limit_quant", "0.01000000 BTC")
             ("frozen_quant", "100.0000 USD")
             ("external_id", 1)
@@ -339,7 +339,7 @@ BOOST_FIXTURE_TEST_CASE( dex_match_test, dex_tester ) try {
     // buy order
     // "<order_type>:<sym_pair_id>:<target_quantity>:<price>:<external_id>[:<taker_ratio>:[maker_ratio]]"
 
-    string buy_memo = "LBO:1:0.01000000 BTC:1000000000000:1";
+    string buy_memo = "LBO:1:0.01000000 BTC:10000.0000 USD:1";
     EXECUTE_ACTION(eosio_token.transfer(N(alice), N(dex), ASSET("100.0000 USD"), buy_memo));
     uint64_t buy_order_id = 1;
     auto buy_order = mvo()
@@ -348,7 +348,7 @@ BOOST_FIXTURE_TEST_CASE( dex_match_test, dex_tester ) try {
         ("owner", "alice")
         ("order_type", "limit")
         ("order_side", "buy")
-        ("price", "1000000000000")
+        ("price", "10000.0000 USD")
         ("limit_quant", "0.01000000 BTC")
         ("frozen_quant", "100.0000 USD")
         ("external_id", 1)
@@ -365,7 +365,7 @@ BOOST_FIXTURE_TEST_CASE( dex_match_test, dex_tester ) try {
 
     // sell order
     // "<order_type>:<sym_pair_id>:<target_quantity>:<price>:<external_id>[:<taker_ratio>:[maker_ratio]]"
-    string sell_memo = "LSO:1:0.01000000 BTC:1000000000000:2";
+    string sell_memo = "LSO:1:0.01000000 BTC:10000.0000 USD:2";
     EXECUTE_ACTION(eosio_token.transfer(N(bob), N(dex), ASSET("0.01000000 BTC"), sell_memo));
     uint64_t sell_order_id = 2;
     auto sell_order = mvo()
@@ -374,7 +374,7 @@ BOOST_FIXTURE_TEST_CASE( dex_match_test, dex_tester ) try {
         ("owner", "bob")
         ("order_type", "limit")
         ("order_side", "sell")
-        ("price", "1000000000000")
+        ("price", "10000.0000 USD")
         ("limit_quant", "0.01000000 BTC")
         ("frozen_quant", "0.01000000 BTC")
         ("external_id", 2)
