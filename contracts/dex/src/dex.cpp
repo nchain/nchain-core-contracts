@@ -114,24 +114,29 @@ void dex_contract::setsympair(const extended_symbol &asset_symbol,
 /**
  *  @from: order initiator
  *  @to: DEX contract
- *  @quantity: either A or B quantity to be frozen
+ *  @quantity: order initiator to transfer in quantity of either Token A or B to contract
  *  @memo: order transfer memo format:
- *   "order:<sym_pair_id>:<type>:<side>:<target_quantity>:<price>:<external_id>[:<taker_ratio>:[maker_ratio]]"
+ *    "<order_type>:<sym_pair_id>:<target_quantity>:<price>:<external_id>[:<taker_ratio>:[maker_ratio]]"
+ *     - order_tyee:
+ *          - lob: limit order buy
+ *          - los: limit order sell
+ *          - mob: market order buy
+ *          - mos: market order sell
  *
  *   Ex-1: limit buy order
- *       'order:1:limit:buy:1.00000000 BTC:2.0000 USD:1'
+ *       'lob:1:1.00000000 BTC:2.0000 USD:1'
  *
  *   Ex-2: limit sell order
- *       'order:1:limit:sell:1.00000000 BTC:2.0000 USD:1'
+ *       'los:1:1.00000000 BTC:2.0000 USD:1'
  *
  *   Ex-3: market buy order
- *       'order:1:market:buy:2.0000 USD:0:1'
+ *       'mob:1:2.0000 USD:0:1'
  *
  *   Ex-4: market sell order
- *       'order:1:market:sell:1.00000000 BTC:0:1'
+ *       'mos:1:1.00000000 BTC:0:1'
  *
  *   Ex-5: dex operator signed order
- *       'order:1:limit:buy:1.00000000 BTC:200000000:1:8:4'
+ *       'lob:1:1.00000000 BTC:200000000:1:8:4'
  */
 void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
     if (from == get_self()) { return; }
