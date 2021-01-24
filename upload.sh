@@ -11,6 +11,3 @@ rsync -rav -e ssh \
     --exclude='CMakeCache.txt' \
     --exclude='CMakeLists.txt' \
     ./build/contracts/ ${host}:/opt/mgp/wallet/contracts
-
-rsync -rav -e ssh \
-    ./unittest.sh ${host}:/opt/mgp/wallet/
