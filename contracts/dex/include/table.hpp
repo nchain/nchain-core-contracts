@@ -212,14 +212,11 @@ namespace dex {
         asset matched_fee;        //!< total matched fees
         order_status_t  status;
         uint64_t primary_key() const { return order_id; }
-        order_match_idx_key get_order_match_idx() const {
-            return make_order_match_idx(sym_pair_id, status, order_side, order_type, price.amount, order_id);
-        }
 
-        uint64_t get_external_idx() const {
-            return external_id;
-        }
-
+        uint64_t by_owner()const { return owner.value; }
+        uint64_t by_external_id()const { return external_id; }
+        order_match_idx_key get_order_match_idx()const { return make_order_match_idx(sym_pair_id, status, order_side, order_type, price.amount, order_id); }
+        
         void print() const {
             auto create_time = this->create_time.elapsed.count(); // print the ms value
             PRINT_PROPERTIES(
@@ -244,17 +241,16 @@ namespace dex {
         }
     };
 
-    using order_match_idx = indexed_by<"ordermatch"_n, const_mem_fun<order_t, order_match_idx_key,
-           &order_t::get_order_match_idx>>;
-    using order_external_idx = indexed_by<"orderextidx"_n, const_mem_fun<order_t, uint64_t,
-           &order_t::get_external_idx>>;
+    using order_owner_idx = indexed_by<"orderowner"_n, const_mem_fun<order_t, uint64_t, &order_t::by_owner> >;
+    using order_external_idx = indexed_by<"orderextidx"_n, const_mem_fun<order_t, uint64_t, &order_t::by_owner> >;
+    using order_match_idx = indexed_by<"ordermatch"_n, const_mem_fun<order_t, order_match_idx_key, &order_t::get_order_match_idx> >;
 
-    typedef eosio::multi_index<"order"_n, order_t, order_match_idx, order_external_idx> order_table;
+    typedef eosio::multi_index<"order"_n, order_t, 
+        order_owner_idx, 
+        order_external_idx,
+        order_match_idx> order_tbl;
 
-    inline static order_table make_order_table(const name &self) {
-        return order_table(self, self.value/*scope*/);
-    }
-
+    inline static order_tbl make_order_table(const name &self) { return order_tbl(self, self.value/*scope*/); }
 
     struct DEX_TABLE deal_item_t {
         uint64_t id;
