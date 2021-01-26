@@ -216,7 +216,7 @@ namespace dex {
         uint64_t by_owner()const { return owner.value; }
         uint64_t by_external_id()const { return external_id; }
         order_match_idx_key get_order_match_idx()const { return make_order_match_idx(sym_pair_id, status, order_side, order_type, price.amount, order_id); }
-        
+
         void print() const {
             auto create_time = this->create_time.elapsed.count(); // print the ms value
             PRINT_PROPERTIES(
@@ -242,11 +242,11 @@ namespace dex {
     };
 
     using order_owner_idx = indexed_by<"orderowner"_n, const_mem_fun<order_t, uint64_t, &order_t::by_owner> >;
-    using order_external_idx = indexed_by<"orderextidx"_n, const_mem_fun<order_t, uint64_t, &order_t::by_owner> >;
+    using order_external_idx = indexed_by<"orderextidx"_n, const_mem_fun<order_t, uint64_t, &order_t::by_external_id> >;
     using order_match_idx = indexed_by<"ordermatch"_n, const_mem_fun<order_t, order_match_idx_key, &order_t::get_order_match_idx> >;
 
-    typedef eosio::multi_index<"order"_n, order_t, 
-        order_owner_idx, 
+    typedef eosio::multi_index<"order"_n, order_t,
+        order_owner_idx,
         order_external_idx,
         order_match_idx> order_tbl;
 
