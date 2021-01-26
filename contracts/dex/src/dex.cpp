@@ -1,5 +1,6 @@
 #include <dex.hpp>
 #include "dex_const.hpp"
+#include "version.hpp"
 
 using namespace eosio;
 using namespace std;
@@ -450,4 +451,8 @@ void dex_contract::match_sym_pair(const name &matcher, const dex::symbol_pair_t 
     }
 
     matching_pair_it.save_matching_order(order_tbl);
+}
+
+void dex_contract::version() {
+    CHECK(false, "version: " + dex::version());
 }

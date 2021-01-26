@@ -41,11 +41,14 @@ public:
 
     [[eosio::action]] void cancel(const uint64_t &order_id);
 
-    using setconfig_action = action_wrapper<"setconfig"_n, &dex_contract::setconfig>;
+    [[eosio::action]] void version();
+
+    using setconfig_action  = action_wrapper<"setconfig"_n, &dex_contract::setconfig>;
     using setsympair_action = action_wrapper<"setsympair"_n, &dex_contract::setsympair>;
     using ontransfer_action = action_wrapper<"ontransfer"_n, &dex_contract::ontransfer>;
-    using match_action     = action_wrapper<"match"_n, &dex_contract::match>;
+    using match_action      = action_wrapper<"match"_n, &dex_contract::match>;
     using cancel_action     = action_wrapper<"cancel"_n, &dex_contract::cancel>;
+    using version_action    = action_wrapper<"version"_n, &dex_contract::version>;
 private:
     dex::config get_default_config();
     void process_refund(dex::order_t &buy_order);
