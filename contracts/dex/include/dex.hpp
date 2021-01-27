@@ -2,7 +2,7 @@
 
 #include <eosio/eosio.hpp>
 #include "dex_const.hpp"
-#include "table.hpp"
+#include "dex_states.hpp"
 #include "match.hpp"
 
 using namespace std;
