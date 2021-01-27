@@ -206,7 +206,7 @@ namespace dex {
         asset frozen_quant;
         int64_t taker_ratio;
         int64_t maker_ratio;
-        time_point create_time;
+        time_point created_at;
         asset matched_assets;      //!< total matched asset quantity
         asset matched_coins;       //!< total matched coin quantity
         asset matched_fee;        //!< total matched fees
@@ -218,7 +218,7 @@ namespace dex {
         order_match_idx_key get_order_match_idx()const { return make_order_match_idx(sym_pair_id, status, order_side, order_type, price.amount, order_id); }
 
         void print() const {
-            auto create_time = this->create_time.elapsed.count(); // print the ms value
+            auto created_at = this->created_at.elapsed.count(); // print the ms value
             PRINT_PROPERTIES(
                 PP(order_id),
                 PP(external_id),
@@ -231,7 +231,7 @@ namespace dex {
                 PP(frozen_quant),
                 PP(taker_ratio),
                 PP(maker_ratio),
-                PP(create_time),
+                PP(created_at),
                 PP(matched_assets),
                 PP(matched_coins),
                 PP(matched_fee),
