@@ -1,6 +1,6 @@
 #pragma once
 
-#include "table.hpp"
+#include "dex_states.hpp"
 #include <utils.hpp>
 
 namespace dex {
