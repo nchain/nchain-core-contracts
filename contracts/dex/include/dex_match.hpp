@@ -23,35 +23,15 @@ namespace dex {
     }
 
     int64_t calc_asset_amount(const asset &coin_quant, const asset &price, const symbol &asset_symbol) {
-        // should use the max precision to calc
-        int64_t digit_diff = asset_symbol.precision() - coin_quant.symbol.precision();
-        int128_t coin_amount = coin_quant.amount;
-        if (digit_diff > 0) {
-            coin_amount = multiply_decimal64(coin_amount, calc_precision(digit_diff), 1);
-        }
-
-        int128_t asset_amount = divide_decimal64(coin_amount, price.amount, calc_precision(price.symbol.precision()));
-        if (digit_diff < 0) {
-            asset_amount = multiply_decimal64(asset_amount, 1, calc_precision(-digit_diff));
-        }
-
-        return asset_amount;
+        ASSERT(coin_quant.symbol.precision() == price.symbol.precision());
+        int128_t precision = calc_precision(asset_symbol.precision());
+        return divide_decimal64(coin_quant.amount, price.amount, precision);
     }
 
     int64_t calc_coin_amount(const asset &asset_quant, const asset &price, const symbol &coin_symbol) {
-        // should use the max precision to calc
-        int64_t digit_diff = coin_symbol.precision() - asset_quant.symbol.precision();
-        int128_t asset_amount = asset_quant.amount;
-        if (digit_diff > 0) {
-            asset_amount = multiply_decimal64(asset_amount, calc_precision(digit_diff), 1);
-        }
-
-        int128_t coin_amount = multiply_decimal64(asset_amount, price.amount, calc_precision(price.symbol.precision()));
-        if (digit_diff < 0) {
-            coin_amount = multiply_decimal64(coin_amount, 1, calc_precision(0 - digit_diff));
-        }
-
-        return coin_amount;
+        ASSERT(coin_symbol.precision() == price.symbol.precision());
+        int128_t precision = calc_precision(asset_quant.symbol.precision());
+        return multiply_decimal64(asset_quant.amount, price.amount, precision);
     }
 
     asset calc_asset_quant(const asset &coin_quant, const asset &price, const symbol &asset_symbol) {
