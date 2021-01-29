@@ -10,6 +10,7 @@
 
 using namespace std;
 
+#define EMPTY_MACRO_FUNC(...)
 
 #define PP(prop) "," #prop ":", prop
 #define PP0(prop) #prop ":", prop
