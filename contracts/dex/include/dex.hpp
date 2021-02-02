@@ -33,7 +33,9 @@ public:
 
     [[eosio::on_notify("*::transfer")]] void ontransfer(name from, name to, asset quantity,
                                                         string memo);
-    // TODO: const list<uint64_t> &sym_pairs
+
+    [[eosio::action]] void withdraw(const name &user, const name &to, const extended_asset &to_withdraw, const string &memo);
+
     /**
      *  @param max_count the max count of match item
      *  @param sym_pairs the symol pairs to match. is empty, match all

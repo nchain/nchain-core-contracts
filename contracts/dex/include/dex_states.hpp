@@ -193,6 +193,27 @@ namespace dex {
         return ret;
     }
 
+    uint128_t make_uint128(uint128_t high_val, uint128_t low_val) {
+        return uint128_t(high_val) << 64 | uint128_t(low_val);
+    }
+
+    struct [[eosio::table]] account_t {
+        uint64_t id;
+        extended_asset balance;
+        uint64_t primary_key() const { return id; }
+        uint128_t secondary_key() const {
+            return make_uint128(balance.contract.value, balance.quantity.symbol.raw());
+        }
+    };
+    using account_sym_idx = indexed_by<"acctsymidx"_n, const_mem_fun<account_t, uint128_t,
+           &account_t::secondary_key>>;
+
+    typedef eosio::multi_index<"account"_n, account_t, account_sym_idx> account_table;
+
+    inline static account_table make_account_table(const name &self, const name &user) {
+        return account_table(self, user.value/*scope*/);
+    }
+
     struct DEX_TABLE order_t {
         uint64_t order_id; // auto-increment
         uint64_t external_id; // external id

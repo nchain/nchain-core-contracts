@@ -159,7 +159,31 @@ void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
     CHECK( to == get_self(), "Must transfer to this contract")
     CHECK( quantity.amount > 0, "The quantity must be positive")
 
+    auto transfer_bank = get_first_receiver();
+
     vector<string_view> params = split(memo, ":");
+
+    if (params.size() >= 1 && params[0] == "deposit") {
+        auto account_tbl = make_account_table(get_self(), from);
+
+        auto index = account_tbl.get_index<static_cast<name::raw>(account_sym_idx::index_name)>();
+        auto it = index.find( make_uint128(transfer_bank.value, quantity.symbol.raw()) );
+        if (it == index.end()) {
+            // create balance of account
+            const auto &ram_payer = has_auth(to) ? to : from;
+            account_tbl.emplace( ram_payer, [&]( auto& a ) {
+                a.id = account_tbl.available_primary_key(); // TODO: add auto-inc account_id in global
+                a.balance.contract = transfer_bank;
+                a.balance.quantity = quantity;
+            });
+        } else {
+            ASSERT(it->balance.contract == transfer_bank);
+            index.modify(it, same_payer, [&]( auto& a ) {
+                a.balance.quantity += quantity;
+            });
+        }
+        return;
+    }
 
     CHECK( params.size() == 5 || params.size() == 7, "memo param size must be 7 or 9, instead of " + to_string(params.size()) )
     if (_config.check_order_auth || params.size() == 7) { require_auth(_config.admin); }
@@ -192,8 +216,6 @@ void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
     } else { // order.order_type == order_type::LIMIT
         CHECK( order.price.amount == 0, "The price must == 0 for market order")
     }
-
-    auto transfer_bank = get_first_receiver();
 
     if (order.order_side == order_side::BUY) {
         const auto &expected_bank = sym_pair_it->coin_symbol.get_contract();
@@ -273,6 +295,30 @@ void transfer_out(const name &contract, const name &bank, const name &to, const 
     action(permission_level{contract, "active"_n}, bank, "transfer"_n,
            std::make_tuple(contract, to, quantity, memo))
         .send();
+}
+
+void dex_contract::withdraw(const name &user, const name &to,
+                            const extended_asset &to_withdraw,
+                            const string &memo) {
+    require_auth(user);
+    check(to_withdraw.quantity.amount > 0, "quantity must be positive");
+
+    auto account_tbl = make_account_table(get_self(), user);
+    auto index = account_tbl.get_index<static_cast<name::raw>(account_sym_idx::index_name)>();
+    auto it = index.find( make_uint128(to_withdraw.contract.value, to_withdraw.quantity.symbol.raw()) );
+    CHECK(it != index.end(),
+          "the balance does not exist! user=" + user.to_string() +
+              ", bank=" + to_withdraw.contract.to_string() +
+              ", sym=" + symbol_to_string(to_withdraw.quantity.symbol));
+
+    ASSERT(it->balance.contract == to_withdraw.contract);
+
+    index.modify(it, same_payer, [&]( auto& a ) {
+        a.balance.quantity -= to_withdraw.quantity;
+        CHECK(it->balance.quantity.amount >= 0, "insufficient funds");
+    });
+
+    transfer_out(get_self(), to_withdraw.contract, user, to_withdraw.quantity, "withdraw");
 }
 
 void dex_contract::cancel(const uint64_t &order_id) {
