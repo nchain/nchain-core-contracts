@@ -297,10 +297,8 @@ namespace dex {
 
     };
 
-    using deal_buy_idx = indexed_by<"dealbuyidx"_n, const_mem_fun<deal_item_t, uint64_t,
-           &deal_item_t::get_buy_id>>;
-    using deal_sell_idx = indexed_by<"dealsellidx"_n, const_mem_fun<deal_item_t, uint64_t,
-           &deal_item_t::get_sell_id>>;
+    using deal_buy_idx = indexed_by<"dealbuyidx"_n, const_mem_fun<deal_item_t, uint64_t, &deal_item_t::get_buy_id>>;
+    using deal_sell_idx = indexed_by<"dealsellidx"_n, const_mem_fun<deal_item_t, uint64_t, &deal_item_t::get_sell_id>>;
 
     typedef eosio::multi_index<"deal"_n, deal_item_t, deal_buy_idx, deal_sell_idx> deal_table;
 
