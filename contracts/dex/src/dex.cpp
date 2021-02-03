@@ -34,22 +34,9 @@ inline static uint64_t parse_uint64(string_view str) {
    return ret.value;
 }
 
-uint64_t parse_external_id(string_view str) {
-   safe<uint64_t> ret;
-   to_int(str, ret);
-   return ret.value;
-}
-
 void validate_fee_ratio(int64_t ratio, const string &title) {
     CHECK(ratio >= 0 && ratio <= FEE_RATIO_MAX,
           "The " + title + " out of range [0, " + std::to_string(FEE_RATIO_MAX) + "]");
-}
-
-int64_t parse_ratio(string_view str) {
-   safe<int64_t> ret;
-   to_int(str, ret);
-   validate_fee_ratio(ret.value, "ratio");
-   return ret.value;
 }
 
 name parse_order_type(string_view str) {
@@ -185,39 +172,39 @@ void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
         return;
     }
 
-    CHECK( params.size() == 5 || params.size() == 7, "memo param size must be 7 or 9, instead of " + to_string(params.size()) )
+    CHECK( params.size() == 5 || params.size() == 7, "memo param size must be 5 or 7, instead of " + to_string(params.size()) )
     if (_config.check_order_auth || params.size() == 7) { require_auth(_config.admin); }
 
-    order_t order;
-    parse_order_types(params[0], order.order_type, order.order_side);
-    order.sym_pair_id = parse_uint64(params[1]);
-    order.limit_quant = asset_from_string(params[2]);
-    order.price = asset_from_string(params[3]);
-    order.external_id = parse_external_id(params[4]);
+    order_type_t order_type;
+    order_side_t order_side;
+    parse_order_types(params[0], order_type, order_side);
+    auto sym_pair_id = parse_uint64(params[1]);
+    auto limit_quant = asset_from_string(params[2]);
+    auto price = asset_from_string(params[3]);
+    auto external_id = parse_uint64(params[4]);
+    auto taker_ratio = _config.taker_ratio;
+    auto maker_ratio = _config.maker_ratio;
     if (params.size() == 7) {
-        order.taker_ratio = parse_ratio(params[5]);
-        order.maker_ratio = parse_ratio(params[6]);
-    } else {
-        order.taker_ratio = _config.taker_ratio;
-        order.maker_ratio = _config.maker_ratio;
+        taker_ratio = parse_uint64(params[5]);
+        maker_ratio = parse_uint64(params[6]);
     }
 
     auto sym_pair_tbl = make_symbol_pair_table(get_self());
-    auto sym_pair_it = sym_pair_tbl.find(order.sym_pair_id);
-    CHECK( sym_pair_it != sym_pair_tbl.end(), "The symbol pair id '" + std::to_string(order.sym_pair_id) + "' does not exist")
-    CHECK( sym_pair_it->enabled, "The symbol pair '" + std::to_string(order.sym_pair_id) + " is disabled")
+    auto sym_pair_it = sym_pair_tbl.find(sym_pair_id);
+    CHECK( sym_pair_it != sym_pair_tbl.end(), "The symbol pair id '" + std::to_string(sym_pair_id) + "' does not exist")
+    CHECK( sym_pair_it->enabled, "The symbol pair '" + std::to_string(sym_pair_id) + " is disabled")
 
     const auto &asset_symbol = sym_pair_it->asset_symbol.get_symbol();
     const auto &coin_symbol = sym_pair_it->coin_symbol.get_symbol();
     // check price
-    CHECK(order.price.symbol == coin_symbol, "The price symbol mismatch with coin_symbol")
-    if (order.order_type == order_type::LIMIT) {
-        CHECK( order.price.amount > 0, "The price must > 0 for limit order")
-    } else { // order.order_type == order_type::LIMIT
-        CHECK( order.price.amount == 0, "The price must == 0 for market order")
+    CHECK(price.symbol == coin_symbol, "The price symbol mismatch with coin_symbol")
+    if (order_type == dex::order_type::LIMIT) {
+        CHECK( price.amount > 0, "The price must > 0 for limit order")
+    } else { // order.order_type == dex::order_type::LIMIT
+        CHECK( price.amount == 0, "The price must == 0 for market order")
     }
 
-    if (order.order_side == order_side::BUY) {
+    if (order_side == dex::order_side::BUY) {
         const auto &expected_bank = sym_pair_it->coin_symbol.get_contract();
         CHECK( transfer_bank == expected_bank, "The transfer bank=" + transfer_bank.to_string() +
                                                     " mismatch with " +
@@ -227,28 +214,28 @@ void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
                     " mismatch with coin_symbol=" + symbol_to_string(coin_symbol) + " for buy order");
 
         asset expected_transfer_coins;
-        if (order.order_type == order_type::LIMIT) {
-            CHECK( order.limit_quant.symbol == asset_symbol,
-                    "The limit_quant symbol=" + symbol_to_string(order.limit_quant.symbol) +
+        if (order_type == dex::order_type::LIMIT) {
+            CHECK( limit_quant.symbol == asset_symbol,
+                    "The limit_quant symbol=" + symbol_to_string(limit_quant.symbol) +
                         " mismatch with asset_symbol=" + symbol_to_string(asset_symbol) +
                         " for limit buy order");
 
-            expected_transfer_coins = dex::calc_coin_quant(order.limit_quant, order.price, coin_symbol);
-        } else {// order.order_type == order_type::MARKET
-            CHECK(order.limit_quant.symbol == coin_symbol,
-                    "The limit_quant symbol=" + symbol_to_string(order.limit_quant.symbol) +
+            expected_transfer_coins = dex::calc_coin_quant(limit_quant, price, coin_symbol);
+        } else {// order_type == order_type::MARKET
+            CHECK(limit_quant.symbol == coin_symbol,
+                    "The limit_quant symbol=" + symbol_to_string(limit_quant.symbol) +
                         " mismatch with coin_symbol=" + symbol_to_string(coin_symbol) +
                         " for market buy order");
-            expected_transfer_coins = order.limit_quant;
+            expected_transfer_coins = limit_quant;
         }
         if (sym_pair_it->only_accept_coin_fee) {
-            expected_transfer_coins += dex::calc_match_fee(order.taker_ratio, expected_transfer_coins);
+            expected_transfer_coins += dex::calc_match_fee(taker_ratio, expected_transfer_coins);
         }
         CHECK( quantity == expected_transfer_coins,
                 "The transfer quantity=" + quantity.to_string() + " != expected_transfer_coins=" +
                     expected_transfer_coins.to_string() + " for buy order");
 
-    } else { // order.order_side == order_side::SELL
+    } else { // order_side == order_side::SELL
         const auto &expected_bank = sym_pair_it->asset_symbol.get_contract();
         CHECK(transfer_bank == expected_bank, "The transfer bank=" + transfer_bank.to_string() +
                                                     " mismatch with " +
@@ -256,37 +243,44 @@ void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
         CHECK(quantity.symbol == asset_symbol,
                 "The transfer quantity symbol=" + symbol_to_string(quantity.symbol) +
                     " mismatch with " + symbol_to_string(asset_symbol) + " for sell order");
-        CHECK(quantity == order.limit_quant, "The transfer quantity=" + quantity.to_string() +
+        CHECK(quantity == limit_quant, "The transfer quantity=" + quantity.to_string() +
                                                 " mismatch with limit_quant=" +
-                                                order.limit_quant.to_string() + " for sell order");
+                                                limit_quant.to_string() + " for sell order");
     }
 
+    validate_fee_ratio(taker_ratio, "ratio");
+    validate_fee_ratio(maker_ratio, "ratio");
     // TODO: need to add the total order coin/asset amount?
 
     auto order_tbl = make_order_table(get_self());
+    const auto &fee_symbol = (order_side == dex::order_side::BUY && !sym_pair_it->only_accept_coin_fee) ?
+            asset_symbol : coin_symbol;
 
-    order.order_id = _global->new_order_id();
-    order.owner = from;
-    order.frozen_quant = quantity;
-    order.matched_assets = asset(0, asset_symbol);
-    order.matched_coins = asset(0, coin_symbol);
-    order.matched_fee = (order.order_side == order_side::BUY && !sym_pair_it->only_accept_coin_fee) ?
-        order.matched_fee = asset(0, asset_symbol) : asset(0, coin_symbol);
+    auto order_id = _global->new_order_id();
+    CHECK( order_tbl.find(order_id) == order_tbl.end(), "The order exists: order_id=" + std::to_string(order_id));
 
-    order.created_at = current_block_time();
-    order.status = order_status::MATCHABLE;
-
-    CHECK( order_tbl.find(order.order_id) == order_tbl.end(), "The order exists: order_id=" + std::to_string(order.order_id));
-
-    order_tbl.emplace( get_self(), [&]( auto& o ) {
-        o = order;
+    order_tbl.emplace(get_self(), [&](auto &order) {
+        order.order_id = order_id;
+        order.external_id = external_id;
+        order.owner = from;
+        order.sym_pair_id = sym_pair_id;
+        order.order_type = order_type;
+        order.order_side = order_side;
+        order.price = price;
+        order.limit_quant = limit_quant;
+        order.frozen_quant = quantity;
+        order.taker_ratio = taker_ratio;
+        order.maker_ratio = maker_ratio;
+        order.created_at = current_block_time();
+        order.matched_assets = asset(0, asset_symbol);
+        order.matched_coins = asset(0, coin_symbol);
+        order.matched_fee = asset(0, fee_symbol);
     });
 
     if (_config.max_match_count > 0) {
         uint32_t matched_count = 0;
-        match_sym_pair(get_self(), *sym_pair_it, _config.max_match_count, matched_count, "oid:" + std::to_string(order.order_id));
+        match_sym_pair(get_self(), *sym_pair_it, _config.max_match_count, matched_count, "oid:" + std::to_string(order_id));
     }
-
 }
 
 void transfer_out(const name &contract, const name &bank, const name &to, const asset &quantity,

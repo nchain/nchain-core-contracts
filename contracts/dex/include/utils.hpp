@@ -74,7 +74,7 @@ void to_int(string_view sv, T& res) {
     res = 0;
     T p = 1;
     for( auto itr = sv.rbegin(); itr != sv.rend(); ++itr ) {
-        CHECK( *itr <= '9' && *itr >= '0', "invalid character");
+        CHECK( *itr <= '9' && *itr >= '0', "invalid numeric character of int");
         res += p * T(*itr-'0');
         p   *= T(10);
     }
