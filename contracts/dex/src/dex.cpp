@@ -151,24 +151,8 @@ void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
     vector<string_view> params = split(memo, ":");
 
     if (params.size() >= 1 && params[0] == "deposit") {
-        auto account_tbl = make_account_table(get_self(), from);
-
-        auto index = account_tbl.get_index<static_cast<name::raw>(account_sym_idx::index_name)>();
-        auto it = index.find( make_uint128(transfer_bank.value, quantity.symbol.raw()) );
-        if (it == index.end()) {
-            // create balance of account
-            const auto &ram_payer = has_auth(to) ? to : from;
-            account_tbl.emplace( ram_payer, [&]( auto& a ) {
-                a.id = account_tbl.available_primary_key(); // TODO: add auto-inc account_id in global
-                a.balance.contract = transfer_bank;
-                a.balance.quantity = quantity;
-            });
-        } else {
-            ASSERT(it->balance.contract == transfer_bank);
-            index.modify(it, same_payer, [&]( auto& a ) {
-                a.balance.quantity += quantity;
-            });
-        }
+        const auto &ram_payer = has_auth(to) ? to : from;
+        add_balance(user, frozen_bank, -frozen_quant, ram_payer);
         return;
     }
 
@@ -598,22 +582,35 @@ void dex_contract::neworder(const name &user, const uint64_t &sym_pair_id,
     name frozen_bank = (order_side == dex::order_side::BUY) ? sym_pair_it->coin_symbol.get_contract() :
             sym_pair_it->asset_symbol.get_contract();
 
-    auto account_tbl = make_account_table(get_self(), user);
-    auto index = account_tbl.get_index<static_cast<name::raw>(account_sym_idx::index_name)>();
-    auto it = index.find( make_uint128(frozen_bank.value, frozen_quant.symbol.raw()) );
-    CHECK(it != index.end(),
-          "the balance does not exist! user=" + user.to_string() +
-              ", bank=" + frozen_bank.to_string() +
-              ", sym=" + symbol_to_string(frozen_quant.symbol));
-    ASSERT(it->balance.contract == frozen_bank);
-
-    index.modify(it, same_payer, [&]( auto& a ) {
-        a.balance.quantity -= frozen_quant;
-        CHECK(it->balance.quantity.amount >= 0, "insufficient funds");
-    });
+    add_balance(user, frozen_bank, -frozen_quant, user);
 
     if (_config.max_match_count > 0) {
         uint32_t matched_count = 0;
         match_sym_pair(get_self(), *sym_pair_it, _config.max_match_count, matched_count, "oid:" + std::to_string(order_id));
     }
+}
+
+void dex_contract::add_balance(const name &user, const name &bank, const asset &quantity, const name &ram_payer) {
+    auto account_tbl = make_account_table(get_self(), user);
+
+    auto index = account_tbl.get_index<static_cast<name::raw>(account_sym_idx::index_name)>();
+    auto it = index.find( make_uint128(bank.value, quantity.symbol.raw()) );
+    if (it == index.end()) {
+        CHECK(quantity.amount >= 0, "the balance does not exist! user=" + user.to_string() +
+              ", bank=" + bank.to_string() +
+              ", sym=" + symbol_to_string(quantity.symbol));
+        // create balance of account
+        account_tbl.emplace( ram_payer, [&]( auto& a ) {
+            a.id = account_tbl.available_primary_key(); // TODO: add auto-inc account_id in global
+            a.balance.contract = bank;
+            a.balance.quantity = quantity;
+        });
+    } else {
+        ASSERT(it->balance.contract == bank);
+        index.modify(it, same_payer, [&]( auto& a ) {
+            a.balance.quantity += quantity;
+            CHECK(it->balance.quantity.amount >= 0, "insufficient balance of user=" + user.to_string());
+        });
+    }
+    return;
 }

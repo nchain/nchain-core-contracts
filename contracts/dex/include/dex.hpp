@@ -69,6 +69,7 @@ private:
     void process_refund(dex::order_t &buy_order);
     void match_sym_pair(const name &matcher, const dex::symbol_pair_t &sym_pair, uint32_t max_count,
                         uint32_t &matched_count, const string &memo);
+    void add_balance(const name &user, const name &bank, const asset &quantity, const name &ram_payer);
 
     dex::config_table _conf_tbl;
     dex::config _config;
