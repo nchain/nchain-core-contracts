@@ -503,7 +503,7 @@ void dex_contract::neworder(const name &user, const uint64_t &sym_pair_id,
         const asset &frozen_quant,
         const asset &price,
         const uint64_t &external_id,
-        const optional<order_config_ex_t> &order_config_ex) {
+        const optional<dex::order_config_ex_t> &order_config_ex) {
 
     if (_config.check_order_auth || order_config_ex) { require_auth(_config.admin); }
 

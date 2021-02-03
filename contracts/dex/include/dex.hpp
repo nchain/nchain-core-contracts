@@ -42,7 +42,7 @@ public:
         const asset &frozen_quant,
         const asset &price,
         const uint64_t &external_id,
-        const optional<order_config_ex_t> &order_config_ex);
+        const optional<dex::order_config_ex_t> &order_config_ex);
 
     /**
      *  @param max_count the max count of match item
