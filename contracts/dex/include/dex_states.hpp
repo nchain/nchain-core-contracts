@@ -65,16 +65,16 @@ namespace dex {
         static const order_status_t CANCELED = "canceled"_n;
         // name -> index
         static const std::map<order_status_t, uint8_t> ENUM_MAP = {
-            {MATCHABLE,     1},
-            {COMPLETED,      2},
-            {CANCELED,      3}
+            {MATCHABLE, 1},
+            {COMPLETED, 2},
+            {CANCELED,  3}
         };
 
         inline uint8_t index(const order_status_t &value) {
-                if (value == NONE) return 0;
-                auto it = ENUM_MAP.find(value);
-                CHECK(it != ENUM_MAP.end(), "Invalid order_status=" + value.to_string());
-                return it->second;
+            if (value == NONE) return 0;
+            auto it = ENUM_MAP.find(value);
+            CHECK(it != ENUM_MAP.end(), "Invalid order_status=" + value.to_string());
+            return it->second;
         }
     }
 
@@ -154,7 +154,6 @@ namespace dex {
     using uint256_t = fixed_bytes<32>;
 
     static inline uint256_t make_symbols_idx(const extended_symbol &asset_symbol, const extended_symbol &coin_symbol) {
-
         return uint256_t::make_from_word_sequence<uint64_t>(asset_symbol.get_contract().value, asset_symbol.get_symbol().code().raw(),
             coin_symbol.get_contract().value, coin_symbol.get_symbol().code().raw());
     }
@@ -210,13 +209,14 @@ namespace dex {
         asset matched_assets;      //!< total matched asset quantity
         asset matched_coins;       //!< total matched coin quantity
         asset matched_fee;        //!< total matched fees
-        order_status_t  status;
+        order_status_t status;
         uint64_t primary_key() const { return order_id; }
 
         uint64_t by_owner()const { return owner.value; }
         uint64_t by_external_id()const { return external_id; }
         order_match_idx_key get_order_match_idx()const { return make_order_match_idx(sym_pair_id, status, order_side, order_type, price.amount, order_id); }
-
+        uint256_t get_order_sym_idx()const { return uint256_t::make_from_word_sequence<uint64_t>(owner.value, sym_pair_id, status.value, 0ULL); }
+        
         void print() const {
             auto created_at = this->created_at.elapsed.count(); // print the ms value
             PRINT_PROPERTIES(
@@ -244,11 +244,12 @@ namespace dex {
     using order_owner_idx = indexed_by<"orderowner"_n, const_mem_fun<order_t, uint64_t, &order_t::by_owner> >;
     using order_external_idx = indexed_by<"orderextidx"_n, const_mem_fun<order_t, uint64_t, &order_t::by_external_id> >;
     using order_match_idx = indexed_by<"ordermatch"_n, const_mem_fun<order_t, order_match_idx_key, &order_t::get_order_match_idx> >;
-
+    using order_owner_sym_idx = indexed_by<"orderownrsym"_n, const_mem_fun<order_t, uint256_t, &order_t::get_order_sym_idx> >;
     typedef eosio::multi_index<"order"_n, order_t,
         order_owner_idx,
         order_external_idx,
-        order_match_idx> order_tbl;
+        order_match_idx,
+        order_owner_sym_idx> order_tbl;
 
     inline static order_tbl make_order_table(const name &self) { return order_tbl(self, self.value/*scope*/); }
 
