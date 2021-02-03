@@ -44,12 +44,16 @@ public:
 
     [[eosio::action]] void version();
 
+    [[eosio::action]] void name2uint(const name& n) { check(false, to_string(n.value)); };
+
     using setconfig_action  = action_wrapper<"setconfig"_n, &dex_contract::setconfig>;
     using setsympair_action = action_wrapper<"setsympair"_n, &dex_contract::setsympair>;
     using ontransfer_action = action_wrapper<"ontransfer"_n, &dex_contract::ontransfer>;
     using match_action      = action_wrapper<"match"_n, &dex_contract::match>;
     using cancel_action     = action_wrapper<"cancel"_n, &dex_contract::cancel>;
     using version_action    = action_wrapper<"version"_n, &dex_contract::version>;
+    using name2uint_action = action_wrapper<"name2uint"_n, &dex_contract::name2uint>;
+
 private:
     dex::config get_default_config();
     void process_refund(dex::order_t &buy_order);
