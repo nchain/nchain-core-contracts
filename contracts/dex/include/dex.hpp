@@ -36,6 +36,14 @@ public:
 
     [[eosio::action]] void withdraw(const name &user, const name &to, const extended_asset &to_withdraw, const string &memo);
 
+    [[eosio::action]] void neworder(const name &user, const uint64_t &sym_pair_id,
+        const name &order_type, const name &order_side,
+        const asset &limit_quant,
+        const asset &frozen_quant,
+        const asset &price,
+        const uint64_t &external_id,
+        const optional<order_config_ex_t> &order_config_ex);
+
     /**
      *  @param max_count the max count of match item
      *  @param sym_pairs the symol pairs to match. is empty, match all

@@ -78,6 +78,11 @@ namespace dex {
         }
     }
 
+    struct order_config_ex_t {
+        uint64_t taker_ratio = 0;
+        uint64_t maker_ratio = 0;
+    };
+
     struct DEX_TABLE config {
         name admin;   // admin of this contract, permisions: manage sym_pairs, authorize order
         name payee;   // payee of this contract
