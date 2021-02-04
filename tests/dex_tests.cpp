@@ -39,6 +39,8 @@ static const extended_symbol USD_SYMBOL = extended_symbol{symbol(4, "USD"), BANK
 
 #define MATCH_FIELD_OBJ(field, value) REQUIRE_MATCHING_OBJECT(o[field], fc::variant(value));
 
+#define REQUIRE_MATCH_FIELD_OBJ(field, statements) REQUIRE_MATCH_OBJ(o[field], statements);
+
 class eosio_token_helper {
 public:
     using action_result = tester::action_result;
@@ -207,8 +209,13 @@ public:
     fc::variant get_order( uint64_t order_id)
     {
         vector<char> data = get_row_by_account( N(dex), N(dex), N(order), name(order_id) );
-        std::cout << "data empty=" << data.empty() << std::endl;
         return data.empty() ? fc::variant() : abi_ser.binary_to_variant( "order_t", data, abi_serializer_max_time );
+    }
+
+    fc::variant get_account( const name &user, uint64_t account_id)
+    {
+        vector<char> data = get_row_by_account( N(dex), user, N(account), name(account_id) );
+        return data.empty() ? fc::variant() : abi_ser.binary_to_variant( "account_t", data, abi_serializer_max_time );
     }
 
     action_result setconfig( const variant_object &conf ) {
@@ -230,6 +237,35 @@ public:
         );
         // sym_pair_id().next();
         return ret;
+    }
+
+    action_result deposit(const name &from, const asset &quantity) {
+        return eosio_token.transfer(N(alice), N(dex), quantity, "deposit");
+    }
+
+    struct order_config_ex_t {
+        uint64_t taker_ratio = 0;
+        uint64_t maker_ratio = 0;
+    };
+
+    action_result neworder(const name &user, const uint64_t &sym_pair_id,
+        const name &order_type, const name &order_side,
+        const asset &limit_quant,
+        const asset &frozen_quant,
+        const asset &price,
+        const uint64_t &external_id,
+        const std::optional<order_config_ex_t> &order_config_ex) {
+
+        return push_action( N(user), N(neworder), mvo()
+            ( "sym_pair_id", sym_pair_id)
+            ( "order_type", order_type)
+            ( "order_side", order_side)
+            ( "limit_quant", limit_quant)
+            ( "frozen_quant", frozen_quant)
+            ( "price", price)
+            ( "external_id", external_id)
+            ( "order_config_ex", 0)
+        );
     }
 
     action_result match(uint32_t max_count, const std::vector<uint64_t> &sym_pairs, const string &memo) {
@@ -265,7 +301,6 @@ public:
     void init_sym_pair() {
         // add symbol pair for trading
         EXECUTE_ACTION(setsympair(BTC_SYMBOL, USD_SYMBOL, ASSET("0.00001000 BTC"), ASSET("0.1000 USD"), false, true));
-        produce_blocks(1);
         uint64_t sym_pair_id = 1;
         auto sym_pair = get_symbol_pair(sym_pair_id);
 
@@ -282,13 +317,20 @@ public:
 
     mvo init_buy_order(uint64_t sym_pair_id) {
         // buy order
-        // "<order_type>:<sym_pair_id>:<target_quantity>:<price>:<external_id>[:<taker_ratio>:[maker_ratio]]"
+        EXECUTE_ACTION(deposit(N(alice), ASSET("100.0000 USD")));
+        auto account = get_account(N(alice), 0);
 
-        string buy_memo = fc::format_string("LBO:${sym_pair_id}:0.01000000 BTC:10000.0000 USD:1",
-                                      mvo()
-                                      ("sym_pair_id", sym_pair_id));
-        EXECUTE_ACTION(eosio_token.transfer(N(alice), N(dex), ASSET("100.0000 USD"), buy_memo));
+        REQUIRE_MATCH_OBJ( account,
+            MATCH_FIELD("id", 0)
+            REQUIRE_MATCH_FIELD_OBJ("balance",
+                MATCH_FIELD("contract", "eosio.token")
+                MATCH_FIELD("quantity", "100.0000 USD")
+            )
+        );
+
         uint64_t order_id = 1;
+        EXECUTE_ACTION(neworder(N(alice), order_id, N(limit), N(buy), ASSET("0.01000000 BTC"), ASSET("100.0000 USD"),
+                ASSET("10000.0000 USD"), 1, std::nullopt));
         auto buy_order = get_order(order_id);
         auto expected_order = mvo()
             ("sym_pair_id", 1)
@@ -338,11 +380,19 @@ BOOST_FIXTURE_TEST_CASE( dex_match_test, dex_tester ) try {
     init_sym_pair();
 
     // buy order
-    // "<order_type>:<sym_pair_id>:<target_quantity>:<price>:<external_id>[:<taker_ratio>:[maker_ratio]]"
+    EXECUTE_ACTION(deposit(N(alice), ASSET("100.0000 USD")));
+    auto buyer_account = get_account(N(alice), 0);
+    REQUIRE_MATCH_OBJ( buyer_account,
+        MATCH_FIELD("id", 0)
+        REQUIRE_MATCH_FIELD_OBJ("balance",
+            MATCH_FIELD("contract", "eosio.token")
+            MATCH_FIELD("quantity", "100.0000 USD")
+        )
+    );
 
-    string buy_memo = "LBO:1:0.01000000 BTC:10000.0000 USD:1";
-    EXECUTE_ACTION(eosio_token.transfer(N(alice), N(dex), ASSET("100.0000 USD"), buy_memo));
     uint64_t buy_order_id = 1;
+    EXECUTE_ACTION(neworder(N(alice), buy_order_id, N(limit), N(buy), ASSET("0.01000000 BTC"), ASSET("100.0000 USD"),
+            ASSET("10000.0000 USD"), 1, std::nullopt));
     auto buy_order = mvo()
         ("sym_pair_id", 1)
         ("order_id", buy_order_id)
@@ -365,10 +415,20 @@ BOOST_FIXTURE_TEST_CASE( dex_match_test, dex_tester ) try {
     REQUIRE_MATCHING_OBJECT( new_buy_order, buy_order );
 
     // sell order
-    // "<order_type>:<sym_pair_id>:<target_quantity>:<price>:<external_id>[:<taker_ratio>:[maker_ratio]]"
-    string sell_memo = "LSO:1:0.01000000 BTC:10000.0000 USD:2";
-    EXECUTE_ACTION(eosio_token.transfer(N(bob), N(dex), ASSET("0.01000000 BTC"), sell_memo));
+    EXECUTE_ACTION(deposit(N(bob), ASSET("0.01000000 BTC")));
+    auto seller_account = get_account(N(bob), 1);
+
+    REQUIRE_MATCH_OBJ( seller_account,
+        MATCH_FIELD("id", 1)
+        REQUIRE_MATCH_FIELD_OBJ("balance",
+            MATCH_FIELD("contract", "eosio.token")
+            MATCH_FIELD("quantity", "0.01000000 BTC")
+        )
+    );
+
     uint64_t sell_order_id = 2;
+    EXECUTE_ACTION(neworder(N(alice), sell_order_id, N(limit), N(buy), ASSET("0.01000000 BTC"), ASSET("0.01000000 BTC"),
+            ASSET("10000.0000 USD"), 2, std::nullopt));
     auto sell_order = mvo()
         ("sym_pair_id", 1)
         ("order_id", sell_order_id)
