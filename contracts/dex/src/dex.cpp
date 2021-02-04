@@ -151,8 +151,7 @@ void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
     vector<string_view> params = split(memo, ":");
 
     if (params.size() >= 1 && params[0] == "deposit") {
-        const auto &ram_payer = has_auth(to) ? to : from;
-        add_balance(from, transfer_bank, quantity, ram_payer);
+        add_balance(from, transfer_bank, quantity, get_self());
         return;
     }
 
