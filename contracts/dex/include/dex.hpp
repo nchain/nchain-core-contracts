@@ -71,6 +71,11 @@ private:
                         uint32_t &matched_count, const string &memo);
     void add_balance(const name &user, const name &bank, const asset &quantity, const name &ram_payer);
 
+    inline void sub_balance(const name &user, const name &bank, const asset &quantity, const name &ram_payer) {
+        ASSERT(quantity.amount >= 0);
+        add_balance(user, bank, -quantity, ram_payer);
+    }
+
     dex::config_table _conf_tbl;
     dex::config _config;
     dex::global_state::ptr_t _global;

@@ -152,7 +152,7 @@ void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
 
     if (params.size() >= 1 && params[0] == "deposit") {
         const auto &ram_payer = has_auth(to) ? to : from;
-        add_balance(user, frozen_bank, -frozen_quant, ram_payer);
+        add_balance(from, transfer_bank, quantity, ram_payer);
         return;
     }
 
@@ -413,32 +413,31 @@ void dex_contract::match_sym_pair(const name &matcher, const dex::symbol_pair_t 
 
 
         asset buy_fee;
+        // transfer the buy_fee to payee
         if (matched_coins.symbol == buy_order.matched_fee.symbol) {
             buy_fee = calc_match_fee(buy_order, taker_it.order_side(), matched_coins);
+            sub_balance(buy_order.owner, coin_bank, buy_fee, get_self());
+            add_balance(_config.payee, coin_bank, buy_fee, get_self());
         } else {
             buy_fee = calc_match_fee(buy_order, taker_it.order_side(), buyer_recv_assets);
             buyer_recv_assets -= buy_fee;
-        }
-        if (buy_fee.amount > 0) {
-            // pay the buy_fee to payee
-            transfer_out(get_self(), asset_bank, _config.payee, buy_fee, "buy_fee");
-        }
-
-        if (buyer_recv_assets.amount > 0) {
-            // transfer the assets to buyer
-            transfer_out(get_self(), asset_bank, buy_order.owner, buyer_recv_assets, "buyer_recv_assets");
+            sub_balance(buy_order.owner, asset_bank, buy_fee, get_self());
+            add_balance(_config.payee, asset_bank, buy_fee, get_self());
         }
 
         auto sell_fee = calc_match_fee(sell_order, taker_it.order_side(), seller_recv_coins);
         seller_recv_coins -= sell_fee;
-        if (sell_fee.amount > 0) {
-            // pay the sell_fee to payee
-            transfer_out(get_self(), coin_bank, _config.payee, sell_fee, "sell_fee");
-        }
-        if (seller_recv_coins.amount > 0) {
-            // transfer the coins to seller
-            transfer_out(get_self(), coin_bank, sell_order.owner, seller_recv_coins, "seller_recv_coins");
-        }
+        // transfer the sell_fee to payee
+        sub_balance(buy_order.owner, coin_bank, sell_fee, get_self());
+        add_balance(_config.payee, coin_bank, sell_fee, get_self());
+
+        // transfer the coins to seller
+        sub_balance(buy_order.owner, coin_bank, seller_recv_coins, get_self());
+        add_balance(sell_order.owner, coin_bank, seller_recv_coins, get_self());
+
+        // transfer the assets to buyer
+        sub_balance(sell_order.owner, asset_bank, buyer_recv_assets, get_self());
+        add_balance(buy_order.owner, asset_bank, buyer_recv_assets, get_self());
 
         buy_it.match(matched_assets, matched_coins, buy_fee);
         sell_it.match(matched_assets, matched_coins, sell_fee);
@@ -582,7 +581,7 @@ void dex_contract::neworder(const name &user, const uint64_t &sym_pair_id,
     name frozen_bank = (order_side == dex::order_side::BUY) ? sym_pair_it->coin_symbol.get_contract() :
             sym_pair_it->asset_symbol.get_contract();
 
-    add_balance(user, frozen_bank, -frozen_quant, user);
+    sub_balance(user, frozen_bank, frozen_quant, user);
 
     if (_config.max_match_count > 0) {
         uint32_t matched_count = 0;
