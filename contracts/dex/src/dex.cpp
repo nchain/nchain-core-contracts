@@ -323,9 +323,10 @@ void dex_contract::cancel(const uint64_t &order_id) {
         quantity = order.frozen_quant - order.matched_assets;
         bank = sym_pair_it->asset_symbol.get_contract();
     }
-    CHECK(quantity.amount > 0, "Can not unfreeze the invalid quantity=" + quantity.to_string());
-    transfer_out(get_self(), bank, order.owner, quantity, "cancel_order");
-
+    CHECK(quantity.amount >= 0, "Can not unfreeze the invalid quantity=" + quantity.to_string());
+    if (quantity.amount > 0) {
+        sub_balance(order.owner, bank, quantity, order.owner);
+    }
     order_tbl.modify(it, same_payer, [&]( auto& a ) {
         a.status = order_status::CANCELED;
     });
