@@ -601,12 +601,17 @@ void dex_contract::add_balance(const name &user, const name &bank, const asset &
               ", bank=" + bank.to_string() +
               ", sym=" + symbol_to_string(quantity.symbol));
         // create balance of account
+        auto id = account_tbl.available_primary_key();
+        TRACE("create balance. id=", id, ", account=", user.to_string(), ", bank=", bank.to_string(),
+            ", quantity=", quantity);
         account_tbl.emplace( ram_payer, [&]( auto& a ) {
-            a.id = account_tbl.available_primary_key(); // TODO: add auto-inc account_id in global
+            a.id = id; // TODO: add auto-inc account_id in global
             a.balance.contract = bank;
             a.balance.quantity = quantity;
         });
     } else {
+        TRACE("add balance. id=", it->id, ", account=", user.to_string(), ", bank=", bank.to_string(),
+            ", quantity=", quantity);
         ASSERT(it->balance.contract == bank);
         index.modify(it, same_payer, [&]( auto& a ) {
             a.balance.quantity += quantity;

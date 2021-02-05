@@ -240,7 +240,7 @@ public:
     }
 
     action_result deposit(const name &from, const asset &quantity) {
-        return eosio_token.transfer(N(alice), N(dex), quantity, "deposit");
+        return eosio_token.transfer(from, N(dex), quantity, "deposit");
     }
 
     struct order_config_ex_t {
@@ -418,7 +418,6 @@ BOOST_FIXTURE_TEST_CASE( dex_match_test, dex_tester ) try {
     // sell order
     EXECUTE_ACTION(deposit(N(bob), ASSET("0.01000000 BTC")));
     auto seller_account = get_account(N(bob), 1);
-
     REQUIRE_MATCH_OBJ( seller_account,
         MATCH_FIELD("id", 1)
         REQUIRE_MATCH_FIELD_OBJ("balance",
