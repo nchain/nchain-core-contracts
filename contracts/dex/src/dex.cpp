@@ -92,15 +92,7 @@ void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
     if (from == get_self()) { return; }
     CHECK( to == get_self(), "Must transfer to this contract")
     CHECK( quantity.amount > 0, "The quantity must be positive")
-
-    auto transfer_bank = get_first_receiver();
-
-    vector<string_view> params = split(memo, ":");
-
-    if (params.size() >= 1 && params[0] == "deposit") {
-        add_balance(from, transfer_bank, quantity, get_self());
-        return;
-    }
+    add_balance(from, get_first_receiver(), quantity, get_self());
 }
 
 void transfer_out(const name &contract, const name &bank, const name &to, const asset &quantity,
