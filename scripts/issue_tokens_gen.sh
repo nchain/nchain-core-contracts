@@ -25,3 +25,4 @@ do
     quant="${quants[$i]}"
     echo cl push action $con create "'[\"$to\",\"$quant\"]'" -p $con
     echo cl push action $con issue "'[\"$to\",\"$quant\",\"\"]'" -p $issuer
+done
