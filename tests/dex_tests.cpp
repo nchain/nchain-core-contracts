@@ -256,7 +256,8 @@ public:
         const uint64_t &external_id,
         const std::optional<order_config_ex_t> &order_config_ex) {
 
-        return push_action( N(user), N(neworder), mvo()
+        return push_action( user, N(neworder), mvo()
+            ( "user", user)
             ( "sym_pair_id", sym_pair_id)
             ( "order_type", order_type)
             ( "order_side", order_side)
@@ -264,7 +265,7 @@ public:
             ( "frozen_quant", frozen_quant)
             ( "price", price)
             ( "external_id", external_id)
-            ( "order_config_ex", 0)
+            ( "order_config_ex", fc::variant())
         );
     }
 

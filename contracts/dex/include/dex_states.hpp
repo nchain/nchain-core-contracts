@@ -202,7 +202,7 @@ namespace dex {
         return uint128_t(high_val) << 64 | uint128_t(low_val);
     }
 
-    struct [[eosio::table]] account_t {
+    struct DEX_TABLE account_t {
         uint64_t id;
         extended_asset balance;
         uint64_t primary_key() const { return id; }
@@ -242,7 +242,7 @@ namespace dex {
         uint64_t by_external_id()const { return external_id; }
         order_match_idx_key get_order_match_idx()const { return make_order_match_idx(sym_pair_id, status, order_side, order_type, price.amount, order_id); }
         uint256_t get_order_sym_idx()const { return uint256_t::make_from_word_sequence<uint64_t>(owner.value, sym_pair_id, status.value, 0ULL); }
-        
+
         void print() const {
             auto created_at = this->created_at.elapsed.count(); // print the ms value
             PRINT_PROPERTIES(

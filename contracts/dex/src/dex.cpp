@@ -258,6 +258,7 @@ void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
         order.matched_assets = asset(0, asset_symbol);
         order.matched_coins = asset(0, coin_symbol);
         order.matched_fee = asset(0, fee_symbol);
+        order.status = order_status::MATCHABLE;
     });
 
     if (_config.max_match_count > 0) {
@@ -324,7 +325,7 @@ void dex_contract::cancel(const uint64_t &order_id) {
     }
     CHECK(quantity.amount >= 0, "Can not unfreeze the invalid quantity=" + quantity.to_string());
     if (quantity.amount > 0) {
-        sub_balance(order.owner, bank, quantity, order.owner);
+        add_balance(order.owner, bank, quantity, order.owner);
     }
     order_tbl.modify(it, same_payer, [&]( auto& a ) {
         a.status = order_status::CANCELED;
@@ -575,6 +576,7 @@ void dex_contract::neworder(const name &user, const uint64_t &sym_pair_id,
         order.matched_assets = asset(0, asset_symbol);
         order.matched_coins = asset(0, coin_symbol);
         order.matched_fee = asset(0, fee_symbol);
+        order.status = order_status::MATCHABLE;
     });
 
 
