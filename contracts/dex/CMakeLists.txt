@@ -1,6 +1,6 @@
 add_contract(dex dex ${CMAKE_CURRENT_SOURCE_DIR}/src/dex.cpp)
 
-set(VERSION_STRING "0.1.0")
+set(VERSION_STRING "0.1.1")
 
 find_package(Git)
 if(GIT_FOUND)
