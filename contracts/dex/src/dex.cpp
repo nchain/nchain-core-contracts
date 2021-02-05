@@ -238,7 +238,7 @@ void dex_contract::match_sym_pair(const name &matcher, const dex::symbol_pair_t 
         const auto &asset_symbol = sym_pair.asset_symbol.get_symbol();
         const auto &coin_symbol = sym_pair.coin_symbol.get_symbol();
         const auto &asset_bank = sym_pair.asset_symbol.get_contract();
-        const auto &coin_bank = sym_pair.asset_symbol.get_contract();
+        const auto &coin_bank = sym_pair.coin_symbol.get_contract();
 
 
         asset buy_fee;
