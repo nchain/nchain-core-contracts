@@ -34,15 +34,28 @@ public:
     [[eosio::on_notify("*::transfer")]] void ontransfer(name from, name to, asset quantity,
                                                         string memo);
 
-    [[eosio::action]] void withdraw(const name &user, const name &to, const extended_asset &to_withdraw, const string &memo);
+    [[eosio::action]] void withdraw(const name &user, const name &to,
+                                    const extended_asset &to_withdraw,
+                                    const string &memo);
 
-    [[eosio::action]] void neworder(const name &user, const uint64_t &sym_pair_id,
-        const name &order_type, const name &order_side,
-        const asset &limit_quant,
-        const asset &frozen_quant,
-        const asset &price,
-        const uint64_t &external_id,
-        const optional<dex::order_config_ex_t> &order_config_ex);
+    /**
+     * new order, should deposit by transfer first
+     * @param user - user, owner of order
+     * @param sym_pair_id - symbol pair id
+     * @param order_type - order type, LIMIT | MARKET
+     * @param order_side - order side, BUY | SELL
+     * @param limit_quant - the limit quantity
+     * @param frozen_quant - the frozen quantity
+     * @param price - the price, should be 0 for MARKET order
+     * @param external_id - external id, always set by application
+     * @param order_config_ex - optional extended config, must authenticate by admin if set
+     */
+    [[eosio::action]] void
+    neworder(const name &user, const uint64_t &sym_pair_id,
+             const name &order_type, const name &order_side,
+             const asset &limit_quant, const asset &frozen_quant,
+             const asset &price, const uint64_t &external_id,
+             const optional<dex::order_config_ex_t> &order_config_ex);
 
     /**
      *  @param max_count the max count of match item
