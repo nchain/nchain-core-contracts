@@ -242,30 +242,25 @@ void dex_contract::match_sym_pair(const name &matcher, const dex::symbol_pair_t 
 
 
         asset buy_fee;
-        // transfer the buy_fee to payee
+        // transfer the buy_fee from buy_order to payee
         if (matched_coins.symbol == buy_order.matched_fee.symbol) {
             buy_fee = calc_match_fee(buy_order, taker_it.order_side(), matched_coins);
-            sub_balance(buy_order.owner, coin_bank, buy_fee, get_self());
             add_balance(_config.payee, coin_bank, buy_fee, get_self());
         } else {
             buy_fee = calc_match_fee(buy_order, taker_it.order_side(), buyer_recv_assets);
             buyer_recv_assets -= buy_fee;
-            sub_balance(buy_order.owner, asset_bank, buy_fee, get_self());
             add_balance(_config.payee, asset_bank, buy_fee, get_self());
         }
 
         auto sell_fee = calc_match_fee(sell_order, taker_it.order_side(), seller_recv_coins);
         seller_recv_coins -= sell_fee;
-        // transfer the sell_fee to payee
-        sub_balance(buy_order.owner, coin_bank, sell_fee, get_self());
+        // transfer the sell_fee from sell_order to payee
         add_balance(_config.payee, coin_bank, sell_fee, get_self());
 
-        // transfer the coins to seller
-        sub_balance(buy_order.owner, coin_bank, seller_recv_coins, get_self());
+        // transfer the coins from buy_order to seller
         add_balance(sell_order.owner, coin_bank, seller_recv_coins, get_self());
 
-        // transfer the assets to buyer
-        sub_balance(sell_order.owner, asset_bank, buyer_recv_assets, get_self());
+        // transfer the assets from sell_order  to buyer
         add_balance(buy_order.owner, asset_bank, buyer_recv_assets, get_self());
 
         buy_it.match(matched_assets, matched_coins, buy_fee);
@@ -277,7 +272,8 @@ void dex_contract::match_sym_pair(const name &matcher, const dex::symbol_pair_t 
         if (buy_it.is_completed()) {
             auto refunds = buy_it.get_refund_coins();
             if (refunds.amount > 0) {
-                transfer_out(get_self(), coin_bank, buy_order.owner, refunds, "refund_coins");
+                // refund from buy_order to buyer
+                add_balance(buy_order.owner, coin_bank, refunds, get_self());
             }
         }
 
