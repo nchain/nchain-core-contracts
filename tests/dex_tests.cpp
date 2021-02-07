@@ -392,7 +392,7 @@ BOOST_FIXTURE_TEST_CASE( dex_match_test, dex_tester ) try {
     );
 
     uint64_t buy_order_id = 1;
-    EXECUTE_ACTION(neworder(N(alice), buy_order_id, N(limit), N(buy), ASSET("0.01000000 BTC"), ASSET("100.0000 USD"),
+    EXECUTE_ACTION(neworder(N(alice), 1, N(limit), N(buy), ASSET("0.01000000 BTC"), ASSET("100.0000 USD"),
             ASSET("10000.0000 USD"), 1, std::nullopt));
     auto buy_order = mvo()
         ("sym_pair_id", 1)
@@ -417,9 +417,9 @@ BOOST_FIXTURE_TEST_CASE( dex_match_test, dex_tester ) try {
 
     // sell order
     EXECUTE_ACTION(deposit(N(bob), ASSET("0.01000000 BTC")));
-    auto seller_account = get_account(N(bob), 1);
+    auto seller_account = get_account(N(bob), 0);
     REQUIRE_MATCH_OBJ( seller_account,
-        MATCH_FIELD("id", 1)
+        MATCH_FIELD("id", 0)
         REQUIRE_MATCH_FIELD_OBJ("balance",
             MATCH_FIELD("contract", "eosio.token")
             MATCH_FIELD("quantity", "0.01000000 BTC")
@@ -427,7 +427,7 @@ BOOST_FIXTURE_TEST_CASE( dex_match_test, dex_tester ) try {
     );
 
     uint64_t sell_order_id = 2;
-    EXECUTE_ACTION(neworder(N(alice), sell_order_id, N(limit), N(buy), ASSET("0.01000000 BTC"), ASSET("0.01000000 BTC"),
+    EXECUTE_ACTION(neworder(N(bob), 1, N(limit), N(sell), ASSET("0.01000000 BTC"), ASSET("0.01000000 BTC"),
             ASSET("10000.0000 USD"), 2, std::nullopt));
     auto sell_order = mvo()
         ("sym_pair_id", 1)
