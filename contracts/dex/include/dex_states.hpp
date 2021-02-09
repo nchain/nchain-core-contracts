@@ -96,7 +96,7 @@ namespace dex {
 
     struct DEX_TABLE global {
         uint64_t order_id    = 0; // the auto-increament id of order
-        uint64_t sym_pair_id = 0; // the auto-increament id of symbol pair
+        uint64_t sympair_id = 0; // the auto-increament id of symbol pair
         uint64_t deal_item_id = 0; // the auto-increament id of deal item
     };
 
@@ -133,8 +133,8 @@ namespace dex {
             return new_auto_inc_id(order_id);
         }
 
-        inline uint64_t new_sym_pair_id() {
-            return new_auto_inc_id(sym_pair_id);
+        inline uint64_t new_sympair_id() {
+            return new_auto_inc_id(sympair_id);
         }
 
         inline uint64_t new_deal_item_id() {
@@ -159,12 +159,15 @@ namespace dex {
     using uint256_t = fixed_bytes<32>;
 
     static inline uint256_t make_symbols_idx(const extended_symbol &asset_symbol, const extended_symbol &coin_symbol) {
-        return uint256_t::make_from_word_sequence<uint64_t>(asset_symbol.get_contract().value, asset_symbol.get_symbol().code().raw(),
-            coin_symbol.get_contract().value, coin_symbol.get_symbol().code().raw());
+        return uint256_t::make_from_word_sequence<uint64_t>(
+                asset_symbol.get_contract().value, 
+                asset_symbol.get_symbol().code().raw(),
+                coin_symbol.get_contract().value, 
+                coin_symbol.get_symbol().code().raw());
     }
 
     struct DEX_TABLE symbol_pair_t {
-        uint64_t sym_pair_id; // auto-increment
+        uint64_t sympair_id; // auto-increment
         extended_symbol asset_symbol;
         extended_symbol coin_symbol;
         asset min_asset_quant;
@@ -172,28 +175,27 @@ namespace dex {
         bool only_accept_coin_fee;
         bool enabled;
 
-        uint64_t primary_key() const { return sym_pair_id; }
+        uint64_t primary_key() const { return sympair_id; }
         inline uint256_t get_symbols_idx() const { return make_symbols_idx(asset_symbol, coin_symbol); }
     };
 
-    using symbols_idx = indexed_by<"symbolsidx"_n, const_mem_fun<symbol_pair_t, uint256_t,
-           &symbol_pair_t::get_symbols_idx>>;
+    using symbols_idx = indexed_by<"symbolsidx"_n, const_mem_fun<symbol_pair_t, uint256_t, &symbol_pair_t::get_symbols_idx>>;
 
     typedef eosio::multi_index<"sympair"_n, symbol_pair_t, symbols_idx> symbol_pair_table;
 
-    inline static symbol_pair_table make_symbol_pair_table(const name &self) {
+    inline static symbol_pair_table make_sympair_table(const name &self) {
         return symbol_pair_table(self, self.value/*scope*/);
     }
 
     using order_match_idx_key = uint256_t;
-    inline static order_match_idx_key make_order_match_idx(uint64_t sym_pair_id, const order_status_t &status,
+    inline static order_match_idx_key make_order_match_idx(uint64_t sympair_id, const order_status_t &status,
                                                            const order_side_t &side,
                                                            const order_type_t &type, uint64_t price,
                                                            uint64_t order_id) {
         uint64_t option = uint64_t(order_status::index(status)) << 56 | uint64_t(order_side::index(side)) << 48 |
                           uint64_t(order_type::index(type)) << 40;
         uint64_t price_factor = (side == order_side::BUY) ? std::numeric_limits<uint64_t>::max() - price : price;
-        auto ret = order_match_idx_key::make_from_word_sequence<uint64_t>(sym_pair_id, option, price_factor, order_id);
+        auto ret = order_match_idx_key::make_from_word_sequence<uint64_t>(sympair_id, option, price_factor, order_id);
         // print("make order match idx=", ret, "\n");
         return ret;
     }
@@ -223,7 +225,7 @@ namespace dex {
         uint64_t order_id; // auto-increment
         uint64_t external_id; // external id
         name owner;
-        uint64_t sym_pair_id; // id of symbol_pair_table
+        uint64_t sympair_id; // id of symbol_pair_table
         order_type_t order_type;
         order_side_t order_side;
         asset price;
@@ -240,8 +242,8 @@ namespace dex {
 
         uint64_t by_owner()const { return owner.value; }
         uint64_t by_external_id()const { return external_id; }
-        order_match_idx_key get_order_match_idx()const { return make_order_match_idx(sym_pair_id, status, order_side, order_type, price.amount, order_id); }
-        uint256_t get_order_sym_idx()const { return uint256_t::make_from_word_sequence<uint64_t>(owner.value, sym_pair_id, status.value, 0ULL); }
+        order_match_idx_key get_order_match_idx()const { return make_order_match_idx(sympair_id, status, order_side, order_type, price.amount, order_id); }
+        uint256_t get_order_sym_idx()const { return uint256_t::make_from_word_sequence<uint64_t>(owner.value, sympair_id, status.value, 0ULL); }
 
         void print() const {
             auto created_at = this->created_at.elapsed.count(); // print the ms value
@@ -249,7 +251,7 @@ namespace dex {
                 PP(order_id),
                 PP(external_id),
                 PP(owner),
-                PP0(sym_pair_id),
+                PP0(sympair_id),
                 PP(order_type),
                 PP(order_side),
                 PP(price),
@@ -281,7 +283,7 @@ namespace dex {
 
     struct DEX_TABLE deal_item_t {
         uint64_t id;
-        uint64_t sym_pair_id;
+        uint64_t sympair_id;
         uint64_t buy_order_id;
         uint64_t sell_order_id;
         asset deal_assets;
@@ -306,7 +308,7 @@ namespace dex {
             auto deal_time = this->deal_time.elapsed.count(); // print the ms value
             PRINT_PROPERTIES(
                 PP0(id),
-                PP(sym_pair_id),
+                PP(sympair_id),
                 PP(buy_order_id),
                 PP(sell_order_id),
                 PP(deal_assets),

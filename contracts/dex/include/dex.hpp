@@ -31,17 +31,16 @@ public:
                                       const asset &min_asset_quant, const asset &min_coin_quant,
                                       bool only_accept_coin_fee, bool enabled);
 
-    [[eosio::on_notify("*::transfer")]] void ontransfer(name from, name to, asset quantity,
-                                                        string memo);
+    [[eosio::action]] void onoffsympair(const uint64_t& sympair_id, const bool& on_off);
 
-    [[eosio::action]] void withdraw(const name &user, const name &to,
-                                    const extended_asset &to_withdraw,
-                                    const string &memo);
+    [[eosio::on_notify("*::transfer")]] void ontransfer(const name& from, const name& to, const asset& quant, const string& memo);
+
+    [[eosio::action]] void withdraw(const name& user, const name& to, const extended_asset& quant, const string& memo);
 
     /**
      * new order, should deposit by transfer first
      * @param user - user, owner of order
-     * @param sym_pair_id - symbol pair id
+     * @param sympair_id - symbol pair id
      * @param order_type - order type, LIMIT | MARKET
      * @param order_side - order side, BUY | SELL
      * @param limit_quant - the limit quantity
@@ -51,7 +50,7 @@ public:
      * @param order_config_ex - optional extended config, must authenticate by admin if set
      */
     [[eosio::action]] void
-    neworder(const name &user, const uint64_t &sym_pair_id,
+    neworder(const name &user, const uint64_t &sympair_id,
              const name &order_type, const name &order_side,
              const asset &limit_quant, const asset &frozen_quant,
              const asset &price, const uint64_t &external_id,

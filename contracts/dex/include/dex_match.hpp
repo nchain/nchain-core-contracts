@@ -64,12 +64,12 @@ namespace dex {
             COMPLETED
         };
     public:
-        matching_order_iterator(match_index_t &match_index, uint64_t sym_pair_id, order_side_t side,
+        matching_order_iterator(match_index_t &match_index, uint64_t sympair_id, order_side_t side,
                                 order_type_t type)
-            : _match_index(match_index), _it(match_index.end()), _sym_pair_id(sym_pair_id),
+            : _match_index(match_index), _it(match_index.end()), _sym_pair_id(sympair_id),
               _order_side(side), _order_type(type) {
 
-            TRACE("creating matching order itr! sym_pair_id=", _sym_pair_id, ", side=", _order_side, ", type=", _order_type, "\n");
+            TRACE("creating matching order itr! sympair_id=", _sym_pair_id, ", side=", _order_side, ", type=", _order_type, "\n");
             if (_order_side == order_side::BUY) {
                 _key = make_order_match_idx(_sym_pair_id, order_status::MATCHABLE, _order_side, _order_type,
                                            std::numeric_limits<uint64_t>::max(), 0);
@@ -194,7 +194,7 @@ namespace dex {
         void process_data() {
             _status = CLOSED;
             if (_it == _match_index.end()) {
-                TRACE("matching order itr end! sym_pair_id=", _sym_pair_id, ", side=", _order_side, ", type=", _order_type, "\n");
+                TRACE("matching order itr end! sympair_id=", _sym_pair_id, ", side=", _order_side, ", type=", _order_type, "\n");
                 return;
             }
 
@@ -202,7 +202,7 @@ namespace dex {
             CHECK(_key < stored_order.get_order_match_idx(), "the start key must < found order key");
             // TRACE("start key=", key, ", found key=", stored_order.get_order_match_idx(), "\n");
 
-            if (stored_order.sym_pair_id != _sym_pair_id || stored_order.status != order_status::MATCHABLE ||
+            if (stored_order.sympair_id != _sym_pair_id || stored_order.status != order_status::MATCHABLE ||
                 stored_order.order_side != _order_side || stored_order.order_type != _order_type) {
                 return;
             }
@@ -238,10 +238,10 @@ namespace dex {
 
         matching_pair_iterator(match_index_t &match_index, const dex::symbol_pair_t &sym_pair)
             : _match_index(match_index), _sym_pair(sym_pair),
-            limit_buy_it(match_index, sym_pair.sym_pair_id, order_side::BUY, order_type::LIMIT),
-            limit_sell_it(match_index, sym_pair.sym_pair_id, order_side::SELL, order_type::LIMIT),
-            market_buy_it(match_index, sym_pair.sym_pair_id, order_side::BUY, order_type::MARKET),
-            market_sell_it(match_index, sym_pair.sym_pair_id, order_side::SELL, order_type::MARKET) {
+            limit_buy_it(match_index, sym_pair.sympair_id, order_side::BUY, order_type::LIMIT),
+            limit_sell_it(match_index, sym_pair.sympair_id, order_side::SELL, order_type::LIMIT),
+            market_buy_it(match_index, sym_pair.sympair_id, order_side::BUY, order_type::MARKET),
+            market_sell_it(match_index, sym_pair.sympair_id, order_side::SELL, order_type::MARKET) {
 
             process_data();
         }

@@ -200,9 +200,9 @@ public:
         return data.empty() ? fc::variant() : abi_ser.binary_to_variant( "config", data, abi_serializer_max_time );
     }
 
-    fc::variant get_symbol_pair( uint64_t sym_pair_id)
+    fc::variant get_symbol_pair( uint64_t sympair_id)
     {
-        vector<char> data = get_row_by_account( N(dex), N(dex), N(sympair), name(sym_pair_id) );
+        vector<char> data = get_row_by_account( N(dex), N(dex), N(sympair), name(sympair_id) );
         return data.empty() ? fc::variant() : abi_ser.binary_to_variant( "symbol_pair_t", data, abi_serializer_max_time );
     }
 
@@ -235,7 +235,7 @@ public:
             ( "only_accept_coin_fee", only_accept_coin_fee)
             ( "enabled", enabled)
         );
-        // sym_pair_id().next();
+        // sympair_id().next();
         return ret;
     }
 
@@ -248,7 +248,7 @@ public:
         uint64_t maker_ratio = 0;
     };
 
-    action_result neworder(const name &user, const uint64_t &sym_pair_id,
+    action_result neworder(const name &user, const uint64_t &sympair_id,
         const name &order_type, const name &order_side,
         const asset &limit_quant,
         const asset &frozen_quant,
@@ -258,7 +258,7 @@ public:
 
         return push_action( user, N(neworder), mvo()
             ( "user", user)
-            ( "sym_pair_id", sym_pair_id)
+            ( "sympair_id", sympair_id)
             ( "order_type", order_type)
             ( "order_side", order_side)
             ( "limit_quant", limit_quant)
@@ -302,11 +302,11 @@ public:
     void init_sym_pair() {
         // add symbol pair for trading
         EXECUTE_ACTION(setsympair(BTC_SYMBOL, USD_SYMBOL, ASSET("0.00001000 BTC"), ASSET("0.1000 USD"), false, true));
-        uint64_t sym_pair_id = 1;
-        auto sym_pair = get_symbol_pair(sym_pair_id);
+        uint64_t sympair_id = 1;
+        auto sym_pair = get_symbol_pair(sympair_id);
 
         REQUIRE_MATCH_OBJ( sym_pair,
-            MATCH_FIELD("sym_pair_id", sym_pair_id)
+            MATCH_FIELD("sympair_id", sympair_id)
             MATCH_FIELD_OBJ("asset_symbol", BTC_SYMBOL)
             MATCH_FIELD_OBJ("coin_symbol", USD_SYMBOL)
             MATCH_FIELD("min_asset_quant", "0.00001000 BTC")
@@ -316,7 +316,7 @@ public:
         );
     }
 
-    mvo init_buy_order(uint64_t sym_pair_id) {
+    mvo init_buy_order(uint64_t sympair_id) {
         // buy order
         EXECUTE_ACTION(deposit(N(alice), ASSET("100.0000 USD")));
         auto account = get_account(N(alice), 0);
@@ -334,7 +334,7 @@ public:
                 ASSET("10000.0000 USD"), 1, std::nullopt));
         auto buy_order = get_order(order_id);
         auto expected_order = mvo()
-            ("sym_pair_id", 1)
+            ("sympair_id", 1)
             ("order_id", order_id)
             ("owner", "alice")
             ("order_type", "limit")
@@ -395,7 +395,7 @@ BOOST_FIXTURE_TEST_CASE( dex_match_test, dex_tester ) try {
     EXECUTE_ACTION(neworder(N(alice), 1, N(limit), N(buy), ASSET("0.01000000 BTC"), ASSET("100.0000 USD"),
             ASSET("10000.0000 USD"), 1, std::nullopt));
     auto buy_order = mvo()
-        ("sym_pair_id", 1)
+        ("sympair_id", 1)
         ("order_id", buy_order_id)
         ("owner", "alice")
         ("order_type", "limit")
@@ -430,7 +430,7 @@ BOOST_FIXTURE_TEST_CASE( dex_match_test, dex_tester ) try {
     EXECUTE_ACTION(neworder(N(bob), 1, N(limit), N(sell), ASSET("0.01000000 BTC"), ASSET("0.01000000 BTC"),
             ASSET("10000.0000 USD"), 2, std::nullopt));
     auto sell_order = mvo()
-        ("sym_pair_id", 1)
+        ("sympair_id", 1)
         ("order_id", sell_order_id)
         ("owner", "bob")
         ("order_type", "limit")

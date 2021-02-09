@@ -50,7 +50,7 @@ void dex_contract::setsympair(const extended_symbol &asset_symbol,
     require_auth( _config.admin );
     const auto &asset_sym = asset_symbol.get_symbol();
     const auto &coin_sym = coin_symbol.get_symbol();
-    auto sym_pair_tbl = make_symbol_pair_table(get_self());
+    auto sympair_tbl = make_sympair_table(get_self());
     CHECK(is_account(asset_symbol.get_contract()), "The bank account of asset does not exist");
     CHECK(asset_sym.is_valid(), "Invalid asset symbol");
     CHECK(is_account(coin_symbol.get_contract()), "The bank account of coin does not exist");
@@ -59,16 +59,16 @@ void dex_contract::setsympair(const extended_symbol &asset_symbol,
     CHECK(asset_sym == min_asset_quant.symbol, "Incorrect symbol of min_asset_quant");
     CHECK(coin_sym == min_coin_quant.symbol, "Incorrect symbol of min_coin_quant");
 
-    auto index = sym_pair_tbl.get_index<static_cast<name::raw>(symbols_idx::index_name)>();
+    auto index = sympair_tbl.get_index<static_cast<name::raw>(symbols_idx::index_name)>();
     CHECK( index.find( make_symbols_idx(coin_symbol, asset_symbol) ) == index.end(), "The reverted symbol pair exist");
 
     auto it = index.find( make_symbols_idx(asset_symbol, coin_symbol));
     if (it == index.end()) {
         // new sym pair
-        auto sym_pair_id = _global->new_sym_pair_id();
-        CHECK( sym_pair_tbl.find(sym_pair_id) == sym_pair_tbl.end(), "The symbol pair id exist");
-        sym_pair_tbl.emplace(get_self(), [&](auto &sym_pair) {
-            sym_pair.sym_pair_id          = sym_pair_id;
+        auto sympair_id = _global->new_sympair_id();
+        CHECK( sympair_tbl.find(sympair_id) == sympair_tbl.end(), "The symbol pair id exist");
+        sympair_tbl.emplace(get_self(), [&](auto &sym_pair) {
+            sym_pair.sympair_id          = sympair_id;
             sym_pair.asset_symbol         = asset_symbol;
             sym_pair.coin_symbol          = coin_symbol;
             sym_pair.min_asset_quant      = min_asset_quant;
@@ -79,7 +79,7 @@ void dex_contract::setsympair(const extended_symbol &asset_symbol,
     } else {
         CHECK(it->asset_symbol == asset_symbol, "The asset_symbol mismatch with the existed one");
         CHECK(it->coin_symbol == coin_symbol, "The asset_symbol mismatch with the existed one");
-        sym_pair_tbl.modify(*it, same_payer, [&](auto &sym_pair) {
+        sympair_tbl.modify(*it, same_payer, [&](auto &sym_pair) {
             sym_pair.min_asset_quant      = min_asset_quant;
             sym_pair.min_coin_quant       = min_coin_quant;
             sym_pair.only_accept_coin_fee = only_accept_coin_fee;
@@ -88,43 +88,51 @@ void dex_contract::setsympair(const extended_symbol &asset_symbol,
     }
 }
 
-void dex_contract::ontransfer(name from, name to, asset quantity, string memo) {
-    if (from == get_self()) { return; }
-    CHECK( to == get_self(), "Must transfer to this contract")
-    CHECK( quantity.amount > 0, "The quantity must be positive")
-    add_balance(from, get_first_receiver(), quantity, get_self());
+void dex_contract::onoffsympair(const uint64_t& sympair_id, const bool& on_off) {
+    require_auth( _config.admin );
+
+    auto sympair_tbl = make_sympair_table(_self);
+    auto it = sympair_tbl.find(sympair_id);
+    CHECK( it != sympair_tbl.end(), "sympair not found: " + to_string(sympair_id) )
+    sympair_tbl.modify(*it, same_payer, [&](auto &row) {
+        row.enabled                 = on_off;
+    });
 }
 
-void transfer_out(const name &contract, const name &bank, const name &to, const asset &quantity,
-                  const string &memo) {
-    TRACE("transfer_out (", PP0(contract), PP(bank), PP(to), PP(quantity), PP(memo), ")\n");
+void dex_contract::ontransfer(const name& from, const name& to, const asset& quant, const string& memo) {
+    if (from == get_self()) { return; }
+    CHECK( to == get_self(), "Must transfer to this contract")
+    CHECK( quant.amount > 0, "The quantity must be positive")
+    add_balance(from, get_first_receiver(), quant, get_self());
+}
+
+void transfer_out(const name &contract, const name &bank, const name &to, const asset &quant, const string &memo) {
+    TRACE("transfer_out (", PP0(contract), PP(bank), PP(to), PP(quant), PP(memo), ")\n");
     action(permission_level{contract, "active"_n}, bank, "transfer"_n,
-           std::make_tuple(contract, to, quantity, memo))
+           std::make_tuple(contract, to, quant, memo))
         .send();
 }
 
-void dex_contract::withdraw(const name &user, const name &to,
-                            const extended_asset &to_withdraw,
-                            const string &memo) {
+void dex_contract::withdraw(const name &user, const name &to, const extended_asset &quant, const string &memo) {
     require_auth(user);
-    check(to_withdraw.quantity.amount > 0, "quantity must be positive");
+    check(quant.quantity.amount > 0, "quantity must be positive");
 
     auto account_tbl = make_account_table(get_self(), user);
     auto index = account_tbl.get_index<static_cast<name::raw>(account_sym_idx::index_name)>();
-    auto it = index.find( make_uint128(to_withdraw.contract.value, to_withdraw.quantity.symbol.raw()) );
+    auto it = index.find( make_uint128(quant.contract.value, quant.quantity.symbol.raw()) );
     CHECK(it != index.end(),
           "the balance does not exist! user=" + user.to_string() +
-              ", bank=" + to_withdraw.contract.to_string() +
-              ", sym=" + symbol_to_string(to_withdraw.quantity.symbol));
+              ", bank=" + quant.contract.to_string() +
+              ", sym=" + symbol_to_string(quant.quantity.symbol));
 
-    ASSERT(it->balance.contract == to_withdraw.contract);
+    ASSERT(it->balance.contract == quant.contract);
 
     index.modify(it, same_payer, [&]( auto& a ) {
-        a.balance.quantity -= to_withdraw.quantity;
+        a.balance.quantity -= quant.quantity;
         CHECK(it->balance.quantity.amount >= 0, "insufficient funds");
     });
 
-    transfer_out(get_self(), to_withdraw.contract, user, to_withdraw.quantity, "withdraw");
+    transfer_out(get_self(), quant.contract, user, quant.quantity, "withdraw");
 }
 
 void dex_contract::cancel(const uint64_t &order_id) {
@@ -137,10 +145,10 @@ void dex_contract::cancel(const uint64_t &order_id) {
 
     CHECK(order.status == order_status::MATCHABLE, "The order can not be canceled");
 
-    auto sym_pair_tbl = make_symbol_pair_table(get_self());
-    auto sym_pair_it = sym_pair_tbl.find(order.sym_pair_id);
-    CHECK( sym_pair_it != sym_pair_tbl.end(),
-        "The symbol pair id '" + std::to_string(order.sym_pair_id) + "' does not exist");
+    auto sympair_tbl = make_sympair_table(get_self());
+    auto sym_pair_it = sympair_tbl.find(order.sympair_id);
+    CHECK( sym_pair_it != sympair_tbl.end(),
+        "The symbol pair id '" + std::to_string(order.sympair_id) + "' does not exist");
 
     asset quantity;
     name bank;
@@ -171,23 +179,22 @@ dex::config dex_contract::get_default_config() {
     };
 }
 
-void dex_contract::match(const name &matcher, uint32_t max_count, const vector<uint64_t> &sym_pairs,
-                         const string &memo) {
+void dex_contract::match(const name &matcher, uint32_t max_count, const vector<uint64_t> &sym_pairs, const string &memo) {
 
     CHECK(is_account(matcher), "The matcher account does not exist");
     CHECK(max_count > 0, "The max_count must > 0")
     std::list<symbol_pair_t> sym_pair_list;
-    auto sym_pair_tbl = dex::make_symbol_pair_table(get_self());
+    auto sympair_tbl = dex::make_sympair_table(get_self());
     if (!sym_pairs.empty()) {
-        for (auto sym_pair_id : sym_pairs) {
-            auto it = sym_pair_tbl.find(sym_pair_id);
-            CHECK(it != sym_pair_tbl.end(), "The symbol pair=" + std::to_string(sym_pair_id) + " does not exist");
-            CHECK(it->enabled, "The indicated sym_pair=" + std::to_string(sym_pair_id) + " is disabled");
+        for (auto sympair_id : sym_pairs) {
+            auto it = sympair_tbl.find(sympair_id);
+            CHECK(it != sympair_tbl.end(), "The symbol pair=" + std::to_string(sympair_id) + " does not exist");
+            CHECK(it->enabled, "The indicated sym_pair=" + std::to_string(sympair_id) + " is disabled");
             sym_pair_list.push_back(*it);
         }
     } else {
-        auto sym_pair_it = sym_pair_tbl.begin();
-        for (; sym_pair_it != sym_pair_tbl.end(); sym_pair_it++) {
+        auto sym_pair_it = sympair_tbl.begin();
+        for (; sym_pair_it != sympair_tbl.end(); sym_pair_it++) {
             if (sym_pair_it->enabled) {
                 sym_pair_list.push_back(*sym_pair_it);
             }
@@ -280,7 +287,7 @@ void dex_contract::match_sym_pair(const name &matcher, const dex::symbol_pair_t 
         auto deal_tbl = dex::make_deal_table(get_self());
         deal_tbl.emplace(matcher, [&]( auto& deal_item ) {
             deal_item.id = _global->new_deal_item_id();
-            deal_item.sym_pair_id = sym_pair.sym_pair_id;
+            deal_item.sympair_id = sym_pair.sympair_id;
             deal_item.buy_order_id = buy_order.order_id;
             deal_item.sell_order_id = sell_order.order_id;
             deal_item.deal_assets = matched_assets;
@@ -305,7 +312,7 @@ void dex_contract::version() {
     CHECK(false, "version: " + dex::version());
 }
 
-void dex_contract::neworder(const name &user, const uint64_t &sym_pair_id,
+void dex_contract::neworder(const name &user, const uint64_t &sympair_id,
         const name &order_type, const name &order_side,
         const asset &limit_quant,
         const asset &frozen_quant,
@@ -315,10 +322,10 @@ void dex_contract::neworder(const name &user, const uint64_t &sym_pair_id,
 
     if (_config.check_order_auth || order_config_ex) { require_auth(_config.admin); }
 
-    auto sym_pair_tbl = make_symbol_pair_table(get_self());
-    auto sym_pair_it = sym_pair_tbl.find(sym_pair_id);
-    CHECK( sym_pair_it != sym_pair_tbl.end(), "The symbol pair id '" + std::to_string(sym_pair_id) + "' does not exist")
-    CHECK( sym_pair_it->enabled, "The symbol pair '" + std::to_string(sym_pair_id) + " is disabled")
+    auto sympair_tbl = make_sympair_table(get_self());
+    auto sym_pair_it = sympair_tbl.find(sympair_id);
+    CHECK( sym_pair_it != sympair_tbl.end(), "The symbol pair id '" + std::to_string(sympair_id) + "' does not exist")
+    CHECK( sym_pair_it->enabled, "The symbol pair '" + std::to_string(sympair_id) + " is disabled")
 
     const auto &asset_symbol = sym_pair_it->asset_symbol.get_symbol();
     const auto &coin_symbol = sym_pair_it->coin_symbol.get_symbol();
@@ -388,7 +395,7 @@ void dex_contract::neworder(const name &user, const uint64_t &sym_pair_id,
         order.order_id = order_id;
         order.external_id = external_id;
         order.owner = user;
-        order.sym_pair_id = sym_pair_id;
+        order.sympair_id = sympair_id;
         order.order_type = order_type;
         order.order_side = order_side;
         order.price = price;
