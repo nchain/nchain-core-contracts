@@ -175,7 +175,7 @@ dex::config dex_contract::get_default_config() {
         DEX_MAKER_FEE_RATIO,    // int64_t maker_fee_ratio;
         DEX_TAKER_FEE_RATIO,    // int64_t taker_fee_ratio;
         DEX_MATCH_COUNT_MAX,    // uint32_t max_match_count
-        false,                  // bool check_order_auth
+        false,                  // bool admin_sign_required
     };
 }
 
@@ -320,7 +320,7 @@ void dex_contract::neworder(const name &user, const uint64_t &sympair_id,
         const uint64_t &external_id,
         const optional<dex::order_config_ex_t> &order_config_ex) {
 
-    if (_config.check_order_auth || order_config_ex) { require_auth(_config.dex_admin); }
+    if (_config.admin_sign_required || order_config_ex) { require_auth(_config.dex_admin); }
 
     auto sympair_tbl = make_sympair_table(get_self());
     auto sym_pair_it = sympair_tbl.find(sympair_id);

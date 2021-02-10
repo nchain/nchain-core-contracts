@@ -291,7 +291,7 @@ public:
             ("taker_fee_ratio", 8)
             ("maker_fee_ratio", 4)
             ("max_match_count", uint32_t(0))
-            ("check_order_auth", false);
+            ("admin_sign_required", false);
 
         EXECUTE_ACTION(setconfig( conf ));
         produce_blocks(1);
