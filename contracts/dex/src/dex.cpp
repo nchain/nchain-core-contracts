@@ -35,10 +35,10 @@ inline string symbol_pair_to_string(const symbol &asset_symbol, const symbol &co
 
 void dex_contract::setconfig(const dex::config &conf) {
     require_auth( get_self() );
-    CHECK(is_account(conf.admin), "The admin account does not exist");
-    CHECK(is_account(conf.payee), "The payee account does not exist");
-    validate_fee_ratio(conf.maker_ratio, "maker_ratio");
-    validate_fee_ratio(conf.taker_ratio, "taker_ratio");
+    CHECK( is_account(conf.dex_admin), "The dex_admin account does not exist");
+    CHECK( is_account(conf.dex_fee_collector), "The dex_fee_collector account does not exist");
+    validate_fee_ratio( conf.maker_fee_ratio, "maker_fee_ratio");
+    validate_fee_ratio( conf.taker_fee_ratio, "taker_fee_ratio");
 
     _conf_tbl.set(conf, get_self());
 }
@@ -47,7 +47,7 @@ void dex_contract::setsympair(const extended_symbol &asset_symbol,
                               const extended_symbol &coin_symbol, const asset &min_asset_quant,
                               const asset &min_coin_quant, bool only_accept_coin_fee,
                               bool enabled) {
-    require_auth( _config.admin );
+    require_auth( _config.dex_admin );
     const auto &asset_sym = asset_symbol.get_symbol();
     const auto &coin_sym = coin_symbol.get_symbol();
     auto sympair_tbl = make_sympair_table(get_self());
@@ -89,7 +89,7 @@ void dex_contract::setsympair(const extended_symbol &asset_symbol,
 }
 
 void dex_contract::onoffsympair(const uint64_t& sympair_id, const bool& on_off) {
-    require_auth( _config.admin );
+    require_auth( _config.dex_admin );
 
     auto sympair_tbl = make_sympair_table(_self);
     auto it = sympair_tbl.find(sympair_id);
@@ -171,9 +171,9 @@ void dex_contract::cancel(const uint64_t &order_id) {
 dex::config dex_contract::get_default_config() {
     return {
         get_self(),             // name admin;
-        get_self(),             // name payee;
-        DEX_MAKER_FEE_RATIO,    // int64_t maker_ratio;
-        DEX_TAKER_FEE_RATIO,    // int64_t taker_ratio;
+        get_self(),             // name dex_fee_collector;
+        DEX_MAKER_FEE_RATIO,    // int64_t maker_fee_ratio;
+        DEX_TAKER_FEE_RATIO,    // int64_t taker_fee_ratio;
         DEX_MATCH_COUNT_MAX,    // uint32_t max_match_count
         false,                  // bool check_order_auth
     };
@@ -249,20 +249,20 @@ void dex_contract::match_sym_pair(const name &matcher, const dex::symbol_pair_t 
 
 
         asset buy_fee;
-        // transfer the buy_fee from buy_order to payee
+        // transfer the buy_fee from buy_order to dex_fee_collector
         if (matched_coins.symbol == buy_order.matched_fee.symbol) {
             buy_fee = calc_match_fee(buy_order, taker_it.order_side(), matched_coins);
-            add_balance(_config.payee, coin_bank, buy_fee, get_self());
+            add_balance(_config.dex_fee_collector, coin_bank, buy_fee, get_self());
         } else {
             buy_fee = calc_match_fee(buy_order, taker_it.order_side(), buyer_recv_assets);
             buyer_recv_assets -= buy_fee;
-            add_balance(_config.payee, asset_bank, buy_fee, get_self());
+            add_balance(_config.dex_fee_collector, asset_bank, buy_fee, get_self());
         }
 
         auto sell_fee = calc_match_fee(sell_order, taker_it.order_side(), seller_recv_coins);
         seller_recv_coins -= sell_fee;
-        // transfer the sell_fee from sell_order to payee
-        add_balance(_config.payee, coin_bank, sell_fee, get_self());
+        // transfer the sell_fee from sell_order to dex_fee_collector
+        add_balance(_config.dex_fee_collector, coin_bank, sell_fee, get_self());
 
         // transfer the coins from buy_order to seller
         add_balance(sell_order.owner, coin_bank, seller_recv_coins, get_self());
@@ -320,7 +320,7 @@ void dex_contract::neworder(const name &user, const uint64_t &sympair_id,
         const uint64_t &external_id,
         const optional<dex::order_config_ex_t> &order_config_ex) {
 
-    if (_config.check_order_auth || order_config_ex) { require_auth(_config.admin); }
+    if (_config.check_order_auth || order_config_ex) { require_auth(_config.dex_admin); }
 
     auto sympair_tbl = make_sympair_table(get_self());
     auto sym_pair_it = sympair_tbl.find(sympair_id);
@@ -330,13 +330,13 @@ void dex_contract::neworder(const name &user, const uint64_t &sympair_id,
     const auto &asset_symbol = sym_pair_it->asset_symbol.get_symbol();
     const auto &coin_symbol = sym_pair_it->coin_symbol.get_symbol();
 
-    auto taker_ratio = _config.taker_ratio;
-    auto maker_ratio = _config.maker_ratio;
+    auto taker_fee_ratio = _config.taker_fee_ratio;
+    auto maker_fee_ratio = _config.maker_fee_ratio;
     if (order_config_ex) {
-        taker_ratio = order_config_ex->taker_ratio;
-        maker_ratio = order_config_ex->maker_ratio;
-        validate_fee_ratio(taker_ratio, "ratio");
-        validate_fee_ratio(maker_ratio, "ratio");
+        taker_fee_ratio = order_config_ex->taker_fee_ratio;
+        maker_fee_ratio = order_config_ex->maker_fee_ratio;
+        validate_fee_ratio(taker_fee_ratio, "ratio");
+        validate_fee_ratio(maker_fee_ratio, "ratio");
     }
 
     // check price
@@ -368,7 +368,7 @@ void dex_contract::neworder(const name &user, const uint64_t &sympair_id,
             expected_frozen_coins = limit_quant;
         }
         if (sym_pair_it->only_accept_coin_fee) {
-            expected_frozen_coins += dex::calc_match_fee(taker_ratio, expected_frozen_coins);
+            expected_frozen_coins += dex::calc_match_fee(taker_fee_ratio, expected_frozen_coins);
         }
         CHECK( frozen_quant == expected_frozen_coins,
                 "The frozen_quant=" + frozen_quant.to_string() + " != expected_frozen_coins=" +
@@ -401,8 +401,8 @@ void dex_contract::neworder(const name &user, const uint64_t &sympair_id,
         order.price = price;
         order.limit_quant = limit_quant;
         order.frozen_quant = frozen_quant;
-        order.taker_ratio = taker_ratio;
-        order.maker_ratio = maker_ratio;
+        order.taker_fee_ratio = taker_fee_ratio;
+        order.maker_fee_ratio = maker_fee_ratio;
         order.created_at = current_block_time();
         order.matched_assets = asset(0, asset_symbol);
         order.matched_coins = asset(0, coin_symbol);

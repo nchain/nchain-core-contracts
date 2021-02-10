@@ -50,7 +50,7 @@ namespace dex {
     }
 
     inline asset calc_match_fee(const dex::order_t &order, const order_type_t &taker_side, const asset &quant) {
-        int64_t ratio = (order.order_side == taker_side) ? order.taker_ratio : order.maker_ratio;
+        int64_t ratio = (order.order_side == taker_side) ? order.taker_fee_ratio : order.maker_fee_ratio;
         return calc_match_fee(ratio, quant);
     }
 

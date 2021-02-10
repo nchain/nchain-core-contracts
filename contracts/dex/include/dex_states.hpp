@@ -79,15 +79,15 @@ namespace dex {
     }
 
     struct order_config_ex_t {
-        uint64_t taker_ratio = 0;
-        uint64_t maker_ratio = 0;
+        uint64_t taker_fee_ratio = 0;
+        uint64_t maker_fee_ratio = 0;
     };
 
     struct DEX_TABLE config {
-        name admin;   // admin of this contract, permisions: manage sym_pairs, authorize order
-        name payee;   // payee of this contract
-        int64_t maker_ratio;
-        int64_t taker_ratio;
+        name dex_admin;   // admin of this contract, permisions: manage sym_pairs, authorize order
+        name dex_fee_collector;   // dex_fee_collector of this contract
+        int64_t maker_fee_ratio;
+        int64_t taker_fee_ratio;
         uint32_t max_match_count; // the max match count for creating new order,  if 0 will forbid match
         bool     check_order_auth; // check the order must have the authorization by dex admin
     };
@@ -231,8 +231,8 @@ namespace dex {
         asset price;
         asset limit_quant;
         asset frozen_quant;
-        int64_t taker_ratio;
-        int64_t maker_ratio;
+        int64_t taker_fee_ratio;
+        int64_t maker_fee_ratio;
         time_point created_at;
         asset matched_assets;      //!< total matched asset quantity
         asset matched_coins;       //!< total matched coin quantity
@@ -257,8 +257,8 @@ namespace dex {
                 PP(price),
                 PP(limit_quant),
                 PP(frozen_quant),
-                PP(taker_ratio),
-                PP(maker_ratio),
+                PP(taker_fee_ratio),
+                PP(maker_fee_ratio),
                 PP(created_at),
                 PP(matched_assets),
                 PP(matched_coins),

@@ -154,7 +154,7 @@ public:
     dex_tester(): eosio_token(*this) {
         produce_blocks( 2 );
 
-        create_accounts( { N(dex.admin), N(dex.matcher), N(dex.payee),
+        create_accounts( { N(dex.admin), N(dex.matcher), N(dex.dex_fee_collector),
             N(alice), N(bob), N(carol), N(dex) } );
         produce_blocks( 2 );
 
@@ -244,8 +244,8 @@ public:
     }
 
     struct order_config_ex_t {
-        uint64_t taker_ratio = 0;
-        uint64_t maker_ratio = 0;
+        uint64_t taker_fee_ratio = 0;
+        uint64_t maker_fee_ratio = 0;
     };
 
     action_result neworder(const name &user, const uint64_t &sympair_id,
@@ -287,9 +287,9 @@ public:
     void init_config() {
         auto conf = mvo()
             ("admin", N(dex.admin))
-            ("payee", N(dex.payee))
-            ("taker_ratio", 8)
-            ("maker_ratio", 4)
+            ("dex_fee_collector", N(dex.dex_fee_collector))
+            ("taker_fee_ratio", 8)
+            ("maker_fee_ratio", 4)
             ("max_match_count", uint32_t(0))
             ("check_order_auth", false);
 
@@ -343,8 +343,8 @@ public:
             ("limit_quant", "0.01000000 BTC")
             ("frozen_quant", "100.0000 USD")
             ("external_id", 1)
-            ("taker_ratio", 8)
-            ("maker_ratio", 4)
+            ("taker_fee_ratio", 8)
+            ("maker_fee_ratio", 4)
             ("created_at", get_head_block_time())
             ("matched_assets", "0.00000000 BTC")
             ("matched_coins", "0.0000 USD")
@@ -404,8 +404,8 @@ BOOST_FIXTURE_TEST_CASE( dex_match_test, dex_tester ) try {
         ("limit_quant", "0.01000000 BTC")
         ("frozen_quant", "100.0000 USD")
         ("external_id", 1)
-        ("taker_ratio", 8)
-        ("maker_ratio", 4)
+        ("taker_fee_ratio", 8)
+        ("maker_fee_ratio", 4)
         ("created_at", get_head_block_time())
         ("matched_assets", "0.00000000 BTC")
         ("matched_coins", "0.0000 USD")
@@ -439,8 +439,8 @@ BOOST_FIXTURE_TEST_CASE( dex_match_test, dex_tester ) try {
         ("limit_quant", "0.01000000 BTC")
         ("frozen_quant", "0.01000000 BTC")
         ("external_id", 2)
-        ("taker_ratio", 8)
-        ("maker_ratio", 4)
+        ("taker_fee_ratio", 8)
+        ("maker_fee_ratio", 4)
         ("created_at", get_head_block_time())
         ("matched_assets", "0.00000000 BTC")
         ("matched_coins", "0.0000 USD")

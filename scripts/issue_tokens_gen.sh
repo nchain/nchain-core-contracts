@@ -1,6 +1,6 @@
 #!/bin/bash
 
-con='dex.token'
+con='ehex.token'
 issuer=masteraychen
 to=$issuer
 
