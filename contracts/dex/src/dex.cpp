@@ -107,26 +107,26 @@ void dex_contract::ontransfer(const name& from, const name& to, const asset& qua
     add_balance(from, get_first_receiver(), quant, get_self());
 }
 
-void dex_contract::withdraw(const name &user, const name &to, const extended_asset &quant, const string &memo) {
+void dex_contract::withdraw(const name &user, const name &to, const name &token_code, const asset& quant, const string &memo) {
     require_auth(user);
-    check(quant.quantity.amount > 0, "quantity must be positive");
+    check(quant.amount > 0, "quantity must be positive");
 
     auto account_tbl = make_account_table(get_self(), user);
     auto index = account_tbl.get_index<static_cast<name::raw>(account_sym_idx::index_name)>();
-    auto it = index.find( make_uint128(quant.contract.value, quant.quantity.symbol.raw()) );
+    auto it = index.find( make_uint128(token_code.value, quant.symbol.raw()) );
     CHECK(it != index.end(),
           "the balance does not exist! user=" + user.to_string() +
-              ", bank=" + quant.contract.to_string() +
-              ", sym=" + symbol_to_string(quant.quantity.symbol));
+              ", token_code=" + token_code.to_string() +
+              ", sym=" + symbol_to_string(quant.symbol));
 
-    ASSERT(it->balance.contract == quant.contract);
+    ASSERT(it->balance.contract == token_code);
 
     index.modify(it, same_payer, [&]( auto& a ) {
-        a.balance.quantity -= quant.quantity;
+        a.balance.quantity -= quant;
         CHECK(it->balance.quantity.amount >= 0, "insufficient funds");
     });
 
-    TRANSFER( quant.contract, user, quant.quantity, "withdraw" )
+    TRANSFER( token_code, user, quant, "withdraw" )
 }
 
 void dex_contract::cancel(const uint64_t &order_id) {

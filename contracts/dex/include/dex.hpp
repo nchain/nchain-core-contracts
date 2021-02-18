@@ -35,7 +35,7 @@ public:
 
     [[eosio::on_notify("*::transfer")]] void ontransfer(const name& from, const name& to, const asset& quant, const string& memo);
 
-    [[eosio::action]] void withdraw(const name& user, const name& to, const extended_asset& quant, const string& memo);
+    [[eosio::action]] void withdraw(const name& user, const name& to, const name &token_code, const asset& quant, const string& memo);
 
     /**
      * new order, should deposit by transfer first
