@@ -154,7 +154,7 @@ public:
     dex_tester(): eosio_token(*this) {
         produce_blocks( 2 );
 
-        create_accounts( { N(dex.admin), N(dex.matcher), N(dex.dex_fee_collector),
+        create_accounts( { N(dex.admin), N(dex.matcher), N(dex.fee),
             N(alice), N(bob), N(carol), N(dex) } );
         produce_blocks( 2 );
 
@@ -286,8 +286,8 @@ public:
 
     void init_config() {
         auto conf = mvo()
-            ("admin", N(dex.admin))
-            ("dex_fee_collector", N(dex.dex_fee_collector))
+            ("dex_admin", N(dex.admin))
+            ("dex_fee_collector", N(dex.fee))
             ("taker_fee_ratio", 8)
             ("maker_fee_ratio", 4)
             ("max_match_count", uint32_t(0))
