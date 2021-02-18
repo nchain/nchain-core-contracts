@@ -134,15 +134,17 @@ namespace dex {
             }
 
             if (order.order_side == order_side::BUY) {
-                auto total_matched_coins = (_matched_coins.symbol == _matched_fee.symbol) ? _matched_coins + _matched_fee : _matched_coins;
+                auto total_matched_coins = (_matched_coins.symbol == _matched_fee.symbol) ?
+                    _matched_coins + _matched_fee // the buyer pay fee with coins
+                    : _matched_coins;
                 CHECK(total_matched_coins <= order.frozen_quant,
                         "The total_matched_coins=" + _matched_coins.to_string() +
                         " is overflow with frozen_quant=" + order.frozen_quant.to_string() + " for buy order");
                 if (completed) {
                     _status = COMPLETED;
                     if (order.order_type == order_type::LIMIT) {
-                        if (order.frozen_quant > _matched_coins) {
-                            _refund_coins = order.frozen_quant - _matched_coins;
+                        if (order.frozen_quant > total_matched_coins) {
+                            _refund_coins = order.frozen_quant - total_matched_coins;
                         }
                     }
                 }
