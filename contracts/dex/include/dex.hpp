@@ -44,7 +44,7 @@ public:
      * @param order_type - order type, LIMIT | MARKET
      * @param order_side - order side, BUY | SELL
      * @param limit_quant - the limit quantity
-     * @param frozen_quant - the frozen quantity
+     * @param frozen_quant - the frozen quantity, unused
      * @param price - the price, should be 0 for MARKET order
      * @param external_id - external id, always set by application
      * @param order_config_ex - optional extended config, must authenticate by admin if set

@@ -312,8 +312,7 @@ void dex_contract::neworder(const name &user, const uint64_t &sympair_id, const 
                             const uint64_t &external_id,
                             const optional<dex::order_config_ex_t> &order_config_ex) {
     // frozen_quant not in use
-    optional<asset> price_op = price;
-    new_order(user, sympair_id, order_type, order_side, limit_quant, price_op,
+    new_order(user, sympair_id, order_type, order_side, limit_quant, price,
               external_id, order_config_ex);
 }
 
@@ -452,16 +451,28 @@ void dex_contract::add_balance(const name &user, const name &bank, const asset &
 
 void dex_contract::buymarket(const name &user, const uint64_t &sympair_id, const asset &coins,
                              const uint64_t &external_id,
-                             const optional<dex::order_config_ex_t> &order_config_ex) {}
+                             const optional<dex::order_config_ex_t> &order_config_ex) {
+    new_order(user, sympair_id, order_type::MARKET, order_side::BUY, coins, nullopt,
+              external_id, order_config_ex);
+}
 
 void dex_contract::sellmarket(const name &user, const uint64_t &sympair_id, const asset &quantity,
                               const uint64_t &external_id,
-                              const optional<dex::order_config_ex_t> &order_config_ex) {}
+                              const optional<dex::order_config_ex_t> &order_config_ex) {
+    new_order(user, sympair_id, order_type::MARKET, order_side::SELL, quantity, nullopt,
+              external_id, order_config_ex);
+}
 
 void dex_contract::buylimit(const name &user, const uint64_t &sympair_id, const asset &quantity,
                             const asset &price, const uint64_t &external_id,
-                            const optional<dex::order_config_ex_t> &order_config_ex) {}
+                            const optional<dex::order_config_ex_t> &order_config_ex) {
+    new_order(user, sympair_id, order_type::LIMIT, order_side::BUY, quantity, price,
+              external_id, order_config_ex);
+}
 
 void dex_contract::selllimit(const name &user, const uint64_t &sympair_id, const asset &quantity,
                              const asset &price, const uint64_t &external_id,
-                             const optional<dex::order_config_ex_t> &order_config_ex) {}
+                             const optional<dex::order_config_ex_t> &order_config_ex) {
+    new_order(user, sympair_id, order_type::LIMIT, order_side::SELL, quantity, price,
+              external_id, order_config_ex);
+}
