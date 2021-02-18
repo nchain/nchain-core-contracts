@@ -56,6 +56,23 @@ public:
              const asset &price, const uint64_t &external_id,
              const optional<dex::order_config_ex_t> &order_config_ex);
 
+    [[eosio::action]] void buymarket(const name &user, const uint64_t &sympair_id,
+                                     const asset &coins, const uint64_t &external_id,
+                                     const optional<dex::order_config_ex_t> &order_config_ex);
+
+    [[eosio::action]] void sellmarket(const name &user, const uint64_t &sympair_id,
+                                      const asset &quantity, const uint64_t &external_id,
+                                      const optional<dex::order_config_ex_t> &order_config_ex);
+
+    [[eosio::action]] void buylimit(const name &user, const uint64_t &sympair_id,
+                                    const asset &quantity, const asset &price, const uint64_t &external_id,
+                                    const optional<dex::order_config_ex_t> &order_config_ex);
+
+    [[eosio::action]] void selllimit(const name &user, const uint64_t &sympair_id,
+                                     const asset &quantity, const asset &price,
+                                     const uint64_t &external_id,
+                                     const optional<dex::order_config_ex_t> &order_config_ex);
+
     /**
      *  @param max_count the max count of match item
      *  @param sym_pairs the symol pairs to match. is empty, match all
@@ -71,6 +88,12 @@ public:
     using setconfig_action  = action_wrapper<"setconfig"_n, &dex_contract::setconfig>;
     using setsympair_action = action_wrapper<"setsympair"_n, &dex_contract::setsympair>;
     using ontransfer_action = action_wrapper<"ontransfer"_n, &dex_contract::ontransfer>;
+    using withdraw_action   = action_wrapper<"withdraw"_n, &dex_contract::withdraw>;
+    using neworder_action   = action_wrapper<"neworder"_n, &dex_contract::neworder>;
+    using buymarket_action  = action_wrapper<"buymarket"_n, &dex_contract::buymarket>;
+    using sellmarket_action = action_wrapper<"sellmarket"_n, &dex_contract::sellmarket>;
+    using buylimit_action   = action_wrapper<"buylimit"_n, &dex_contract::buylimit>;
+    using selllimit_action  = action_wrapper<"selllimit"_n, &dex_contract::selllimit>;
     using match_action      = action_wrapper<"match"_n, &dex_contract::match>;
     using cancel_action     = action_wrapper<"cancel"_n, &dex_contract::cancel>;
     using version_action    = action_wrapper<"version"_n, &dex_contract::version>;
@@ -81,6 +104,15 @@ private:
     void process_refund(dex::order_t &buy_order);
     void match_sym_pair(const name &matcher, const dex::symbol_pair_t &sym_pair, uint32_t max_count,
                         uint32_t &matched_count, const string &memo);
+
+    void new_order(const name &user, const uint64_t &sympair_id,
+            const name &order_type, const name &order_side,
+            const asset &limit_quant,
+            const asset &frozen_quant,
+            const asset &price,
+            const uint64_t &external_id,
+            const optional<dex::order_config_ex_t> &order_config_ex);
+
     void add_balance(const name &user, const name &bank, const asset &quantity, const name &ram_payer);
 
     inline void sub_balance(const name &user, const name &bank, const asset &quantity, const name &ram_payer) {

@@ -306,13 +306,20 @@ void dex_contract::version() {
     CHECK(false, "version: " + dex::version());
 }
 
-void dex_contract::neworder(const name &user, const uint64_t &sympair_id,
-        const name &order_type, const name &order_side,
-        const asset &limit_quant,
-        const asset &frozen_quant,
-        const asset &price,
-        const uint64_t &external_id,
-        const optional<dex::order_config_ex_t> &order_config_ex) {
+void dex_contract::neworder(const name &user, const uint64_t &sympair_id, const name &order_type,
+                            const name &order_side, const asset &limit_quant,
+                            const asset &frozen_quant, const asset &price,
+                            const uint64_t &external_id,
+                            const optional<dex::order_config_ex_t> &order_config_ex) {
+    new_order(user, sympair_id, order_type, order_side, limit_quant, frozen_quant, price,
+              external_id, order_config_ex);
+}
+
+void dex_contract::new_order(const name &user, const uint64_t &sympair_id, const name &order_type,
+                             const name &order_side, const asset &limit_quant,
+                             const asset &frozen_quant, const asset &price,
+                             const uint64_t &external_id,
+                             const optional<dex::order_config_ex_t> &order_config_ex) {
 
     if (_config.admin_sign_required || order_config_ex) { require_auth(_config.dex_admin); }
 
@@ -445,3 +452,19 @@ void dex_contract::add_balance(const name &user, const name &bank, const asset &
     }
     return;
 }
+
+void dex_contract::buymarket(const name &user, const uint64_t &sympair_id, const asset &coins,
+                             const uint64_t &external_id,
+                             const optional<dex::order_config_ex_t> &order_config_ex) {}
+
+void dex_contract::sellmarket(const name &user, const uint64_t &sympair_id, const asset &quantity,
+                              const uint64_t &external_id,
+                              const optional<dex::order_config_ex_t> &order_config_ex) {}
+
+void dex_contract::buylimit(const name &user, const uint64_t &sympair_id, const asset &quantity,
+                            const asset &price, const uint64_t &external_id,
+                            const optional<dex::order_config_ex_t> &order_config_ex) {}
+
+void dex_contract::selllimit(const name &user, const uint64_t &sympair_id, const asset &quantity,
+                             const asset &price, const uint64_t &external_id,
+                             const optional<dex::order_config_ex_t> &order_config_ex) {}
