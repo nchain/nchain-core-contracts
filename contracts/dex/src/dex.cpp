@@ -312,13 +312,14 @@ void dex_contract::neworder(const name &user, const uint64_t &sympair_id, const 
                             const uint64_t &external_id,
                             const optional<dex::order_config_ex_t> &order_config_ex) {
     // frozen_quant not in use
-    new_order(user, sympair_id, order_type, order_side, limit_quant, price,
+    optional<asset> price_op = price;
+    new_order(user, sympair_id, order_type, order_side, limit_quant, price_op,
               external_id, order_config_ex);
 }
 
 void dex_contract::new_order(const name &user, const uint64_t &sympair_id, const name &order_type,
                              const name &order_side, const asset &limit_quant,
-                             const asset &price,
+                             const optional<asset> &price,
                              const uint64_t &external_id,
                              const optional<dex::order_config_ex_t> &order_config_ex) {
 
@@ -342,11 +343,13 @@ void dex_contract::new_order(const name &user, const uint64_t &sympair_id, const
     }
 
     // check price
-    CHECK(price.symbol == coin_symbol, "The price symbol mismatch with coin_symbol")
-    if (order_type == dex::order_type::LIMIT) {
-        CHECK( price.amount > 0, "The price must > 0 for limit order")
-    } else { // order.order_type == dex::order_type::LIMIT
-        CHECK( price.amount == 0, "The price must == 0 for market order")
+    if (price) {
+        CHECK(price->symbol == coin_symbol, "The price symbol mismatch with coin_symbol")
+        if (order_type == dex::order_type::LIMIT) {
+            CHECK( price->amount > 0, "The price must > 0 for limit order")
+        } else { // order.order_type == dex::order_type::LIMIT
+            CHECK( price->amount == 0, "The price must == 0 for market order")
+        }
     }
 
     asset frozen_quant;
@@ -357,8 +360,8 @@ void dex_contract::new_order(const name &user, const uint64_t &sympair_id, const
                     "The limit_symbol=" + symbol_to_string(limit_quant.symbol) +
                         " mismatch with asset_symbol=" + symbol_to_string(asset_symbol) +
                         " for limit buy order");
-
-            frozen_quant = dex::calc_coin_quant(limit_quant, price, coin_symbol);
+            ASSERT(price.has_value());
+            frozen_quant = dex::calc_coin_quant(limit_quant, *price, coin_symbol);
         } else {// order_type == order_type::MARKET
             CHECK(limit_quant.symbol == coin_symbol,
                     "The limit_symbol=" + symbol_to_string(limit_quant.symbol) +
@@ -393,7 +396,7 @@ void dex_contract::new_order(const name &user, const uint64_t &sympair_id, const
         order.sympair_id = sympair_id;
         order.order_type = order_type;
         order.order_side = order_side;
-        order.price = price;
+        order.price = price ? *price : asset(0, coin_symbol);
         order.limit_quant = limit_quant;
         order.frozen_quant = frozen_quant;
         order.taker_fee_ratio = taker_fee_ratio;

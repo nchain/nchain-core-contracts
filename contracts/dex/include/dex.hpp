@@ -108,7 +108,7 @@ private:
     void new_order(const name &user, const uint64_t &sympair_id,
             const name &order_type, const name &order_side,
             const asset &limit_quant,
-            const asset &price,
+            const optional<asset> &price,
             const uint64_t &external_id,
             const optional<dex::order_config_ex_t> &order_config_ex);
 
