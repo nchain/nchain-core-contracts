@@ -19,6 +19,8 @@ find_package(eosio.cdt)
 
 message(STATUS "Building nchain.contracts v${VERSION_FULL}")
 
+set(BUILD_TESTS FALSE CACHE BOOL "Build unit tests")
+
 set(EOSIO_CDT_VERSION_MIN "1.7")
 set(EOSIO_CDT_VERSION_SOFT_MAX "1.7")
 #set(EOSIO_CDT_VERSION_HARD_MAX "")
@@ -74,8 +76,6 @@ set(SECP256K1_ROOT "/usr/local")
 string(REPLACE ";" "|" TEST_PREFIX_PATH "${CMAKE_PREFIX_PATH}")
 string(REPLACE ";" "|" TEST_FRAMEWORK_PATH "${CMAKE_FRAMEWORK_PATH}")
 string(REPLACE ";" "|" TEST_MODULE_PATH "${CMAKE_MODULE_PATH}")
-
-set(BUILD_TESTS FALSE CACHE BOOL "Build unit tests")
 
 if(BUILD_TESTS)
    message(STATUS "Building unit tests.")
