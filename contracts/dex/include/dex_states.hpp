@@ -12,6 +12,9 @@ namespace dex {
 
     using namespace eosio;
 
+    static constexpr eosio::name active_perm{"active"_n};
+    static constexpr eosio::name SYS_BANK{"eosio.token"_n};
+
     typedef name order_type_t;
     typedef name order_side_t;
     typedef name order_status_t;

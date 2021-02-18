@@ -1,5 +1,6 @@
 #include <dex.hpp>
 #include "dex_const.hpp"
+#include "eosio.token.hpp"
 #include "version.hpp"
 
 using namespace eosio;
@@ -106,13 +107,6 @@ void dex_contract::ontransfer(const name& from, const name& to, const asset& qua
     add_balance(from, get_first_receiver(), quant, get_self());
 }
 
-void transfer_out(const name &contract, const name &bank, const name &to, const asset &quant, const string &memo) {
-    TRACE("transfer_out (", PP0(contract), PP(bank), PP(to), PP(quant), PP(memo), ")\n");
-    action(permission_level{contract, "active"_n}, bank, "transfer"_n,
-           std::make_tuple(contract, to, quant, memo))
-        .send();
-}
-
 void dex_contract::withdraw(const name &user, const name &to, const extended_asset &quant, const string &memo) {
     require_auth(user);
     check(quant.quantity.amount > 0, "quantity must be positive");
@@ -132,7 +126,7 @@ void dex_contract::withdraw(const name &user, const name &to, const extended_ass
         CHECK(it->balance.quantity.amount >= 0, "insufficient funds");
     });
 
-    transfer_out(get_self(), quant.contract, user, quant.quantity, "withdraw");
+    TRANSFER( quant.contract, user, quant.quantity, "withdraw" )
 }
 
 void dex_contract::cancel(const uint64_t &order_id) {
