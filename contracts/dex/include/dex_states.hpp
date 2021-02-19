@@ -203,7 +203,7 @@ namespace dex {
         return ret;
     }
 
-    uint128_t make_uint128(uint128_t high_val, uint128_t low_val) {
+    uint128_t make_uint128(uint64_t high_val, uint64_t low_val) {
         return uint128_t(high_val) << 64 | uint128_t(low_val);
     }
 
