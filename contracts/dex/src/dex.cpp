@@ -353,7 +353,6 @@ void dex_contract::new_order(const name &user, const uint64_t &sympair_id, const
 
     asset frozen_quant;
     if (order_side == dex::order_side::BUY) {
-        asset expected_frozen_coins;
         if (order_type == dex::order_type::LIMIT) {
             CHECK( limit_quant.symbol == asset_symbol,
                     "The limit_symbol=" + symbol_to_string(limit_quant.symbol) +
@@ -369,7 +368,7 @@ void dex_contract::new_order(const name &user, const uint64_t &sympair_id, const
             frozen_quant = limit_quant;
         }
         if (sym_pair_it->only_accept_coin_fee) {
-            frozen_quant += dex::calc_match_fee(taker_fee_ratio, expected_frozen_coins);
+            frozen_quant += dex::calc_match_fee(taker_fee_ratio, frozen_quant);
         }
 
     } else { // order_side == order_side::SELL
