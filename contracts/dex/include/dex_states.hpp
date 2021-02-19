@@ -163,9 +163,9 @@ namespace dex {
 
     static inline uint256_t make_symbols_idx(const extended_symbol &asset_symbol, const extended_symbol &coin_symbol) {
         return uint256_t::make_from_word_sequence<uint64_t>(
-                asset_symbol.get_contract().value, 
+                asset_symbol.get_contract().value,
                 asset_symbol.get_symbol().code().raw(),
-                coin_symbol.get_contract().value, 
+                coin_symbol.get_contract().value,
                 coin_symbol.get_symbol().code().raw());
     }
 
@@ -295,6 +295,7 @@ namespace dex {
         order_side_t taker_side;
         asset buy_fee;
         asset sell_fee;
+        asset buy_refund_coins;
         string memo;
         time_point deal_time;
 
@@ -320,6 +321,7 @@ namespace dex {
                 PP(taker_side),
                 PP(buy_fee),
                 PP(sell_fee),
+                PP(buy_refund_coins),
                 PP(memo),
                 PP(deal_time)
             );

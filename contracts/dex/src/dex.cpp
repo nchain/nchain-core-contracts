@@ -270,11 +270,12 @@ void dex_contract::match_sym_pair(const name &matcher, const dex::symbol_pair_t 
         CHECK(buy_it.is_completed() || sell_it.is_completed(), "Neither buy_order nor sell_order is completed");
 
         // process refund
+        asset buy_refund_coins(0, coin_symbol);
         if (buy_it.is_completed()) {
-            auto refunds = buy_it.get_refund_coins();
-            if (refunds.amount > 0) {
+            buy_refund_coins = buy_it.get_refund_coins();
+            if (buy_refund_coins.amount > 0) {
                 // refund from buy_order to buyer
-                add_balance(buy_order.owner, coin_bank, refunds, get_self());
+                add_balance(buy_order.owner, coin_bank, buy_refund_coins, get_self());
             }
         }
 
@@ -290,6 +291,7 @@ void dex_contract::match_sym_pair(const name &matcher, const dex::symbol_pair_t 
             deal_item.taker_side = taker_it.order_side();
             deal_item.buy_fee = buy_fee;
             deal_item.sell_fee = sell_fee;
+            deal_item.buy_refund_coins = buy_refund_coins;
             deal_item.memo = memo;
             deal_item.deal_time = cur_block_time;
             TRACE("The matched deal_item=", deal_item, "\n");
