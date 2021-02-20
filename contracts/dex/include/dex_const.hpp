@@ -12,6 +12,8 @@ constexpr int64_t DEX_TAKER_FEE_RATIO       = 8;         // 0.04%, dex taker fee
 
 constexpr uint32_t DEX_MATCH_COUNT_MAX      = 50;         // the max dex match count.
 
+constexpr uint64_t OLD_DATA_OUTDATE_DAYS   = 90;
+
 constexpr int64_t MEMO_LEN_MAX              = 255;        // 0.001%, max memo length
 constexpr int64_t URL_LEN_MAX               = 255;        // 0.001%, max url length
 

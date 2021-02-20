@@ -90,6 +90,7 @@ namespace dex {
                 a.matched_coins = _matched_coins;
                 a.matched_fee = _matched_fee;
                 a.status = order_status::COMPLETED;
+                a.last_updated_at = current_block_time();
             });
             process_data();
         }
@@ -101,6 +102,7 @@ namespace dex {
                     a.matched_assets = _matched_assets;
                     a.matched_coins = _matched_coins;
                     a.matched_fee = _matched_fee;
+                    a.last_updated_at = current_block_time();
                 });
             }
         }

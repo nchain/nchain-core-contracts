@@ -157,8 +157,10 @@ void dex_contract::cancel(const uint64_t &order_id) {
     if (quantity.amount > 0) {
         add_balance(order.owner, bank, quantity, order.owner);
     }
+
     order_tbl.modify(it, same_payer, [&]( auto& a ) {
         a.status = order_status::CANCELED;
+        a.last_updated_at = current_block_time();
     });
 }
 
@@ -170,6 +172,7 @@ dex::config dex_contract::get_default_config() {
         DEX_TAKER_FEE_RATIO,    // int64_t taker_fee_ratio;
         DEX_MATCH_COUNT_MAX,    // uint32_t max_match_count
         false,                  // bool admin_sign_required
+        OLD_DATA_OUTDATE_DAYS, // int64_t old_data_outdate_days
     };
 }
 
@@ -389,6 +392,7 @@ void dex_contract::new_order(const name &user, const uint64_t &sympair_id, const
     auto order_id = _global->new_order_id();
     CHECK( order_tbl.find(order_id) == order_tbl.end(), "The order exists: order_id=" + std::to_string(order_id));
 
+    auto cur_block_time = current_block_time();
     order_tbl.emplace(get_self(), [&](auto &order) {
         order.order_id = order_id;
         order.external_id = external_id;
@@ -401,11 +405,12 @@ void dex_contract::new_order(const name &user, const uint64_t &sympair_id, const
         order.frozen_quant = frozen_quant;
         order.taker_fee_ratio = taker_fee_ratio;
         order.maker_fee_ratio = maker_fee_ratio;
-        order.created_at = current_block_time();
         order.matched_assets = asset(0, asset_symbol);
         order.matched_coins = asset(0, coin_symbol);
         order.matched_fee = asset(0, fee_symbol);
         order.status = order_status::MATCHABLE;
+        order.created_at = cur_block_time;
+        order.last_updated_at = cur_block_time;
     });
 
 
@@ -476,4 +481,64 @@ void dex_contract::selllimit(const name &user, const uint64_t &sympair_id, const
                              const optional<dex::order_config_ex_t> &order_config_ex) {
     new_order(user, sympair_id, order_type::LIMIT, order_side::SELL, quantity, price,
               external_id, order_config_ex);
+}
+
+bool dex_contract::check_data_outdated(const time_point &data_time, const time_point &now) {
+    uint64_t days = (now.sec_since_epoch() - data_time.sec_since_epoch()) / (3600 * 24);
+    return days > _config.old_data_outdate_days;
+}
+
+void dex_contract::cleandata(const uint64_t &max_count) {
+    auto cur_block_time = current_block_time();
+
+    auto deal_tbl = make_deal_table(get_self());
+    auto order_tbl = make_order_table(get_self());
+    auto deal_it = deal_tbl.begin();
+
+    uint64_t count = 0, related_count = 0;
+    while (count < max_count && deal_it != deal_tbl.end() &&
+           check_data_outdated(deal_it->deal_time, cur_block_time)) {
+        // erase buy order
+        auto buy_it = order_tbl.find(deal_it->buy_order_id);
+        if (buy_it != order_tbl.end() && buy_it->last_updated_at <= deal_it->deal_time) {
+            TRACE("Erase buy order=", buy_it->order_id, " of deal_item=", deal_it->id);
+            order_tbl.erase(buy_it);
+            related_count++;
+        }
+        // erase sell order
+        auto sell_it = order_tbl.find(deal_it->sell_order_id);
+        if (sell_it != order_tbl.end() && sell_it->last_updated_at <= deal_it->deal_time) {
+            TRACE("Erase sell order=", sell_it->order_id, " of deal_item=", deal_it->id);
+            order_tbl.erase(sell_it);
+            related_count++;
+        }
+        TRACE("Erase deal_item=", deal_it->id);
+        deal_it = deal_tbl.erase(deal_it);
+        count++;
+    }
+
+    auto order_index = order_tbl.get_index<static_cast<name::raw>(order_updated_at_idx::index_name)>();
+    if (count < max_count) {
+        auto canceled_order_it = order_index.upper_bound(make_uint128(order_status::CANCELED.value, 0));
+        while (count < max_count && canceled_order_it != order_index.end() &&
+               canceled_order_it->status == order_status::CANCELED &&
+               check_data_outdated(deal_it->deal_time, cur_block_time)) {
+            TRACE("Erase canceled order=", canceled_order_it->order_id);
+            canceled_order_it = order_index.erase(canceled_order_it);
+            count++;
+        }
+    }
+
+    if (count < max_count) {
+        auto completed_order_it = order_index.upper_bound(make_uint128(order_status::COMPLETED.value, 0));
+        while(count < max_count && completed_order_it != order_index.end() &&
+                completed_order_it->status == order_status::COMPLETED &&
+                check_data_outdated(deal_it->deal_time, cur_block_time)) {
+            TRACE("Erase completed order=", completed_order_it->order_id);
+            completed_order_it = order_index.erase(completed_order_it);
+            count++;
+        }
+    }
+    CHECK(count > 0, "No data to be cleaned");
+    TRACE("Found and erased item count=", count, ", related_count=", related_count);
 }

@@ -93,6 +93,7 @@ namespace dex {
         int64_t taker_fee_ratio;
         uint32_t max_match_count; // the max match count for creating new order,  if 0 will forbid match
         bool admin_sign_required; // check the order must have the authorization by dex admin
+        int64_t old_data_outdate_days; // old data: canceled orders, deal items and related completed orders
     };
 
     typedef eosio::singleton< "config"_n, config > config_table;
@@ -236,20 +237,25 @@ namespace dex {
         asset frozen_quant;
         int64_t taker_fee_ratio;
         int64_t maker_fee_ratio;
-        time_point created_at;
         asset matched_assets;      //!< total matched asset quantity
         asset matched_coins;       //!< total matched coin quantity
         asset matched_fee;        //!< total matched fees
         order_status_t status;
+        time_point created_at;
+        time_point last_updated_at;
         uint64_t primary_key() const { return order_id; }
 
         uint64_t by_owner()const { return owner.value; }
         uint64_t by_external_id()const { return external_id; }
+        uint128_t by_updated_at() const {
+            return make_uint128(status.value, last_updated_at.elapsed.count());
+        }
         order_match_idx_key get_order_match_idx()const { return make_order_match_idx(sympair_id, status, order_side, order_type, price.amount, order_id); }
         uint256_t get_order_sym_idx()const { return uint256_t::make_from_word_sequence<uint64_t>(owner.value, sympair_id, status.value, 0ULL); }
 
         void print() const {
             auto created_at = this->created_at.elapsed.count(); // print the ms value
+            auto last_updated_at = this->last_updated_at.elapsed.count(); // print the ms value
             PRINT_PROPERTIES(
                 PP(order_id),
                 PP(external_id),
@@ -262,11 +268,12 @@ namespace dex {
                 PP(frozen_quant),
                 PP(taker_fee_ratio),
                 PP(maker_fee_ratio),
-                PP(created_at),
                 PP(matched_assets),
                 PP(matched_coins),
                 PP(matched_fee),
-                PP(status)
+                PP(status),
+                PP(created_at),
+                PP(last_updated_at)
             );
 
         }
@@ -276,11 +283,14 @@ namespace dex {
     using order_external_idx = indexed_by<"orderextidx"_n, const_mem_fun<order_t, uint64_t, &order_t::by_external_id> >;
     using order_match_idx = indexed_by<"ordermatch"_n, const_mem_fun<order_t, order_match_idx_key, &order_t::get_order_match_idx> >;
     using order_owner_sym_idx = indexed_by<"orderownrsym"_n, const_mem_fun<order_t, uint256_t, &order_t::get_order_sym_idx> >;
+    using order_updated_at_idx = indexed_by<"orderupdated"_n, const_mem_fun<order_t, uint128_t, &order_t::by_updated_at> >;
+
     typedef eosio::multi_index<"order"_n, order_t,
         order_owner_idx,
         order_external_idx,
         order_match_idx,
-        order_owner_sym_idx> order_tbl;
+        order_owner_sym_idx,
+        order_updated_at_idx> order_tbl;
 
     inline static order_tbl make_order_table(const name &self) { return order_tbl(self, self.value/*scope*/); }
 

@@ -81,6 +81,8 @@ public:
 
     [[eosio::action]] void cancel(const uint64_t &order_id);
 
+    [[eosio::action]] void cleandata(const uint64_t &max_count);
+
     [[eosio::action]] void version();
 
     [[eosio::action]] void name2uint(const name& n) { check(false, to_string(n.value)); };
@@ -118,6 +120,8 @@ private:
         ASSERT(quantity.amount >= 0);
         add_balance(user, bank, -quantity, ram_payer);
     }
+
+    bool check_data_outdated(const time_point &data_time, const time_point &now);
 
     dex::config_table _conf_tbl;
     dex::config _config;

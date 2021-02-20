@@ -291,7 +291,8 @@ public:
             ("taker_fee_ratio", 8)
             ("maker_fee_ratio", 4)
             ("max_match_count", uint32_t(0))
-            ("admin_sign_required", false);
+            ("admin_sign_required", false)
+            ("old_data_outdate_days", 100);
 
         EXECUTE_ACTION(setconfig( conf ));
         produce_blocks(1);
@@ -345,11 +346,12 @@ public:
             ("external_id", 1)
             ("taker_fee_ratio", 8)
             ("maker_fee_ratio", 4)
-            ("created_at", get_head_block_time())
             ("matched_assets", "0.00000000 BTC")
             ("matched_coins", "0.0000 USD")
             ("matched_fee", "0.00000000 BTC")
-            ("status", "matchable");
+            ("status", "matchable")
+            ("created_at", get_head_block_time())
+            ("last_updated_at", get_head_block_time());
         REQUIRE_MATCHING_OBJECT( buy_order, expected_order );
         return expected_order;
     }
@@ -370,7 +372,8 @@ BOOST_FIXTURE_TEST_CASE( dex_cancel_test, dex_tester ) try {
     EXECUTE_ACTION(cancel(N(alice), 1));
     auto new_buy_order = get_order(1);
     // update the buy_order;
-    buy_order("status", "canceled");
+    buy_order("status", "canceled")
+    ("last_updated_at", get_head_block_time());
     REQUIRE_MATCHING_OBJECT( new_buy_order, buy_order );
 
 } FC_LOG_AND_RETHROW()
@@ -406,11 +409,12 @@ BOOST_FIXTURE_TEST_CASE( dex_match_test, dex_tester ) try {
         ("external_id", 1)
         ("taker_fee_ratio", 8)
         ("maker_fee_ratio", 4)
-        ("created_at", get_head_block_time())
         ("matched_assets", "0.00000000 BTC")
         ("matched_coins", "0.0000 USD")
         ("matched_fee", "0.00000000 BTC")
-        ("status", "matchable");
+        ("status", "matchable")
+        ("created_at", get_head_block_time())
+        ("last_updated_at", get_head_block_time());
 
     auto new_buy_order = get_order(buy_order_id);
     REQUIRE_MATCHING_OBJECT( new_buy_order, buy_order );
@@ -441,11 +445,12 @@ BOOST_FIXTURE_TEST_CASE( dex_match_test, dex_tester ) try {
         ("external_id", 2)
         ("taker_fee_ratio", 8)
         ("maker_fee_ratio", 4)
-        ("created_at", get_head_block_time())
         ("matched_assets", "0.00000000 BTC")
         ("matched_coins", "0.0000 USD")
         ("matched_fee", "0.0000 USD")
-        ("status", "matchable");
+        ("status", "matchable")
+        ("created_at", get_head_block_time())
+        ("last_updated_at", get_head_block_time());
 
     auto new_sell_order = get_order(sell_order_id);
     REQUIRE_MATCHING_OBJECT( new_sell_order, sell_order);
@@ -457,7 +462,8 @@ BOOST_FIXTURE_TEST_CASE( dex_match_test, dex_tester ) try {
         ("matched_assets", "0.01000000 BTC")
         ("matched_coins", "100.0000 USD")
         ("matched_fee", "0.00000400 BTC")
-        ("status", "completed");
+        ("status", "completed")
+        ("last_updated_at", get_head_block_time());
     auto matched_buy_order = get_order(buy_order_id);
     BOOST_CHECK(!matched_buy_order.is_null());
     REQUIRE_MATCHING_OBJECT( matched_buy_order, buy_order );
@@ -466,7 +472,8 @@ BOOST_FIXTURE_TEST_CASE( dex_match_test, dex_tester ) try {
         ("matched_assets", "0.01000000 BTC")
         ("matched_coins", "100.0000 USD")
         ("matched_fee", "0.0800 USD")
-        ("status", "completed");
+        ("status", "completed")
+        ("last_updated_at", get_head_block_time());
     auto matched_sell_order = get_order(sell_order_id);
     REQUIRE_MATCHING_OBJECT( matched_sell_order, sell_order );
 } FC_LOG_AND_RETHROW()
