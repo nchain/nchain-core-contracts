@@ -93,7 +93,7 @@ namespace dex {
         int64_t taker_fee_ratio;
         uint32_t max_match_count; // the max match count for creating new order,  if 0 will forbid match
         bool admin_sign_required; // check the order must have the authorization by dex admin
-        int64_t old_data_outdate_days; // old data: canceled orders, deal items and related completed orders
+        int64_t old_data_outdate_sec; // old data: canceled orders, deal items and related completed orders
     };
 
     typedef eosio::singleton< "config"_n, config > config_table;

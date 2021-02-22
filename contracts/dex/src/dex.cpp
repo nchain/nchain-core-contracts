@@ -172,7 +172,7 @@ dex::config dex_contract::get_default_config() {
         DEX_TAKER_FEE_RATIO,    // int64_t taker_fee_ratio;
         DEX_MATCH_COUNT_MAX,    // uint32_t max_match_count
         false,                  // bool admin_sign_required
-        OLD_DATA_OUTDATE_DAYS, // int64_t old_data_outdate_days
+        OLD_DATA_OUTDATE_SEC, // int64_t old_data_outdate_secs
     };
 }
 
@@ -485,7 +485,7 @@ void dex_contract::selllimit(const name &user, const uint64_t &sympair_id, const
 
 bool dex_contract::check_data_outdated(const time_point &data_time, const time_point &now) {
     uint64_t days = (now.sec_since_epoch() - data_time.sec_since_epoch()) / (3600 * 24);
-    return days > _config.old_data_outdate_days;
+    return days > _config.old_data_outdate_sec;
 }
 
 void dex_contract::cleandata(const uint64_t &max_count) {
