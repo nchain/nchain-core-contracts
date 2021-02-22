@@ -267,8 +267,10 @@ void dex_contract::match_sym_pair(const name &matcher, const dex::symbol_pair_t 
         // transfer the assets from sell_order  to buyer
         add_balance(buy_order.owner, asset_bank, buyer_recv_assets, get_self());
 
-        buy_it.match(matched_assets, matched_coins, buy_fee);
-        sell_it.match(matched_assets, matched_coins, sell_fee);
+        auto deal_id = _global->new_deal_item_id();
+
+        buy_it.match(deal_id, matched_assets, matched_coins, buy_fee);
+        sell_it.match(deal_id, matched_assets, matched_coins, sell_fee);
 
         CHECK(buy_it.is_completed() || sell_it.is_completed(), "Neither buy_order nor sell_order is completed");
 
@@ -281,7 +283,6 @@ void dex_contract::match_sym_pair(const name &matcher, const dex::symbol_pair_t 
                 add_balance(buy_order.owner, coin_bank, buy_refund_coins, get_self());
             }
         }
-
         auto deal_tbl = dex::make_deal_table(get_self());
         deal_tbl.emplace(matcher, [&]( auto& deal_item ) {
             deal_item.id = _global->new_deal_item_id();
@@ -411,6 +412,7 @@ void dex_contract::new_order(const name &user, const uint64_t &sympair_id, const
         order.status = order_status::MATCHABLE;
         order.created_at = cur_block_time;
         order.last_updated_at = cur_block_time;
+        order.last_deal_id = 0;
     });
 
 
@@ -500,14 +502,18 @@ void dex_contract::cleandata(const uint64_t &max_count) {
            check_data_outdated(deal_it->deal_time, cur_block_time)) {
         // erase buy order
         auto buy_it = order_tbl.find(deal_it->buy_order_id);
-        if (buy_it != order_tbl.end() && buy_it->last_updated_at <= deal_it->deal_time) {
+        if (buy_it != order_tbl.end() && buy_it->status == order_status::COMPLETED &&
+            buy_it->last_deal_id == deal_it->id) {
+
             TRACE("Erase buy order=", buy_it->order_id, " of deal_item=", deal_it->id);
             order_tbl.erase(buy_it);
             related_count++;
         }
         // erase sell order
         auto sell_it = order_tbl.find(deal_it->sell_order_id);
-        if (sell_it != order_tbl.end() && sell_it->last_updated_at <= deal_it->deal_time) {
+        if (sell_it != order_tbl.end() && buy_it->status == order_status::COMPLETED &&
+            sell_it->last_deal_id == deal_it->id) {
+
             TRACE("Erase sell order=", sell_it->order_id, " of deal_item=", deal_it->id);
             order_tbl.erase(sell_it);
             related_count++;

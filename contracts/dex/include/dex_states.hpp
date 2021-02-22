@@ -243,6 +243,7 @@ namespace dex {
         order_status_t status;
         time_point created_at;
         time_point last_updated_at;
+        uint64_t   last_deal_id;
         uint64_t primary_key() const { return order_id; }
 
         uint64_t by_owner()const { return owner.value; }
@@ -273,7 +274,8 @@ namespace dex {
                 PP(matched_fee),
                 PP(status),
                 PP(created_at),
-                PP(last_updated_at)
+                PP(last_updated_at),
+                PP(last_deal_id)
             );
 
         }

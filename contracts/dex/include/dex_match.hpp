@@ -91,6 +91,7 @@ namespace dex {
                 a.matched_fee = _matched_fee;
                 a.status = order_status::COMPLETED;
                 a.last_updated_at = current_block_time();
+                a.last_deal_id = _last_deal_id;
             });
             process_data();
         }
@@ -103,6 +104,7 @@ namespace dex {
                     a.matched_coins = _matched_coins;
                     a.matched_fee = _matched_fee;
                     a.last_updated_at = current_block_time();
+                    a.last_deal_id = _last_deal_id;
                 });
             }
         }
@@ -112,13 +114,14 @@ namespace dex {
             return *_it;
         }
 
-        inline void match(const asset &new_matched_assets, const asset &new_matched_coins, const asset &new_matched_fee) {
+        inline void match(uint64_t deal_id, const asset &new_matched_assets, const asset &new_matched_coins, const asset &new_matched_fee) {
             ASSERT(_status == OPENED || _status == MATCHING);
             if (_status == OPENED) {
                 _status = MATCHING;
             }
             bool completed = false;
 
+            _last_deal_id = deal_id;
             _matched_assets += new_matched_assets;
             _matched_coins += new_matched_coins;
             _matched_fee += new_matched_fee;
@@ -211,6 +214,8 @@ namespace dex {
                 return;
             }
             TRACE("found order! order=", stored_order, "\n");
+
+            _last_deal_id = stored_order.last_deal_id;
             _matched_assets = stored_order.matched_assets;
             _matched_coins  = stored_order.matched_coins;
             _matched_fee  = stored_order.matched_fee;
@@ -226,6 +231,7 @@ namespace dex {
         order_side_t _order_side;
         status_t _status = CLOSED;
 
+        uint64_t _last_deal_id = 0;
         asset _matched_assets;      //!< total matched asset amount
         asset _matched_coins;       //!< total matched coin amount
         asset _matched_fee;        //!< total matched fees

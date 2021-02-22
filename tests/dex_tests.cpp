@@ -351,7 +351,8 @@ public:
             ("matched_fee", "0.00000000 BTC")
             ("status", "matchable")
             ("created_at", get_head_block_time())
-            ("last_updated_at", get_head_block_time());
+            ("last_updated_at", get_head_block_time())
+            ("last_deal_id", 0);
         REQUIRE_MATCHING_OBJECT( buy_order, expected_order );
         return expected_order;
     }
@@ -414,7 +415,8 @@ BOOST_FIXTURE_TEST_CASE( dex_match_test, dex_tester ) try {
         ("matched_fee", "0.00000000 BTC")
         ("status", "matchable")
         ("created_at", get_head_block_time())
-        ("last_updated_at", get_head_block_time());
+        ("last_updated_at", get_head_block_time())
+        ("last_deal_id", 0);
 
     auto new_buy_order = get_order(buy_order_id);
     REQUIRE_MATCHING_OBJECT( new_buy_order, buy_order );
@@ -450,7 +452,8 @@ BOOST_FIXTURE_TEST_CASE( dex_match_test, dex_tester ) try {
         ("matched_fee", "0.0000 USD")
         ("status", "matchable")
         ("created_at", get_head_block_time())
-        ("last_updated_at", get_head_block_time());
+        ("last_updated_at", get_head_block_time())
+        ("last_deal_id", 0);
 
     auto new_sell_order = get_order(sell_order_id);
     REQUIRE_MATCHING_OBJECT( new_sell_order, sell_order);
@@ -463,7 +466,8 @@ BOOST_FIXTURE_TEST_CASE( dex_match_test, dex_tester ) try {
         ("matched_coins", "100.0000 USD")
         ("matched_fee", "0.00000400 BTC")
         ("status", "completed")
-        ("last_updated_at", get_head_block_time());
+        ("last_updated_at", get_head_block_time())
+        ("last_deal_id", 1);
     auto matched_buy_order = get_order(buy_order_id);
     BOOST_CHECK(!matched_buy_order.is_null());
     REQUIRE_MATCHING_OBJECT( matched_buy_order, buy_order );
@@ -473,7 +477,8 @@ BOOST_FIXTURE_TEST_CASE( dex_match_test, dex_tester ) try {
         ("matched_coins", "100.0000 USD")
         ("matched_fee", "0.0800 USD")
         ("status", "completed")
-        ("last_updated_at", get_head_block_time());
+        ("last_updated_at", get_head_block_time())
+        ("last_deal_id", 1);
     auto matched_sell_order = get_order(sell_order_id);
     REQUIRE_MATCHING_OBJECT( matched_sell_order, sell_order );
 } FC_LOG_AND_RETHROW()
