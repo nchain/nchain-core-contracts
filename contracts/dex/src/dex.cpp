@@ -486,8 +486,9 @@ void dex_contract::selllimit(const name &user, const uint64_t &sympair_id, const
 }
 
 bool dex_contract::check_data_outdated(const time_point &data_time, const time_point &now) {
-    uint64_t days = (now.sec_since_epoch() - data_time.sec_since_epoch()) / (3600 * 24);
-    return days > _config.old_data_outdate_sec;
+    ASSERT(now.sec_since_epoch() >= data_time.sec_since_epoch());
+    uint64_t sec = now.sec_since_epoch() - data_time.sec_since_epoch();
+    return sec > _config.old_data_outdate_sec;
 }
 
 void dex_contract::cleandata(const uint64_t &max_count) {
