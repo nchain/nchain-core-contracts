@@ -21,8 +21,10 @@ using namespace std;
 #endif
 
 #ifndef TRACE
-    #define TRACE print
+    #define TRACE(...) print(__VA_ARGS__)
 #endif
+
+#define TRACE_L(...) TRACE(__VA_ARGS__, "\n")
 
 #define CHECK(exp, msg) { if (!(exp)) eosio::check(false, msg); }
 

@@ -219,8 +219,8 @@ void dex_contract::match_sym_pair(const name &matcher, const dex::symbol_pair_t 
         auto &maker_it = matching_pair_it.maker_it();
         auto &taker_it = matching_pair_it.taker_it();
 
-        TRACE("matching taker_order=", maker_it.stored_order(), "\n");
-        TRACE("matching maker_order=", taker_it.stored_order(), "\n");
+        TRACE_L("matching taker_order=", maker_it.stored_order());
+        TRACE_L("matching maker_order=", taker_it.stored_order());
 
         const auto &matched_price = maker_it.stored_order().price;
 
@@ -229,7 +229,7 @@ void dex_contract::match_sym_pair(const name &matcher, const dex::symbol_pair_t 
         matching_pair_it.calc_matched_amounts(matched_assets, matched_coins);
         check(matched_assets.amount > 0 || matched_coins.amount > 0, "Invalid calc_matched_amounts!");
         if (matched_assets.amount == 0 || matched_coins.amount == 0) {
-            TRACE("Dust calc_matched_amounts! ", PP0(matched_assets), PP(matched_coins));
+            TRACE_L("Dust calc_matched_amounts! ", PP0(matched_assets), PP(matched_coins));
         }
 
         auto &buy_it = (taker_it.order_side() == order_side::BUY) ? taker_it : maker_it;
@@ -298,7 +298,7 @@ void dex_contract::match_sym_pair(const name &matcher, const dex::symbol_pair_t 
             deal_item.buy_refund_coins = buy_refund_coins;
             deal_item.memo = memo;
             deal_item.deal_time = cur_block_time;
-            TRACE("The matched deal_item=", deal_item, "\n");
+            TRACE_L("The matched deal_item=", deal_item);
         });
 
         matched_count++;
@@ -438,7 +438,7 @@ void dex_contract::add_balance(const name &user, const name &bank, const asset &
               ", sym=" + symbol_to_string(quantity.symbol));
         // create balance of account
         auto id = account_tbl.available_primary_key();
-        TRACE("create balance. id=", id, ", account=", user.to_string(), ", bank=", bank.to_string(),
+        TRACE_L("create balance. id=", id, ", account=", user.to_string(), ", bank=", bank.to_string(),
             ", quantity=", quantity);
         account_tbl.emplace( ram_payer, [&]( auto& a ) {
             a.id = id; // TODO: add auto-inc account_id in global
@@ -446,7 +446,7 @@ void dex_contract::add_balance(const name &user, const name &bank, const asset &
             a.balance.quantity = quantity;
         });
     } else {
-        TRACE("add balance. id=", it->id, ", account=", user.to_string(), ", bank=", bank.to_string(),
+        TRACE_L("add balance. id=", it->id, ", account=", user.to_string(), ", bank=", bank.to_string(),
             ", quantity=", quantity);
         ASSERT(it->balance.contract == bank);
         index.modify(it, same_payer, [&]( auto& a ) {
@@ -506,7 +506,7 @@ void dex_contract::cleandata(const uint64_t &max_count) {
         if (buy_it != order_tbl.end() && buy_it->status == order_status::COMPLETED &&
             buy_it->last_deal_id == deal_it->id) {
 
-            TRACE("Erase buy order=", buy_it->order_id, " of deal_item=", deal_it->id);
+            TRACE_L("Erase buy order=", buy_it->order_id, " of deal_item=", deal_it->id);
             order_tbl.erase(buy_it);
             related_count++;
         }
@@ -515,11 +515,11 @@ void dex_contract::cleandata(const uint64_t &max_count) {
         if (sell_it != order_tbl.end() && buy_it->status == order_status::COMPLETED &&
             sell_it->last_deal_id == deal_it->id) {
 
-            TRACE("Erase sell order=", sell_it->order_id, " of deal_item=", deal_it->id);
+            TRACE_L("Erase sell order=", sell_it->order_id, " of deal_item=", deal_it->id);
             order_tbl.erase(sell_it);
             related_count++;
         }
-        TRACE("Erase deal_item=", deal_it->id);
+        TRACE_L("Erase deal_item=", deal_it->id);
         deal_it = deal_tbl.erase(deal_it);
         count++;
     }
@@ -530,7 +530,7 @@ void dex_contract::cleandata(const uint64_t &max_count) {
         while (count < max_count && canceled_order_it != order_index.end() &&
                canceled_order_it->status == order_status::CANCELED &&
                check_data_outdated(deal_it->deal_time, cur_block_time)) {
-            TRACE("Erase canceled order=", canceled_order_it->order_id);
+            TRACE_L("Erase canceled order=", canceled_order_it->order_id);
             canceled_order_it = order_index.erase(canceled_order_it);
             count++;
         }
@@ -541,11 +541,11 @@ void dex_contract::cleandata(const uint64_t &max_count) {
         while(count < max_count && completed_order_it != order_index.end() &&
                 completed_order_it->status == order_status::COMPLETED &&
                 check_data_outdated(deal_it->deal_time, cur_block_time)) {
-            TRACE("Erase completed order=", completed_order_it->order_id);
+            TRACE_L("Erase completed order=", completed_order_it->order_id);
             completed_order_it = order_index.erase(completed_order_it);
             count++;
         }
     }
     CHECK(count > 0, "No data to be cleaned");
-    TRACE("Found and erased item count=", count, ", related_count=", related_count);
+    TRACE_L("Found and erased item count=", count, ", related_count=", related_count);
 }
