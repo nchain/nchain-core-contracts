@@ -512,7 +512,7 @@ void dex_contract::cleandata(const uint64_t &max_count) {
         }
         // erase sell order
         auto sell_it = order_tbl.find(deal_it->sell_order_id);
-        if (sell_it != order_tbl.end() && buy_it->status == order_status::COMPLETED &&
+        if (sell_it != order_tbl.end() && sell_it->status == order_status::COMPLETED &&
             sell_it->last_deal_id == deal_it->id) {
 
             TRACE_L("Erase sell order=", sell_it->order_id, " of deal_item=", deal_it->id);
