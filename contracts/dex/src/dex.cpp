@@ -143,6 +143,7 @@ void dex_contract::cancel(const uint64_t &order_id) {
     auto sym_pair_it = sympair_tbl.find(order.sympair_id);
     CHECK( sym_pair_it != sympair_tbl.end(),
         "The symbol pair id '" + std::to_string(order.sympair_id) + "' does not exist");
+    CHECK( sym_pair_it->enabled, "The symbol pair '" + std::to_string(order.sympair_id) + " is disabled")
 
     asset quantity;
     name bank;
