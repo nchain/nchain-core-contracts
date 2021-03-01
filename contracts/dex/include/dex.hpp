@@ -123,6 +123,8 @@ private:
 
     bool check_data_outdated(const time_point &data_time, const time_point &now);
 
+    bool check_dex_enabled();
+
     dex::config_table _conf_tbl;
     dex::config _config;
     dex::global_state::ptr_t _global;

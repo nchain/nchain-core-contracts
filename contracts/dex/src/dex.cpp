@@ -7,6 +7,10 @@ using namespace eosio;
 using namespace std;
 using namespace dex;
 
+#define CHECK_DEX_ENABLED() { \
+    CHECK(_config.dex_enabled, string("dex is disabled! function=") + __func__); \
+}
+
 inline std::string str_to_upper(string_view str) {
     std::string ret(str.size(), 0);
     for (size_t i = 0; i < str.size(); i++) {
@@ -101,6 +105,7 @@ void dex_contract::onoffsympair(const uint64_t& sympair_id, const bool& on_off) 
 }
 
 void dex_contract::ontransfer(const name& from, const name& to, const asset& quant, const string& memo) {
+    CHECK_DEX_ENABLED()
     if (from == get_self()) { return; }
     CHECK( to == get_self(), "Must transfer to this contract")
     CHECK( quant.amount > 0, "The quantity must be positive")
@@ -108,6 +113,7 @@ void dex_contract::ontransfer(const name& from, const name& to, const asset& qua
 }
 
 void dex_contract::withdraw(const name &user, const name &to, const name &token_code, const asset& quant, const string &memo) {
+    CHECK_DEX_ENABLED()
     require_auth(user);
     check(quant.amount > 0, "quantity must be positive");
 
@@ -130,6 +136,7 @@ void dex_contract::withdraw(const name &user, const name &to, const name &token_
 }
 
 void dex_contract::cancel(const uint64_t &order_id) {
+    CHECK_DEX_ENABLED()
     auto order_tbl = make_order_table(get_self());
     auto it = order_tbl.find(order_id);
     CHECK(it != order_tbl.end(), "The order does not exist or has been matched");
@@ -167,6 +174,7 @@ void dex_contract::cancel(const uint64_t &order_id) {
 
 dex::config dex_contract::get_default_config() {
     return {
+        true,                   // bool dex_enabled
         get_self(),             // name admin;
         get_self(),             // name dex_fee_collector;
         DEX_MAKER_FEE_RATIO,    // int64_t maker_fee_ratio;
@@ -178,6 +186,7 @@ dex::config dex_contract::get_default_config() {
 }
 
 void dex_contract::match(const name &matcher, uint32_t max_count, const vector<uint64_t> &sym_pairs, const string &memo) {
+    CHECK_DEX_ENABLED()
 
     CHECK(is_account(matcher), "The matcher account does not exist");
     CHECK(max_count > 0, "The max_count must > 0")
@@ -329,6 +338,7 @@ void dex_contract::new_order(const name &user, const uint64_t &sympair_id, const
                              const uint64_t &external_id,
                              const optional<dex::order_config_ex_t> &order_config_ex) {
 
+    CHECK_DEX_ENABLED()
     if (_config.admin_sign_required || order_config_ex) { require_auth(_config.dex_admin); }
 
     auto sympair_tbl = make_sympair_table(get_self());
@@ -493,6 +503,7 @@ bool dex_contract::check_data_outdated(const time_point &data_time, const time_p
 }
 
 void dex_contract::cleandata(const uint64_t &max_count) {
+    CHECK_DEX_ENABLED()
     auto cur_block_time = current_block_time();
 
     auto deal_tbl = make_deal_table(get_self());
