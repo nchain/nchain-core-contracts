@@ -87,7 +87,7 @@ namespace dex {
     };
 
     struct DEX_TABLE config {
-        bool dex_enabled;     // if false, disable call operation of common user
+        bool dex_enabled;     // if false, disable all operation of common user
         name dex_admin;   // admin of this contract, permisions: manage sym_pairs, authorize order
         name dex_fee_collector;   // dex_fee_collector of this contract
         int64_t maker_fee_ratio;
