@@ -286,6 +286,7 @@ public:
 
     void init_config() {
         auto conf = mvo()
+            ("dex_enabled", true)
             ("dex_admin", N(dex.admin))
             ("dex_fee_collector", N(dex.fee))
             ("taker_fee_ratio", 8)
