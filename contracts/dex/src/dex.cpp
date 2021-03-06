@@ -181,7 +181,7 @@ dex::config dex_contract::get_default_config() {
         DEX_TAKER_FEE_RATIO,    // int64_t taker_fee_ratio;
         DEX_MATCH_COUNT_MAX,    // uint32_t max_match_count
         false,                  // bool admin_sign_required
-        OLD_DATA_OUTDATE_SEC, // int64_t old_data_outdate_secs
+        DATA_RECYCLE_SEC,       // int64_t old_data_outdate_secs
     };
 }
 
