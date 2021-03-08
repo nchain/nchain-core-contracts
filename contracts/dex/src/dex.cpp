@@ -337,8 +337,9 @@ void dex_contract::new_order(const name &user, const uint64_t &sympair_id, const
                              const optional<asset> &price,
                              const uint64_t &external_id,
                              const optional<dex::order_config_ex_t> &order_config_ex) {
-
     CHECK_DEX_ENABLED()
+    CHECK(is_account(user), "Account of user=" + user.to_string() + " does not existed");
+    require_auth(user);
     if (_config.admin_sign_required || order_config_ex) { require_auth(_config.dex_admin); }
 
     auto sympair_tbl = make_sympair_table(get_self());
