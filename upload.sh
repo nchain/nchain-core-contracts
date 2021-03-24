@@ -15,7 +15,7 @@ sync() {
         --exclude='*.md' \
         --exclude='CMakeCache.txt' \
         --exclude='CMakeLists.txt' \
-        ./build/contracts/dex ${host}:${dest}/dex
+        ./build/contracts/dex ${host}:${dest}/
 }
 
 sync jw
