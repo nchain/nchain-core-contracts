@@ -232,7 +232,8 @@ void dex_contract::match(const name &matcher, uint32_t max_count, const vector<u
 
         match_sym_pair(matcher, sym_pair, max_count, matched_count, memo);
     }
-    CHECK(matched_count > 0, "The matched count == 0");
+
+    CHECK(matched_count > 0, "None matched");
 }
 
 void dex_contract::match_sym_pair(const name &matcher, const dex::symbol_pair_t &sym_pair,
