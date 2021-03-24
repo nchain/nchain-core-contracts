@@ -293,7 +293,7 @@ public:
             ("maker_fee_ratio", 4)
             ("max_match_count", uint32_t(0))
             ("admin_sign_required", false)
-            ("old_data_outdate_sec", 90 * 3600 * 24);
+            ("data_recycle_sec", 90 * 3600 * 24);
 
         EXECUTE_ACTION(setconfig( conf ));
         produce_blocks(1);

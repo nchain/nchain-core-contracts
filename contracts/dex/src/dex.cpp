@@ -8,7 +8,7 @@ using namespace std;
 using namespace dex;
 
 #define CHECK_DEX_ENABLED() { \
-    CHECK(_config.dex_enabled, string("dex is disabled! function=") + __func__); \
+    CHECK(_config.dex_enabled, string("DEX is disabled! function=") + __func__); \
 }
 
 inline std::string str_to_upper(string_view str) {
@@ -36,6 +36,24 @@ inline string symbol_to_string(const symbol &s) {
 
 inline string symbol_pair_to_string(const symbol &asset_symbol, const symbol &coin_symbol) {
     return symbol_to_string(asset_symbol) + "/" + symbol_to_string(coin_symbol);
+}
+
+ACTION dex_contract::init() {
+    // order_tbl orders(_self, _self.value);
+
+    // auto s = orders.begin();
+	// while(s != orders.end()){
+	// 	s = orders.erase(s);
+	// }
+
+    // _conf_tbl.remove();
+    
+    // deal_table deals(_self, _self.value);
+    // auto t = deals.begin();
+    // while(t != deals.end()){
+	// 	t = deals.erase(t);
+	// }
+
 }
 
 void dex_contract::setconfig(const dex::config &conf) {
@@ -500,7 +518,7 @@ void dex_contract::selllimit(const name &user, const uint64_t &sympair_id, const
 bool dex_contract::check_data_outdated(const time_point &data_time, const time_point &now) {
     ASSERT(now.sec_since_epoch() >= data_time.sec_since_epoch());
     uint64_t sec = now.sec_since_epoch() - data_time.sec_since_epoch();
-    return sec > _config.old_data_outdate_sec;
+    return sec > _config.data_recycle_sec;
 }
 
 void dex_contract::cleandata(const uint64_t &max_count) {

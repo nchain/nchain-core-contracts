@@ -24,6 +24,8 @@ public:
         _global->save(get_self());
     }
 
+    [[eosio::action]] void init();
+    
     [[eosio::action]] void setconfig(const dex::config &conf);
 
     [[eosio::action]] void setsympair(const extended_symbol &asset_symbol,
