@@ -12,9 +12,7 @@ sync() {
         --exclude='*.md' \
         --exclude='CMakeCache.txt' \
         --exclude='CMakeLists.txt' \
-        ./build/contracts/ ${host}:${dest}
-
-    # rsync -rav -e ssh ./unittest.sh ${host}:/opt/mgp/wallet/
+        ./build/contracts/dex ${host}:${dest}/dex
 }
 
 sync jw
