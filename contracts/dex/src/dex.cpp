@@ -346,7 +346,9 @@ ACTION dex_contract::ordermatchin(const uint64_t sympair_id,
                                  const name order_status,
                                  const name order_side,
                                  const name order_type) {
-    auto idx_fixed =  make_order_match_idx(sympair_id, order_status_t(order_status), order_side_t(order_side), order_type_t(order_type), 0, 0);
+    auto price = (order_side == "buy"_n) ? std::numeric_limits<uint64_t>::max() : 0;
+
+    auto idx_fixed =  make_order_match_idx(sympair_id, order_status_t(order_status), order_side_t(order_side), order_type_t(order_type), price, 0);
     array<uint8_t, 32> idx_buffer = idx_fixed.extract_as_byte_array();
 
     check( false, to_hex(idx_buffer) );
