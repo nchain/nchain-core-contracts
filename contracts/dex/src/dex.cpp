@@ -342,10 +342,10 @@ void dex_contract::version() {
 }
 
 
-ACTION dex_contract::ordermatchin(const uint64_t& sympair_id, 
-                                 const uint8_t& order_status,
-                                 const uint8_t& order_side,
-                                 const uint8_t& order_type) {
+ACTION dex_contract::ordermatchin(const uint64_t sympair_id, 
+                                 const name order_status,
+                                 const name order_side,
+                                 const name order_type) {
     auto idx_fixed =  make_order_match_idx(sympair_id, order_status_t(order_status), order_side_t(order_side), order_type_t(order_type), 0, 0);
     array<uint8_t, 32> idx_buffer = idx_fixed.extract_as_byte_array();
 

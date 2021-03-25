@@ -89,10 +89,10 @@ public:
 
     [[eosio::action]] void name2uint(const name& n) { check(false, to_string(n.value)); };
 
-    [[eosio::action]] void ordermatchin(const uint64_t& sympair_id, 
-                                        const uint8_t& order_status,
-                                        const uint8_t& order_side,
-                                        const uint8_t& order_type);
+    [[eosio::action]] void ordermatchin(const uint64_t sympair_id, 
+                                        const name order_status,
+                                        const name order_side,
+                                        const name order_type);
 
     using setconfig_action  = action_wrapper<"setconfig"_n, &dex_contract::setconfig>;
     using setsympair_action = action_wrapper<"setsympair"_n, &dex_contract::setsympair>;
