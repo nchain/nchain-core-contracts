@@ -89,6 +89,11 @@ public:
 
     [[eosio::action]] void name2uint(const name& n) { check(false, to_string(n.value)); };
 
+    [[eosio::action]] void ordermatchin(const uint64_t& sympair_id, 
+                                        const uint8_t& order_status,
+                                        const uint8_t& order_side,
+                                        const uint8_t& order_type);
+
     using setconfig_action  = action_wrapper<"setconfig"_n, &dex_contract::setconfig>;
     using setsympair_action = action_wrapper<"setsympair"_n, &dex_contract::setsympair>;
     using ontransfer_action = action_wrapper<"ontransfer"_n, &dex_contract::ontransfer>;
@@ -102,6 +107,30 @@ public:
     using cancel_action     = action_wrapper<"cancel"_n, &dex_contract::cancel>;
     using version_action    = action_wrapper<"version"_n, &dex_contract::version>;
     using name2uint_action = action_wrapper<"name2uint"_n, &dex_contract::name2uint>;
+    using ordermatchin_action = action_wrapper<"ordermatchin"_n, &dex_contract::ordermatchin>;
+
+public:
+    std::string to_hex(const char* d, uint32_t s){
+        std::string r;
+        const char* to_hex="0123456789abcdef";
+        uint8_t* c = (uint8_t*)d;
+        for( uint32_t i = 0; i < s; ++i )
+            (r += to_hex[(c[i]>>4)]) += to_hex[(c[i] &0x0f)];
+
+        return r;
+    }
+
+    std::string to_hex(const std::vector<char>& data ){
+       if( data.size() )
+          return to_hex( data.data(), data.size() );
+
+       return "";
+    }
+
+    std::string to_hex(const std::array<uint8_t, 32> & bytes){
+        std::vector<char> chars(bytes.begin(), bytes.end());
+        return to_hex(chars);
+    } 
 
 private:
     dex::config get_default_config();

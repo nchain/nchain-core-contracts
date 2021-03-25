@@ -193,12 +193,17 @@ namespace dex {
     }
 
     using order_match_idx_key = uint256_t;
-    inline static order_match_idx_key make_order_match_idx(uint64_t sympair_id, const order_status_t &status,
+    inline static order_match_idx_key make_order_match_idx(const uint64_t& sympair_id, 
+                                                           const order_status_t &status,
                                                            const order_side_t &side,
-                                                           const order_type_t &type, uint64_t price,
-                                                           uint64_t order_id) {
-        uint64_t option = uint64_t(order_status::index(status)) << 56 | uint64_t(order_side::index(side)) << 48 |
-                          uint64_t(order_type::index(type)) << 40;
+                                                           const order_type_t &type, 
+                                                           const uint64_t& price,
+                                                           const uint64_t& order_id) {
+
+        uint64_t option = uint64_t(order_status::index(status)) << 56 
+                        | uint64_t(order_side::index(side))     << 48 
+                        | uint64_t(order_type::index(type))     << 40;
+
         uint64_t price_factor = (side == order_side::BUY) ? std::numeric_limits<uint64_t>::max() - price : price;
         auto ret = order_match_idx_key::make_from_word_sequence<uint64_t>(sympair_id, option, price_factor, order_id);
         // print("make order match idx=", ret, "\n");
@@ -252,8 +257,14 @@ namespace dex {
         uint128_t by_updated_at() const {
             return make_uint128(status.value, last_updated_at.elapsed.count());
         }
-        order_match_idx_key get_order_match_idx()const { return make_order_match_idx(sympair_id, status, order_side, order_type, price.amount, order_id); }
-        uint256_t get_order_sym_idx()const { return uint256_t::make_from_word_sequence<uint64_t>(owner.value, sympair_id, status.value, 0ULL); }
+
+        order_match_idx_key get_order_match_idx()const { 
+            return make_order_match_idx(sympair_id, status, order_side, order_type, price.amount, order_id); 
+        }
+
+        uint256_t get_order_sym_idx()const { 
+            return uint256_t::make_from_word_sequence<uint64_t>(owner.value, sympair_id, status.value, 0ULL); 
+        }
 
         void print() const {
             auto created_at = this->created_at.elapsed.count(); // print the ms value
