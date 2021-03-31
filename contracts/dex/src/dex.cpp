@@ -341,26 +341,13 @@ void dex_contract::version() {
     CHECK(false, "version: " + dex::version());
 }
 
-
-// ACTION dex_contract::ordermatchin(const uint64_t sympair_id, 
-//                                  const name order_status,
-//                                  const name order_side,
-//                                  const name order_type) {
-//     auto price = (order_side == "buy"_n) ? std::numeric_limits<uint64_t>::max() : 0;
-
-//     auto idx_fixed =  make_order_match_idx(sympair_id, order_status_t(order_status), order_side_t(order_side), order_type_t(order_type), price, 0);
-//     array<uint8_t, 32> idx_buffer = idx_fixed.extract_as_byte_array();
-
-//     check( false, to_hex(idx_buffer) );
-// }
-
-//side: buy/sell, type: limit/market, lower/upper  & matchable(i.e. open orders)
 ACTION dex_contract::openorderkey(const uint64_t sympair_id, 
                                  const name order_side,
                                  const name order_type, 
                                  const bool is_lower_bound) {
 
-    auto price = is_lower_bound ? 0 : std::numeric_limits<uint64_t>::max();
+    auto price = (order_side == "buy"_n) ? (is_lower_bound ? std::numeric_limits<uint64_t>::max() : 0) :
+                                           (is_lower_bound ? 0 : std::numeric_limits<uint64_t>::max());
 
     auto idx_fixed = make_order_match_idx(
         sympair_id, 
