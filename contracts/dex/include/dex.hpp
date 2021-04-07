@@ -134,8 +134,9 @@ public:
 private:
     dex::config get_default_config();
     void process_refund(dex::order_t &buy_order);
-    void match_sym_pair(const name &matcher, const dex::symbol_pair_t &sym_pair, uint32_t max_count,
+    void match_sympair(const name &matcher, const dex::symbol_pair_t &sym_pair, uint32_t max_count,
                         uint32_t &matched_count, const string &memo);
+    void update_latest_deal_price(const uint64_t& sympair_id, const asset& latest_deal_price);
 
     void new_order(const name &user, const uint64_t &sympair_id,
             const name &order_type, const name &order_side,

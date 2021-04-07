@@ -171,21 +171,40 @@ namespace dex {
                 coin_symbol.get_symbol().code().raw());
     }
 
+    // struct DEX_TABLE symbol_pair_t {
+    //     uint64_t sympair_id; // auto-increment
+    //     extended_symbol asset_symbol;
+    //     extended_symbol coin_symbol;
+    //     asset min_asset_quant;
+    //     asset min_coin_quant;
+    //     bool only_accept_coin_fee;
+    //     bool enabled;
+
+    //     uint64_t primary_key() const { return sympair_id; }
+    //     inline uint256_t get_symbols_idx() const { return make_symbols_idx(asset_symbol, coin_symbol); }
+    // };
+
+   
+   
+
     struct DEX_TABLE symbol_pair_t {
-        uint64_t sympair_id; // auto-increment
+        uint64_t sympair_id; // PK: auto-increment
         extended_symbol asset_symbol;
         extended_symbol coin_symbol;
         asset min_asset_quant;
         asset min_coin_quant;
+        asset latest_deal_price;
+        int64_t taker_fee_ratio;
+        int64_t maker_fee_ratio;
         bool only_accept_coin_fee;
         bool enabled;
 
         uint64_t primary_key() const { return sympair_id; }
         inline uint256_t get_symbols_idx() const { return make_symbols_idx(asset_symbol, coin_symbol); }
+
     };
 
     using symbols_idx = indexed_by<"symbolsidx"_n, const_mem_fun<symbol_pair_t, uint256_t, &symbol_pair_t::get_symbols_idx>>;
-
     typedef eosio::multi_index<"sympair"_n, symbol_pair_t, symbols_idx> symbol_pair_table;
 
     inline static symbol_pair_table make_sympair_table(const name &self) {
@@ -354,10 +373,11 @@ namespace dex {
 
     };
 
-    using deal_buy_idx = indexed_by<"dealbuyidx"_n, const_mem_fun<deal_item_t, uint64_t, &deal_item_t::get_buy_id>>;
-    using deal_sell_idx = indexed_by<"dealsellidx"_n, const_mem_fun<deal_item_t, uint64_t, &deal_item_t::get_sell_id>>;
+    // using deal_buy_idx = indexed_by<"dealbuyidx"_n, const_mem_fun<deal_item_t, uint64_t, &deal_item_t::get_buy_id>>;
+    // using deal_sell_idx = indexed_by<"dealsellidx"_n, const_mem_fun<deal_item_t, uint64_t, &deal_item_t::get_sell_id>>;
 
-    typedef eosio::multi_index<"deal"_n, deal_item_t, deal_buy_idx, deal_sell_idx> deal_table;
+    // typedef eosio::multi_index<"deal"_n, deal_item_t, deal_buy_idx, deal_sell_idx> deal_table;
+    typedef eosio::multi_index<"deal"_n, deal_item_t> deal_table;
 
     inline static deal_table make_deal_table(const name &self) {
         return deal_table(self, self.value/*scope*/);

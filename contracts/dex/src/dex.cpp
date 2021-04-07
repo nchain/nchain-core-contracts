@@ -54,6 +54,28 @@ ACTION dex_contract::init() {
 	// 	t = deals.erase(t);
 	// }
 
+    // auto syms2 = symbol_pair2_table(_self, _self.value);
+    // auto syms1 = symbol_pair_table(_self, _self.value);
+
+    // auto s = syms2.begin();
+    // while (s != syms2.end()) {
+    //     syms1.emplace(_self, [&](auto &sym_pair) {
+    //         sym_pair.sympair_id           = s->sympair_id;
+    //         sym_pair.asset_symbol         = s->asset_symbol;
+    //         sym_pair.coin_symbol          = s->coin_symbol;
+    //         sym_pair.min_asset_quant      = s->min_asset_quant;
+    //         sym_pair.min_coin_quant       = s->min_coin_quant;
+    //         sym_pair.only_accept_coin_fee = s->only_accept_coin_fee;
+    //         sym_pair.enabled              = s->enabled;
+    //         sym_pair.taker_fee_ratio      = _config.taker_fee_ratio;
+    //         sym_pair.maker_fee_ratio      = _config.maker_fee_ratio;
+    //         sym_pair.latest_deal_price    = asset(0, s->min_coin_quant.symbol);
+    //     });
+
+    //     s = syms2.erase(s);
+    // }
+
+    // update_latest_deal_price(1, asset_from_string("0.001700 USDT"));
 }
 
 void dex_contract::setconfig(const dex::config &conf) {
@@ -230,13 +252,13 @@ void dex_contract::match(const name &matcher, uint32_t max_count, const vector<u
     for (const auto &sym_pair : sym_pair_list) {
         if (matched_count >= DEX_MATCH_COUNT_MAX) break;
 
-        match_sym_pair(matcher, sym_pair, max_count, matched_count, memo);
+        match_sympair(matcher, sym_pair, max_count, matched_count, memo);
     }
 
     CHECK(matched_count > 0, "None matched");
 }
 
-void dex_contract::match_sym_pair(const name &matcher, const dex::symbol_pair_t &sym_pair,
+void dex_contract::match_sympair(const name &matcher, const dex::symbol_pair_t &sym_pair,
                                   uint32_t max_count, uint32_t &matched_count, const string &memo) {
 
     auto cur_block_time = current_block_time();
@@ -244,6 +266,7 @@ void dex_contract::match_sym_pair(const name &matcher, const dex::symbol_pair_t 
     auto match_index = order_tbl.get_index<static_cast<name::raw>(order_match_idx::index_name)>();
 
     auto matching_pair_it = dex::matching_pair_iterator(match_index, sym_pair);
+    asset latest_deal_price;
     while (matched_count < max_count && matching_pair_it.can_match()) {
         auto &maker_it = matching_pair_it.maker_it();
         auto &taker_it = matching_pair_it.taker_it();
@@ -252,6 +275,7 @@ void dex_contract::match_sym_pair(const name &matcher, const dex::symbol_pair_t 
         TRACE_L("matching maker_order=", taker_it.stored_order());
 
         const auto &matched_price = maker_it.stored_order().price;
+        latest_deal_price = matched_price;
 
         asset matched_coins;
         asset matched_assets;
@@ -330,15 +354,29 @@ void dex_contract::match_sym_pair(const name &matcher, const dex::symbol_pair_t 
             TRACE_L("The matched deal_item=", deal_item);
         });
 
+
         matched_count++;
         matching_pair_it.complete_and_next(order_tbl);
     }
 
     matching_pair_it.save_matching_order(order_tbl);
+    
+    if (latest_deal_price.amount > 0)
+        update_latest_deal_price(sym_pair.sympair_id, latest_deal_price);
+}
+
+void dex_contract::update_latest_deal_price(const uint64_t& sympair_id, const asset& latest_deal_price) {
+    auto sympair_tbl = make_sympair_table(_self);
+    auto it = sympair_tbl.find( sympair_id );
+    CHECK( it != sympair_tbl.end(), "Err: sympair not found" )
+
+    sympair_tbl.modify(*it, same_payer, [&](auto &row) {
+        row.latest_deal_price = latest_deal_price;
+    });
 }
 
 void dex_contract::version() {
-    CHECK(false, "version: " + dex::version());
+    CHECK( false, "version: " + dex::version() )
 }
 
 ACTION dex_contract::openorderkey(const uint64_t sympair_id, 
@@ -473,7 +511,7 @@ void dex_contract::new_order(const name &user, const uint64_t &sympair_id, const
 
     if (_config.max_match_count > 0) {
         uint32_t matched_count = 0;
-        match_sym_pair(get_self(), *sym_pair_it, _config.max_match_count, matched_count, "oid:" + std::to_string(order_id));
+        match_sympair(get_self(), *sym_pair_it, _config.max_match_count, matched_count, "oid:" + std::to_string(order_id));
     }
 }
 
