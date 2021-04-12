@@ -171,22 +171,6 @@ namespace dex {
                 coin_symbol.get_symbol().code().raw());
     }
 
-    // struct DEX_TABLE symbol_pair_t {
-    //     uint64_t sympair_id; // auto-increment
-    //     extended_symbol asset_symbol;
-    //     extended_symbol coin_symbol;
-    //     asset min_asset_quant;
-    //     asset min_coin_quant;
-    //     bool only_accept_coin_fee;
-    //     bool enabled;
-
-    //     uint64_t primary_key() const { return sympair_id; }
-    //     inline uint256_t get_symbols_idx() const { return make_symbols_idx(asset_symbol, coin_symbol); }
-    // };
-
-   
-   
-
     struct DEX_TABLE symbol_pair_t {
         uint64_t sympair_id; // PK: auto-increment
         extended_symbol asset_symbol;
