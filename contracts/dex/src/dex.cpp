@@ -161,7 +161,7 @@ void dex_contract::withdraw(const name &user, const name &to, const name &token_
     auto index = account_tbl.get_index<static_cast<name::raw>(account_sym_idx::index_name)>();
     auto it = index.find( make_uint128(token_code.value, quant.symbol.raw()) );
     CHECK(it != index.end(),
-          "the balance does not exist! user=" + user.to_string() +
+          "Trader's exchange balance not found for " + user.to_string() +
               ", token_code=" + token_code.to_string() +
               ", sym=" + symbol_to_string(quant.symbol));
 
