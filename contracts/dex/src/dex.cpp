@@ -521,7 +521,7 @@ void dex_contract::add_balance(const name &user, const name &bank, const asset &
     auto index = account_tbl.get_index<static_cast<name::raw>(account_sym_idx::index_name)>();
     auto it = index.find( make_uint128(bank.value, quantity.symbol.raw()) );
     if (it == index.end()) {
-        CHECK(quantity.amount >= 0, "Zero balance for trader: " + user.to_string() +
+        CHECK(quantity.amount >= 0, "Zero quantity to add for trader: " + user.to_string() +
               ", bank=" + bank.to_string() +
               ", sym=" + symbol_to_string(quantity.symbol));
         // create balance of account
